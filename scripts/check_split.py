@@ -10,8 +10,8 @@ particular corpus — it only compares strings. It is shared by every case study
 
 Source model
 ------------
-A problem's NL source has TWO fields, `nl_statement` and `nl_proof` (e.g. from
-`<corpus>/data/proofnet-<id>.json`). The split tiles the WHOLE thing:
+A problem's NL source has TWO fields, `nl_statement` and `nl_proof` (in the item's
+`<corpus>/item<N>/data/nl.json`). The split tiles the WHOLE thing:
 
   * the `intro` segment (index 0) must equal `nl_statement` VERBATIM;
   * every NON-intro segment, joined by exactly one space in array order, must equal `nl_proof` VERBATIM.
@@ -26,8 +26,8 @@ inside a slice is copied verbatim.
 
 Usage
 -----
-    python3 scripts/check_split.py <corpus>/<id>
-    python3 scripts/check_split.py --split-file path/to/split.json --source path/to/source.json
+    python3 scripts/check_split.py <corpus>/item<N>          # e.g. proofnet_verified/item8
+    python3 scripts/check_split.py --split-file path/to/split.json --source path/to/nl.json
 
 Exit code 0 = PASS, 1 = FAIL (with an actionable diff), 2 = usage / file error.
 """
@@ -125,22 +125,23 @@ def _load_source(source_path: str) -> Tuple[str, str]:
 
 
 def _resolve_problem(problem: str) -> Tuple[str, str]:
-    """Given `<corpus>/<id>` (e.g. proofnet-verified/8), return (split_path, source_path).
+    """Given an item path `<corpus>/item<N>` (e.g. proofnet_verified/item8), return
+    (split_path, source_path).
 
-    Convention: split lives at `<corpus>/<id>/split.json`; source at
-    `<corpus>/data/proofnet-<id>.json`.
+    Per-item layout: split lives at `<corpus>/item<N>/split.json`; the NL source at
+    `<corpus>/item<N>/data/nl.json`.
     """
-    corpus, _, pid = problem.rstrip("/").rpartition("/")
-    if not corpus:
-        raise ValueError(f"expected <corpus>/<id>, got {problem!r}")
-    split_path = os.path.join(corpus, pid, "split.json")
-    source_path = os.path.join(corpus, "data", f"proofnet-{pid}.json")
+    itemdir = problem.rstrip("/")
+    if not os.path.basename(itemdir):
+        raise ValueError(f"expected <corpus>/item<N>, got {problem!r}")
+    split_path = os.path.join(itemdir, "split.json")
+    source_path = os.path.join(itemdir, "data", "nl.json")
     return split_path, source_path
 
 
 def main(argv: List[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Coverage (verbatim tiling) gate for a Pistis split.json.")
-    ap.add_argument("problem", nargs="?", help="<corpus>/<id>, e.g. proofnet-verified/8")
+    ap.add_argument("problem", nargs="?", help="<corpus>/item<N>, e.g. proofnet_verified/item8")
     ap.add_argument("--split-file", help="explicit path to split.json (overrides <problem>)")
     ap.add_argument("--source", help="explicit path to the source json with nl_statement/nl_proof")
     args = ap.parse_args(argv)
