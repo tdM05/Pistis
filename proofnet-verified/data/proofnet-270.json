@@ -1,0 +1,4 @@
+{
+  "nl_statement": "If $a^2 = 0$ in $R$, show that $ax + xa$ commutes with $a$.",
+  "nl_proof": "We need to show that\n$$\na(a x+x a)=(a x+x a) a \\text { for } a, x \\in R .\n$$\nNow,\n$$\n\\begin{gathered}\na(a x+x a)=a(a x)+a(x a) \\\\\n=a^2 x+a x a \\\\\n=0+a x a=a x a .\n\\end{gathered}\n$$\nAgain,\n$$\n\\begin{gathered}\n(a x+x a) a=(a x) a+(x a) a \\\\\n=a x a+x a^2 \\\\\n=a x a+0=a x a .\n\\end{gathered}\n$$\nIt follows that,\n$$\na(a x+x a)=(a x+x a) a, \\text { for } x, a \\in R .\n$$\nThis shows that $a x+x a$ commutes with $a$. This completes the proof."
+}

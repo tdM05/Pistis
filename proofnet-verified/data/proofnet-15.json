@@ -1,0 +1,4 @@
+{
+  "nl_statement": "Prove that $-(-v) = v$ for every $v \\in V$.",
+  "nl_proof": "By definition, we have\n$$\n(-v)+(-(-v))=0 \\quad \\text { and } \\quad v+(-v)=0 .\n$$\nThis implies both $v$ and $-(-v)$ are additive inverses of $-v$, by the uniqueness of additive inverse, it follows that $-(-v)=v$."
+}

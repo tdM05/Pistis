@@ -1,0 +1,4 @@
+{
+  "nl_statement": "Prove the the operation $\\star$ on $\\mathbb{Z}$ defined by $a\\star b=a-b$ is not commutative.",
+  "nl_proof": "Not commutative since\n$$\n1 \\star(-1)=1-(-1)=2\n$$\n$$\n(-1) \\star 1=-1-1=-2 .\n$$"
+}

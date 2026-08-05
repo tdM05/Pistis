@@ -1,0 +1,4 @@
+{
+  "nl_statement": "Prove that $f(x) = x^3 + 3x + 2$ is irreducible in $Q[x]$.",
+  "nl_proof": "Let us assume that $f(x)$ is reducible over $\\mathbb{Q}[x]$.\nThen there exists a rational root of $f(x)$.\nLet $p / q$ be a rational root of $f(x)$, where $\\operatorname{gcd}(p, q)=1$.\nThen $f(p / q)=0$.\nNow,\n$$\n\\begin{aligned}\n& f(p / q)=(p / q)^3+3(p / q)+2 \\\\\n\\Longrightarrow & (p / q)^3+3(p / q)+2=0 \\\\\n\\Longrightarrow & p^3+3 p q^2=-2 q^3 \\\\\n\\Longrightarrow & p\\left(p^2+3 q^2\\right)=-q^3\n\\end{aligned}\n$$\nIt follows that, $p$ divides $q$ which is a contradiction to the fact that $\\operatorname{gcd}(p, q)=1$.\nThis implies that $f(x)$ has no rational root.\nNow we know that, a polynomial of degree two or three over a field $F$ is reducible if and only if it has a root in $F$.\nNow $f(x)$ is a 3 degree polynomial having no root in $\\mathbb{Q}$.\nSo, $f(x)$ is irreducible in $\\mathbb{Q}[x]$.\nThis completes the proof."
+}

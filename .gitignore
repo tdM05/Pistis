@@ -1,0 +1,13 @@
+# Lake build directory + all dependency package clones (mathlib, batteries, smt, …).
+# Huge and fully regenerable from lakefile.lean + lake-manifest.json via `lake exe cache get`.
+.lake/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Editor / OS
+.DS_Store
+*.swp

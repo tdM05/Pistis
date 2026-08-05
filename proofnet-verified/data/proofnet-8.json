@@ -1,0 +1,4 @@
+{
+  "nl_statement": "Prove that in the ring $\\mathbb{Z}[x],(2) \\cap(x)=(2 x)$.",
+  "nl_proof": "Let $f(x) \\in(2 x)$. Then there exists some polynomial $g(x) \\in \\mathbb{Z}$ such that\n$$\nf(x)=2 x g(x)\n$$\nBut this means that $f(x) \\in(2)$ (because $x g(x)$ is a polynomial), and $f(x) \\in$ $(x)$ (because $2 g(x)$ is a polynomial). Thus, $f(x) \\in(2) \\cap(x)$, and\n$$\n(2 x) \\subseteq(2) \\cap(x)\n$$\nOn the other hand, let $p(x) \\in(2) \\cap(x)$. Since $p(x) \\in(2)$, there exists some polynomial $h(x) \\in \\mathbb{Z}[x]$ such that\n$$\np(x)=2 h(x)\n$$\nFurthermore, $p(x) \\in(x)$, so\n$$\np(x)=x h_2(x)\n$$\nSo, $2 h(x)=x h_2(x)$, for some $h_2(x) \\in \\mathbb{Z}[x]$. This means that $h(0)=0$, so $x$ divides $h(x)$; that is,\n$$\nh(x)=x q(x)\n$$\nfor some $q(x) \\in \\mathbb{Z}[x]$, and\n$$\np(x)=2 x q(x)\n$$\nThus, $p(x) \\in(2 x)$, and\n$$\n\\text { (2) } \\cap(x) \\subseteq(2 x)\n$$\nFinally,\n(2) $\\cap(x)=(2 x)$,\nas required."
+}

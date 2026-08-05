@@ -1,0 +1,4 @@
+{
+  "nl_statement": "Prove that the multiplication of residue class $\\mathbb{Z}/n\\mathbb{Z}$ is associative.",
+  "nl_proof": "We have\n$$\n\\begin{aligned}\n(\\bar{a} \\cdot \\bar{b}) \\cdot \\bar{c} &=\\overline{a \\cdot b} \\cdot \\bar{c} \\\\\n&=\\overline{(a \\cdot b) \\cdot c} \\\\\n&=\\overline{a \\cdot(b \\cdot c)} \\\\\n&=\\bar{a} \\cdot \\overline{b \\cdot c} \\\\\n&=\\bar{a} \\cdot(\\bar{b} \\cdot \\bar{c})\n\\end{aligned}\n$$\nsince integer multiplication is associative."
+}

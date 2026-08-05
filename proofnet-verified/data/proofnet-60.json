@@ -1,0 +1,4 @@
+{
+  "nl_statement": "A ring $R$ is called a Boolean ring if $a^{2}=a$ for all $a \\in R$. Prove that every Boolean ring is commutative.",
+  "nl_proof": "Solution: Note first that for all $a \\in R$,\n$$\n-a=(-a)^2=(-1)^2 a^2=a^2=a .\n$$\nNow if $a, b \\in R$, we have\n$$\na+b=(a+b)^2=a^2+a b+b a+b^2=a+a b+b a+b .\n$$\nThus $a b+b a=0$, and we have $a b=-b a$. But then $a b=b a$. Thus $R$ is commutative."
+}

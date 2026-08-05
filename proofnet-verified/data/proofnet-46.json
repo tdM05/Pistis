@@ -1,0 +1,4 @@
+{
+  "nl_statement": "Prove that if $H$ is a nontrivial normal subgroup of the solvable group $G$ then there is a nontrivial subgroup $A$ of $H$ with $A \\unlhd G$ and $A$ abelian.",
+  "nl_proof": "Suppose $H$ is a nontrivial normal subgroup of the solvable group $G$.\nFirst, notice that $H$, being a subgroup of a solvable group, is itself solvable. By exercise $8, H$ has a chain of subgroups\n$$\n1 \\leq H_1 \\leq \\ldots \\leq H\n$$\nsuch that each $H_i$ is a normal subgroup of $H$ itself and $H_{i+1} / H_i$ is abelian. But then the first group in the series\n$$\nH_1 / 1 \\cong H\n$$\nis an abelian subgroup of $H$."
+}

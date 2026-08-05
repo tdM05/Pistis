@@ -1,0 +1,4 @@
+{
+  "nl_statement": "Prove that if $V$ is a complex inner-product space, then $\\langle u, v\\rangle=\\frac{\\|u+v\\|^{2}-\\|u-v\\|^{2}+\\|u+i v\\|^{2} i-\\|u-i v\\|^{2} i}{4}$ for all $u, v \\in V$.",
+  "nl_proof": "Let $V$ be an inner-product space and $u, v\\in V$. Then \n$$\n\\begin{aligned}\n\\|u+v\\|^2 & =\\langle u+v, v+v\\rangle \\\\\n& =\\|u\\|^2+\\langle u, v\\rangle+\\langle v, u\\rangle+\\|v\\|^2 \\\\\n-\\|u-v\\|^2 & =-\\langle u-v, u-v\\rangle \\\\\n& =-\\|u\\|^2+\\langle u, v\\rangle+\\langle v, u\\rangle-\\|v\\|^2 \\\\\ni\\|u+i v\\|^2 & =i\\langle u+i v, u+i v\\rangle \\\\\n& =i\\|u\\|^2+\\langle u, v\\rangle-\\langle v, u\\rangle+i\\|v\\|^2 \\\\\n-i\\|u-i v\\|^2 & =-i\\langle u-i v, u-i v\\rangle \\\\\n& =-i\\|u\\|^2+\\langle u, v\\rangle-\\langle v, u\\rangle-i\\|v\\|^2 .\n\\end{aligned}\n$$\nThus $\\left(\\|u+v\\|^2\\right)-\\|u-v\\|^2+\\left(i\\|u+i v\\|^2\\right)-i\\|u-i v\\|^2=4\\langle u, v\\rangle.$"
+}
