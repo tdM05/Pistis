@@ -2,10 +2,10 @@
 name: pistis-split
 description: >
   Split a natural-language proof into ATOMIC segments (a compound sentence becomes MULTIPLE entries —
-  one per idea) and mark each segment's assertion / assumption / glue spans. TEXT-focused: you read the
+  one per idea) and mark each segment's assumptions set + single assertion. TEXT-focused: you read the
   NL statement + NL proof and produce an ordered JSON array; you do NOT translate to Lean and do NOT open
-  the formal statement. Outputs `<corpus>/<id>/split.json`, verified to tile the source verbatim.
-  Invoked with a problem path, e.g. `/pistis-split proofnet-verified/8`.
+  the formal statement. Outputs `<corpus>/item<N>/split.json`, verified to tile the source verbatim.
+  Invoked with an item path, e.g. `/pistis-split proofnet_verified/item8`.
 ---
 
 # Split an NL proof into atomic segments (TEXT-ONLY)
@@ -15,8 +15,9 @@ Your ONLY job: take the natural-language statement and proof of a problem and sp
 statement, you do NOT prove anything. This is pure English/LaTeX text analysis.
 
 This realizes the paper's segmentation: the proof `Π` is partitioned into segments `s̄ = {s₁,…,sₙ}`, and
-each segment carries a set of `assumption` spans (the consumed prior facts) and one `assertion` span (the
-one new claim). The paper's example: *"since P and Q, therefore R"* → assumptions = {P, Q}, assert = R.
+each segment `sᵢ` gets `assumptions(sᵢ)` (a SET of substrings — the consumed prior facts) and
+`assert(sᵢ)` (a SINGLE substring — the one new claim). The paper's example: *"since P and Q, therefore
+R"* → assumptions = {P, Q}, assert = R.
 The whole point is **coverage**: concatenating the segments must recover the source text
 character-for-character.
 
@@ -24,12 +25,12 @@ character-for-character.
 
 ## Input / output
 
-- **Input (the ONLY file you read):** `<corpus>/<id>/../data/proofnet-<id>.json` — but you are given the
-  problem as a path like `proofnet-verified/8`. Read `proofnet-verified/data/proofnet-8.json`, which has
-  exactly two fields: `nl_statement` and `nl_proof`. Read it DIRECTLY with the Read tool — do NOT search
-  for it, do NOT open the `proofnet-N.lean` formal statement, do NOT open the baseline proof.
-- **Output:** an ordered JSON array at `<corpus>/<id>/split.json`, e.g. `proofnet-verified/8/split.json`.
-  Create the `<id>/` directory if it does not exist.
+- **Input (the ONLY file you read):** the item's `<corpus>/item<N>/data/nl.json` — you are given the
+  item as a path like `proofnet_verified/item8`, so read `proofnet_verified/item8/data/nl.json`, which
+  has exactly two fields: `nl_statement` and `nl_proof`. Read it DIRECTLY with the Read tool — do NOT
+  search for it, do NOT open the item's `data/statement.lean` formal statement, do NOT open any baseline.
+- **Output:** an ordered JSON array at `<corpus>/item<N>/split.json`, e.g.
+  `proofnet_verified/item8/split.json` (written in the item folder, alongside `data/`).
 
 You tile **the whole thing**: the NL statement is the `intro` segment (index 0), then the proof is split
 into ordered segments, then an optional `conclusion` at the end.
@@ -38,7 +39,7 @@ into ordered segments, then an optional `conclusion` at the end.
 
 ## HARD RULES
 
-**RULE 1 — TEXT ONLY.** You read EXACTLY ONE input file: the problem's `data/proofnet-<id>.json`. You may
+**RULE 1 — TEXT ONLY.** You read EXACTLY ONE input file: the item's `data/nl.json`. You may
 NOT open the formal `.lean` statement, the baseline proof, Mathlib, or any other problem. If you feel the
 urge to "check" the formalization — STOP. Everything you need is the NL statement + NL proof.
 
@@ -85,83 +86,97 @@ ASSERTED, not where periods sit.
 
 **RULE 5 — JUSTIFICATIONS STAY WITH THEIR CLAIM — including across a period.** A "since…" / "because…" /
 "This means that…" passage that gives the REASON for a claim stays in the same segment as that claim —
-mark its substrings as `assumption` spans. A "by <named theorem>" clause (e.g. "by Jensen's equality",
-"by the corollary of Jensen's inequality") is a citation of a prior result: it stays in the segment and
-its verbatim phrase is recorded in `cite` — it does NOT become its own segment just because it is cited.
+its substring goes into that segment's `assumptions` set. A "by <named theorem>" clause (e.g. "by
+Jensen's equality", "by the corollary of Jensen's inequality") is a citation of a prior result: it stays
+in the segment and its verbatim phrase is recorded in `cite` — it does NOT become its own segment just
+because it is cited.
 
-**RULE 6 — SEPARATE ASSERTION FROM ASSUMPTION; SPLIT COMPOUND ASSERTIONS.** Partition each segment's text
-into ordered `spans`, each labelled `assertion` (the ONE new fact — becomes the Lean claim in the map
-stage), `assumption` (a consumed prior fact — "since X" / "because Y" — becomes a discharged hypothesis),
-or `glue` (connectives, punctuation, math delimiters). Joined with NOTHING (empty string) the spans must
-reproduce the segment text CHARACTER-FOR-CHARACTER. If an `assertion` span bundles independent clauses
-(a comma or "and"), SPLIT it into separate atomic segments — UNLESS the clauses are interleaved and
-cannot be sliced contiguously, in which case keep one segment.
+**RULE 6 — EACH SEGMENT HAS A SET OF ASSUMPTIONS AND A SINGLE ASSERTION.** This is the paper's core
+structure (§4): each segment `sᵢ` gets `assumptions(sᵢ)` = a **SET of substrings** (the consumed prior
+facts) and `assert(sᵢ)` = a **SINGLE substring** (the one new fact this segment claims). For "since $P$
+and $Q$, therefore $R$": `assumptions = [P, Q]`, `assert = R`.
+  - **Every entry of `assumptions` and the `assert` value must be an EXACT substring of the segment's
+    `text`** (copy the bytes — `$…$`, backslashes and all). They are pointers INTO the text, used later to
+    map each assumption/assertion to a formal step. They do NOT need to tile or cover the text (unlike the
+    segment `text` itself, which DOES tile — RULE 2); connectives/punctuation simply belong to neither set.
+  - **A SEGMENT HAS EXACTLY ONE `assert`.** If a sentence makes several independent claims ("$g=a^ib^j$
+    and $h=a^kb^l$"... two facts), SPLIT it into separate segments — one `assert` each — UNLESS the claims
+    are interleaved and cannot be sliced into contiguous tiling segments, in which case keep one segment
+    and let `assert` be the whole compound substring.
+  - `assumptions` is `[]` when the segment consumes no prior fact (a fresh object introduction or an
+    unconditioned claim).
 
 ---
 
-## Roles
+## Segments and roles
 
-- **intro** — ALWAYS index 0. This is the **NL statement**, verbatim (`nl_statement`), tiled as one
-  segment. It states what the problem asserts (the paper's proposition `P`). Give ONLY `text` (no `spans`
-  — the goal is carried by the formal statement, not proved by this segment). If `nl_statement` itself
-  packs several independent claims, you MAY still keep it as one intro segment (it is the enunciation,
-  not a proof step).
+The unit is the **segment** (the paper's `sᵢ`). By default a segment is a plain reasoning step: it has an
+`assumptions` set + a single `assert` (RULE 6) and an optional `cite`. It carries **no `role` field** —
+the blank/default role IS "a normal segment", the bulk of the proof. The map stage stamps every default
+segment as `pistis_segment`.
 
-- **assume** — "Let $f(x) \in (2x)$", "Suppose $m^2 = 12 n^2$", "Fix $N$", "Let $m = 2r$". Introduces a
-  new object or opens an assumption the rest of the proof reasons under. Provide:
-  - `objects_introduced`: the labels of new objects (`["$f(x)$"]`, `["$m$", "$n$"]`), when applicable.
-  - `spans`: if the introduction also consumes a prior fact ("since $x \notin U_2$, choose $v$ …"), mark
-    that prior fact as an `assumption` span; otherwise a single `assertion`/`glue` partition is fine.
+`role` is an **OPTIONAL, SPECIAL-CASE** field. Set it ONLY for the three structural segments that are NOT
+normal reasoning steps (they carry no `assumptions`/`assert` and get a non-`pistis_segment` tactic):
 
-- **deduction** — an assertion of a new fact (the bulk of the proof). Provide:
-  - `spans`: the ordered `assertion`/`assumption`/`glue` partition (RULE 6) — the primary structure.
-  - `assertion`: a 1-line plain-English paraphrase of the new fact (human-readable summary).
-  - `cite`: `{ "text": "<the verbatim NL phrase naming the prior result>" }` when the step invokes a
-    named prior result ("by Jensen's equality", "the corollary above"), or `null`. **Record ONLY the
-    verbatim phrase — this stage is TEXT-ONLY.** Do NOT try to resolve it to a Lean name: the mapping
-    from that phrase to a fully-qualified Lean identifier (Mathlib lemma / prior corpus theorem / a
-    helper you must formalize first) is a later, Lean-aware step that adds a `ref` field. Here you only
-    capture the citation text as written. Omit / `null` when nothing is cited.
+- **`intro`** — ALWAYS index 0. The **NL statement**, verbatim (`nl_statement`), as one segment. It states
+  what the problem asserts (the paper's proposition `P`); the goal is carried by the formal statement, not
+  proved here. Give ONLY `text`. → `pistis_intro`.
 
-- **wts** ("what to show") — a MID-PROOF announcement of a sub-goal: "We claim that …", "We will show
+- **`wts`** ("what to show") — a MID-PROOF announcement of a sub-goal: "We claim that …", "We will show
   that …", "It suffices to show …", "To prove this one way, …". It states what the FOLLOWING segments
-  will prove — it is NOT itself a proven fact. Mark role `wts` and give ONLY `text` (no `spans`, no
-  `assertion`, no `cite`). The map stage stamps it as `pistis_wts` (a claimless structural tactic), so
-  there is no claim to fill.
+  prove — it is NOT itself a proven fact. Give ONLY `text` (no `assumptions`, no `assert`, no `cite`). →
+  `pistis_wts`.
 
-- **conclusion** — the last segment, when the proof has an explicit closing restatement ("Thus,
+- **`conclusion`** — the last segment, when the proof has an explicit closing restatement ("Thus,
   $(2)\cap(x) = (2x)$, as required.", "QED", "The series converges."). If the proof has NO closing
-  restatement, **omit this role entirely** — an empty conclusion is fine (the goal is discharged by the
-  formal statement, not a text ritual). When present, give ONLY `text`.
+  restatement, **omit it entirely** (the goal is discharged by the formal statement, not a text ritual).
+  Give ONLY `text`. → `pistis_conclude`.
+
+### Fields of a default (plain) segment
+
+- `assumptions`: the paper's `assumptions(sᵢ)` — a SET (JSON array) of the prior-fact substrings this
+  step consumes ("since X", "because Y"). Each entry is an EXACT substring of `text`. `[]` if none.
+- `assert`: the paper's `assert(sᵢ)` — the SINGLE substring naming the ONE new fact this segment claims.
+  An EXACT substring of `text` (NOT a paraphrase).
+- `cite`: `{ "text": "<the verbatim NL phrase naming the prior result>" }` when the step invokes a
+  named prior result ("by Jensen's equality", "the corollary above"), or `null`. **Record ONLY the
+  verbatim phrase — this stage is TEXT-ONLY.** Do NOT resolve it to a Lean name: mapping that phrase to a
+  fully-qualified identifier (Mathlib lemma / prior corpus theorem / a helper you must formalize first) is
+  a later, Lean-aware step that adds a `ref` field. Omit / `null` when nothing is cited.
+- `objects_introduced` (optional): when the segment introduces new objects ("Let $f(x) \in (2x)$", "Fix
+  $N$", "Let $m = 2r$"), the labels of those objects (`["$f(x)$"]`, `["$m$", "$n$"]`). A pure
+  object-introduction still has an `assert` (the introduction itself) and usually empty `assumptions`.
+- `frame` (optional): the reductio overlay, see below.
 
 ## Reductio (proof-by-contradiction) frames — the `frame` overlay
 
 Many ProofNet proofs are by contradiction ("suppose for purposes of contradiction …"). A reductio has
-THREE text-signalled moves. Mark each with an optional `frame` object ON TOP OF its normal role (these
-segments are still `assume`/`deduction`s — they carry real content: a supposition, `False`, a negation).
-The map stage uses them to stamp the nested contradiction block, so the map agent never hand-builds the
-frame.
+THREE text-signalled moves. Mark each with an optional `frame` object on a normal (default-role) segment
+— these are still plain segments carrying real content (a supposition, `False`, a negation), NOT special
+roles. The map stage uses `frame` to stamp the nested contradiction block, so the map agent never
+hand-builds the frame.
 
 - **reductio_open** — "Suppose for purposes of contradiction that …", "For if not …", "Assume $X$." —
   the sentence that SUPPOSES the negation of the goal. Record the supposed fact in `supposition`.
   ```json
-  { "role": "assume", "text": "suppose for purposes of contradiction that $U_1 \\cup U_2$ is a subspace and neither is contained in the other.",
-    "frame": { "kind": "reductio_open", "supposition": "$U_1 \\cup U_2$ is a subspace and neither is contained in the other" },
-    "spans": [ … ] }
+  { "text": "suppose for purposes of contradiction that $U_1 \\cup U_2$ is a subspace and neither is contained in the other.",
+    "assumptions": [], "assert": "$U_1 \\cup U_2$ is a subspace and neither is contained in the other",
+    "frame": { "kind": "reductio_open", "supposition": "$U_1 \\cup U_2$ is a subspace and neither is contained in the other" } }
   ```
 - **contradiction** — "This is clearly a contradiction", "The very thing is impossible", "which is
-  absurd" (`assertion`: "contradiction"). The map stage pre-sets its claim to `False`.
+  absurd". The map stage pre-sets its claim to `False`.
   ```json
-  { "role": "deduction", "text": "This is clearly a contradiction, as each element was defined to not be in these subspaces.",
-    "assertion": "contradiction", "frame": { "kind": "contradiction" }, "spans": [ … ] }
+  { "text": "This is clearly a contradiction, as each element was defined to not be in these subspaces.",
+    "assumptions": ["each element was defined to not be in these subspaces"], "assert": "This is clearly a contradiction",
+    "frame": { "kind": "contradiction" } }
   ```
 - **reductio_close** — "Thus our initial assumption must have been wrong, and …" — the sentence that
   DISCHARGES the reductio (establishes the negation of the supposition). `closes` is a **VERBATIM COPY of
   the matching open's `supposition`** — the two are linked by TEXT, not by index.
   ```json
-  { "role": "deduction", "text": "Thus our initial assumption must have been wrong, and $U_1 \\subseteq U_2$ or $U_2 \\subseteq U_1$",
-    "assertion": "one subspace is contained in the other",
-    "frame": { "kind": "reductio_close", "closes": "$U_1 \\cup U_2$ is a subspace and neither is contained in the other" }, "spans": [ … ] }
+  { "text": "Thus our initial assumption must have been wrong, and $U_1 \\subseteq U_2$ or $U_2 \\subseteq U_1$",
+    "assumptions": [], "assert": "$U_1 \\subseteq U_2$ or $U_2 \\subseteq U_1$",
+    "frame": { "kind": "reductio_close", "closes": "$U_1 \\cup U_2$ is a subspace and neither is contained in the other" } }
   ```
 
 A proof with two directions or two cases (e.g. an "if and only if") may have two independent reductio
@@ -169,93 +184,86 @@ triples, or one direction by contradiction and one direct — split each on its 
 
 ---
 
-## When to mark an assumption span
+## What goes in `assumptions`
 
-An `assumption` span is a substring that names a PRIOR FACT consumed by this step's reasoning:
+Each entry of `assumptions` is a substring that names a PRIOR FACT consumed by this step's reasoning:
 
-**DO mark:**
-- "since $p(x) \in (2)$" — cites a previously-established membership
-- "because $x g(x)$ is a polynomial" — cites a known property
+**DO include:**
+- "since $p(x) \in (2)$" → `"$p(x) \\in (2)$"` — a previously-established membership
+- "because $x g(x)$ is a polynomial" → `"$x g(x)$ is a polynomial"` — a known property
 - "$g(0) \neq 0$" at the end of a "since …" clause citing a prior step's result
 
-**DO NOT mark:**
-- The assertion itself (what THIS segment newly claims)
-- "Similarly" / "for the same reason" — too vague, skip (leave as glue)
-- A named citation ("by Jensen's equality") — that goes in `cite`, not an assumption span
+**DO NOT include:**
+- The `assert` itself (what THIS segment newly claims)
+- "Similarly" / "for the same reason" — too vague, skip
+- A named citation ("by Jensen's equality") — that goes in `cite`, not `assumptions`
 
 ---
 
 ## Output format
 
-Write a JSON array to `<corpus>/<id>/split.json`, entries **IN ORDER** (intro first, then the proof
+Write a JSON array to `<corpus>/item<N>/split.json`, entries **IN ORDER** (intro first, then the proof
 segments, conclusion last if present). **Do NOT write an `index` field — it is auto-assigned from array
 position.**
 
-Intro (the NL statement, verbatim):
+Intro (the NL statement, verbatim — the one special segment at index 0):
 ```json
 { "role": "intro", "text": "<verbatim nl_statement>" }
 ```
 
-Assume / object introduction:
+A default segment (NO `role` field; the paper's `assumptions` set + single `assert`, each an EXACT
+substring of `text`; + `cite` if a result is named). Add `objects_introduced` when it introduces objects:
 ```json
-{ "role": "assume", "text": "Let $f(x) \\in (2x)$.", "objects_introduced": ["$f(x)$"], "spans": [ … ] }
-```
-
-Deduction (`spans` per RULE 6 + a 1-line `assertion` paraphrase + `cite` if a result is named):
-```json
-{ "role": "deduction",
-  "text": "But this means that $f(x) \\in (2)$ (because $x g(x)$ is a polynomial),",
-  "assertion": "f(x) is in the ideal (2)",
-  "spans": [
-    { "label": "glue",       "text": "But this means that " },
-    { "label": "assertion",  "text": "$f(x) \\in (2)$" },
-    { "label": "glue",       "text": " (" },
-    { "label": "assumption", "text": "because $x g(x)$ is a polynomial" },
-    { "label": "glue",       "text": ")," } ],
+{ "text": "But this means that $f(x) \\in(2)$ (because $x g(x)$ is a polynomial),",
+  "assumptions": ["$x g(x)$ is a polynomial"],
+  "assert": "$f(x) \\in(2)$",
   "cite": null }
 ```
-The span texts joined with NOTHING must equal `text` character-for-character.
+Both the `assert` value and every `assumptions` entry must appear VERBATIM inside `text` (they are
+pointers into it). They need not cover the text — connectives/punctuation belong to neither.
 
 When a result IS named, `cite` is an object holding only the verbatim phrase:
 ```json
-{ "role": "deduction",
-  "text": "By the Corollary of Jensen's equality we get $S_N \\leq \\int_0^1 n(r) \\frac{dr}{r}$.",
-  "assertion": "S_N is bounded by the Jensen integral",
-  "spans": [ … ],
+{ "text": "By the Corollary of Jensen's equality we get $S_N \\leq \\int_0^1 n(r) \\frac{dr}{r}$.",
+  "assumptions": [],
+  "assert": "$S_N \\leq \\int_0^1 n(r) \\frac{dr}{r}$",
   "cite": { "text": "the Corollary of Jensen's equality" } }
 ```
 
-Omit fields not relevant to a role. Use `null` for `cite` when nothing is cited; otherwise a
-`{ "text": ... }` object (text-only — no Lean name at this stage).
+Omit fields not relevant to a segment. A default segment has no `role`; only `intro`/`wts`/`conclusion`
+carry one. Use `null` for `cite` when nothing is cited; otherwise a `{ "text": ... }` object (text-only —
+no Lean name at this stage).
 
 ---
 
 ## How the two fields tile
 
-The coverage check reconstructs the source as: **`nl_statement`** then a single space then **`nl_proof`**
-(with the statement being exactly the intro segment's text, and the remaining segments tiling `nl_proof`).
-Concretely: intro segment text == `nl_statement` verbatim; the concatenation of every NON-intro segment
-(joined by one space, in order) == `nl_proof` verbatim. The gate checks both halves.
+The coverage gate checks TWO halves INDEPENDENTLY (no artificial join-space is inserted between the
+statement and the proof):
+- the `intro` segment's text == `nl_statement` verbatim; and
+- the concatenation of every NON-intro segment (joined by exactly one space, in order) == `nl_proof`
+  verbatim.
 
 ---
 
 ## Procedure
 
-1. Read the problem's `data/proofnet-<id>.json` (the ONLY file you read).
-2. Set index 0 = `intro` = `nl_statement` verbatim.
-3. Split `nl_proof` into ordered atomic segments (`assume` / `deduction` / `wts`), marking spans and any
-   reductio frames.
-4. Add a `conclusion` segment ONLY if `nl_proof` ends with an explicit closing restatement; otherwise omit.
-5. Write the JSON array to `<corpus>/<id>/split.json`.
+1. Read the item's `<corpus>/item<N>/data/nl.json` (the ONLY file you read).
+2. Set index 0 = a `role: intro` segment = `nl_statement` verbatim.
+3. Split `nl_proof` into ordered atomic segments. Most are DEFAULT segments (no `role`) with an
+   `assumptions` set + single `assert`; use `role: wts` for a mid-proof "we claim/it suffices"
+   announcement, and mark reductio `frame`s where a contradiction argument opens/closes.
+4. Add a `role: conclusion` segment ONLY if `nl_proof` ends with an explicit closing restatement; else omit.
+5. Write the JSON array to `<corpus>/item<N>/split.json`.
 6. VERIFY — MACHINE GATE (mandatory; run it, do NOT just eyeball). Run
-   `python3 scripts/check_split.py <corpus>/<id>` (e.g. `python3 scripts/check_split.py proofnet-verified/8`).
-   It joins your slices and compares BYTE-FOR-BYTE to the source (`nl_statement` vs the intro segment,
-   `nl_proof` vs the joined non-intro segments). On FAIL it names the exact divergence:
+   `python3 scripts/check_split.py <corpus>/item<N>` (e.g. `python3 scripts/check_split.py proofnet_verified/item8`).
+   It compares BYTE-FOR-BYTE (`nl_statement` vs the intro segment, `nl_proof` vs the joined non-intro
+   segments). On FAIL it names the exact divergence:
    - a **whitespace/newline** miss → add the missing space(s)/newline INSIDE the adjacent slice per RULE 2.
    - a **word/LaTeX** divergence / missing tail / overrun → fix the slice text (verbatim, contiguous).
    **Loop until it prints PASS.** Do NOT stop or hand off while it still FAILs — a split that doesn't tile
    poisons every downstream stage.
-7. Report a summary table (index, role, first ~60 chars of text) and STOP for human review.
+7. Report a summary table (index, role-or-"segment", first ~60 chars of text) and STOP for human review.
 
 ---
 
@@ -264,15 +272,15 @@ Concretely: intro segment text == `nl_statement` verbatim; the concatenation of 
 `nl_statement`: "Prove that in the ring $\mathbb{Z}[x],(2) \cap(x)=(2 x)$."
 `nl_proof`: "Let $f(x) \in(2 x)$. Then there exists some polynomial $g(x) \in \mathbb{Z}$ such that … Finally, (2) $\cap(x)=(2 x)$, as required."
 
-Output (abbreviated):
+Output (abbreviated — note only intro/conclusion carry a `role`; the middle segments are default):
 ```json
 [
   { "role": "intro", "text": "Prove that in the ring $\\mathbb{Z}[x],(2) \\cap(x)=(2 x)$." },
-  { "role": "assume", "text": "Let $f(x) \\in(2 x)$.", "objects_introduced": ["$f(x)$"], "spans": [ … ] },
-  { "role": "deduction", "text": "Then there exists some polynomial $g(x) \\in \\mathbb{Z}$ such that\n$$\nf(x)=2 x g(x)\n$$",
-    "assertion": "f(x) = 2 x g(x) for some polynomial g", "spans": [ … ], "cite": null },
-  { "role": "deduction", "text": "But this means that $f(x) \\in(2)$ (because $x g(x)$ is a polynomial),",
-    "assertion": "f(x) is in the ideal (2)", "spans": [ … ], "cite": null },
+  { "text": "Let $f(x) \\in(2 x)$.", "objects_introduced": ["$f(x)$"], "assumptions": [], "assert": "$f(x) \\in(2 x)$", "cite": null },
+  { "text": "Then there exists some polynomial $g(x) \\in \\mathbb{Z}$ such that\n$$\nf(x)=2 x g(x)\n$$",
+    "assumptions": [], "assert": "$$\nf(x)=2 x g(x)\n$$", "cite": null },
+  { "text": "But this means that $f(x) \\in(2)$ (because $x g(x)$ is a polynomial),",
+    "assumptions": ["$x g(x)$ is a polynomial"], "assert": "$f(x) \\in(2)$", "cite": null },
   "… (the rest of the ⊆ argument, then the ⊇ argument) …",
   { "role": "conclusion", "text": "Finally,\n(2) $\\cap(x)=(2 x)$,\nas required." }
 ]

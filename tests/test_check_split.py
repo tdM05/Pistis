@@ -11,7 +11,16 @@ from check_split import check_tiling  # noqa: E402
 
 
 def seg(role, text, **extra):
-    return {"role": role, "text": text, **extra}
+    """Build a segment. role=None -> a DEFAULT segment (no `role`), which needs assert/assumptions;
+    we default `assert` to the full text (trivially a substring) unless the caller overrides."""
+    d = {"text": text, **extra}
+    if role in ("intro", "wts", "conclusion"):
+        d["role"] = role
+    else:
+        # default reasoning segment: ensure the paper's fields exist and satisfy the substring rule
+        d.setdefault("assert", text)
+        d.setdefault("assumptions", [])
+    return d
 
 
 # --------------------------------------------------------------------------- PASS cases
@@ -186,6 +195,79 @@ def test_only_one_intro_allowed():
 
 
 # --------------------------------------------------------------------------- real-shaped case
+
+# --------------------------------------------------------------------------- substring condition
+
+def test_assert_must_be_substring():
+    stmt = "S."
+    proof = "Then $gh = hg$."
+    segs = [
+        seg("intro", stmt),
+        {"text": "Then $gh = hg$.", "assumptions": [], "assert": "gh equals hg"},  # paraphrase, NOT substring
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert not ok
+    assert any("assert is not a substring" in l for l in lines)
+
+
+def test_assert_substring_passes():
+    stmt = "S."
+    proof = "Then $gh = hg$."
+    segs = [
+        seg("intro", stmt),
+        {"text": "Then $gh = hg$.", "assumptions": [], "assert": "$gh = hg$"},  # exact substring
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert ok, lines
+
+
+def test_assumption_must_be_substring():
+    stmt = "S."
+    proof = "Since $a=b$, $x=y$."
+    segs = [
+        seg("intro", stmt),
+        {"text": "Since $a=b$, $x=y$.", "assumptions": ["a equals b"], "assert": "$x=y$"},  # not substring
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert not ok
+    assert any("assumption is not a substring" in l for l in lines)
+
+
+def test_assumption_substring_passes():
+    stmt = "S."
+    proof = "Since $a=b$, $x=y$."
+    segs = [
+        seg("intro", stmt),
+        {"text": "Since $a=b$, $x=y$.", "assumptions": ["$a=b$"], "assert": "$x=y$"},
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert ok, lines
+
+
+def test_default_segment_needs_assert():
+    stmt = "S."
+    proof = "A fact."
+    segs = [
+        seg("intro", stmt),
+        {"text": "A fact.", "assumptions": []},  # no assert
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert not ok
+    assert any("has no 'assert'" in l for l in lines)
+
+
+def test_structural_role_rejects_assert():
+    stmt = "S."
+    proof = "A fact. Done."
+    segs = [
+        seg("intro", stmt),
+        {"text": "A fact.", "assumptions": [], "assert": "A fact."},
+        {"role": "conclusion", "text": "Done.", "assert": "Done."},  # conclusion should not carry assert
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert not ok
+    assert any("should not carry" in l for l in lines)
+
 
 def test_proofnet8_shaped():
     # Mirrors the REAL proofnet-8 structure: prose sentences separated by ". " (period-space), and a

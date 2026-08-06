@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Coverage gate for a Pistis segmentation (`split.json`).
 
-Verifies that a problem's `split.json` tiles its source natural-language text BYTE-FOR-BYTE — the
-paper's *coverage* condition: concatenating the segments must recover the original proof
-character-for-character (nothing reworded, dropped, duplicated, or reordered).
+Verifies two of the paper's conditions on a problem's `split.json`:
+  1. *coverage* — concatenating the segments recovers the source NL text BYTE-FOR-BYTE (nothing
+     reworded, dropped, duplicated, or reordered); and
+  2. *substring* (§4) — for every default (reasoning) segment, its `assert` and each `assumptions`
+     entry is an EXACT substring of that segment's own `text`.
 
 This is the domain-agnostic tiling gate. It knows nothing about Lean, Mathlib, geometry, or any
 particular corpus — it only compares strings. It is shared by every case study.
@@ -112,8 +114,56 @@ def check_tiling(segments: List[dict], nl_statement: str, nl_proof: str) -> Tupl
     proof_concat = " ".join(seg["text"] for seg in rest)
     ok_proof, msg_proof = _compare(proof_concat, nl_proof, "proof")
 
-    lines = msg_stmt + msg_proof
-    return (ok_stmt and ok_proof), lines
+    ok_sub, msg_sub = _check_substrings(segments)
+
+    lines = msg_stmt + msg_proof + msg_sub
+    return (ok_stmt and ok_proof and ok_sub), lines
+
+
+# Roles that are STRUCTURAL: they carry only `text` (no assumptions/assert).
+_STRUCTURAL_ROLES = {"intro", "wts", "conclusion"}
+
+
+def _check_substrings(segments: List[dict]) -> Tuple[bool, List[str]]:
+    """Enforce the paper's condition (§4): for every DEFAULT segment, `assert` and each `assumptions`
+    entry must be an EXACT substring of that segment's `text`. Structural segments (intro/wts/conclusion)
+    carry neither and are skipped.
+    """
+    errors: List[str] = []
+    for i, seg in enumerate(segments):
+        role = seg.get("role")
+        text = seg.get("text", "")
+        if role in _STRUCTURAL_ROLES:
+            # Structural segments must NOT carry assumptions/assert.
+            for f in ("assumptions", "assert"):
+                if seg.get(f):
+                    errors.append(f"segment {i} (role {role!r}) should not carry {f!r}")
+            continue
+        # Default segment: must have a single assert, an exact substring of text.
+        assertion = seg.get("assert")
+        if assertion is None:
+            errors.append(f"segment {i}: default segment has no 'assert'")
+        elif assertion not in text:
+            errors.append(
+                f"segment {i}: assert is not a substring of text\n"
+                f"  assert: {assertion!r}\n"
+                f"  text:   {text!r}"
+            )
+        # Every assumption must be an exact substring of text.
+        assumptions = seg.get("assumptions", [])
+        if not isinstance(assumptions, list):
+            errors.append(f"segment {i}: 'assumptions' must be a list (a set of substrings)")
+        else:
+            for a in assumptions:
+                if a not in text:
+                    errors.append(
+                        f"segment {i}: assumption is not a substring of text\n"
+                        f"  assumption: {a!r}\n"
+                        f"  text:       {text!r}"
+                    )
+    if errors:
+        return False, ["substring check FAILED:"] + errors
+    return True, ["substring check: all assert/assumptions are substrings of their segment"]
 
 
 def _load_source(source_path: str) -> Tuple[str, str]:

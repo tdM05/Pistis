@@ -1,3 +1,5 @@
+import Lean
+
 /-!
 # Pistis segmentation / faithfulness annotations
 
@@ -50,12 +52,19 @@ structure SegmentEntry where
 
 /-- Persistent env extension storing all `SegmentEntry`s. Entries from imported modules are
 folded in, so a reader sees the current module plus its transitive imports.
-(Shape follows Mathlib's `Mathlib/Tactic/Hint.lean`.) -/
+(Shape follows Mathlib's `Mathlib/Tactic/Hint.lean`.)
+
+`asyncMode := .sync`: our tactics record INTO this extension from inside theorem-body elaboration,
+which Lean 4.28 runs on an async environment branch. The default `.mainOnly` panics when modified off
+the main branch; `.sync` accumulates those modifications into the checked environment (blocking rather
+than discarding), so every recorded entry reliably reaches the compiled `.olean` for the faithfulness
+checker to read. (`.local` would silently discard off-main-branch entries — fatal here.) -/
 initialize segmentExt :
     SimplePersistentEnvExtension SegmentEntry (List SegmentEntry) ←
   registerSimplePersistentEnvExtension {
     addEntryFn := (·.cons)
     addImportedFn := mkStateFromImportedEntries (·.cons) {}
+    asyncMode := .sync
   }
 
 /-- Current annotation's location: `(pos "line:col", module string, line number)`. -/
