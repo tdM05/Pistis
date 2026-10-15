@@ -1,7 +1,7 @@
 import Mathlib
 import Pistis
-import proofnet_verified.item1.step1
-import proofnet_verified.item1.step2
+import items.item1.step1
+import items.item1.step2
 set_option linter.unusedTactic false
 
 open Function Fintype Subgroup Ideal Polynomial Submodule Zsqrtd

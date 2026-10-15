@@ -1,16 +1,16 @@
 import Lake
 open Lake DSL
 
-package Pistis
+package ProofNetVerified
 
 -- Domain-agnostic Pistis segmentation / faithfulness annotations (no Mathlib / no solver dep).
--- Shared by every case study; each corpus (proofnet-verified, textbooks, and eventually a
--- 4.28-ported LeanEuclidF) is added as its own lean_lib below.
+-- This is the LEAN-4.28 copy; `corpora/oai_math/Pistis/Segment.lean` is the 4.34 port. The two are
+-- forked ONLY because Lean metaprogramming API cannot span toolchains — keep them diff-clean.
 @[default_target]
 lean_lib Pistis
 
--- The ProofNet-Verified case study, so item backing files (item<N>.step<K>) resolve as modules.
-lean_lib proofnet_verified
+-- This corpus's items, so backing files resolve as modules `items.item<N>.step<K>`.
+lean_lib items
 
 require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git" @ "v4.28.0"
