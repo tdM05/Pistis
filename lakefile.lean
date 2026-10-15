@@ -9,6 +9,9 @@ package Pistis
 @[default_target]
 lean_lib Pistis
 
+-- The ProofNet-Verified case study, so item backing files (item<N>.step<K>) resolve as modules.
+lean_lib proofnet_verified
+
 require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git" @ "v4.28.0"
 
