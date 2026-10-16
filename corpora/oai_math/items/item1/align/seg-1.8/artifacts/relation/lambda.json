@@ -1,0 +1,63 @@
+[
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "An inference marker: the rank strictly grows because the image did. The content is the inequality."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "`Matrix.rank` over ℝ is the prose's `\\rank`, applied to `D_τ`."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "A strict inequality, both sides."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        3
+      ]
+    ],
+    [
+      1,
+      "The same rank, applied to `D`."
+    ]
+  ]
+]

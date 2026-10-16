@@ -1,0 +1,76 @@
+[
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "A discourse marker: this fact is conjoined to the previous sentence's. It asserts nothing of its own, and the conjunction is carried by the two steps both being established."
+    ]
+  ],
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "LaTeX display delimiters and the sentence period. Presentation, not content."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "`mulVec` is the matrix acting on a vector, so `Dτ.mulVec x` is the prose's `D_τ x`."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      [
+        "S_N",
+        3
+      ]
+    ],
+    [
+      1,
+      "The scalar `τ x_j`, scaling by `•`, exactly as the prose multiplies."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        4
+      ]
+    ],
+    [
+      1,
+      "`Pi.single s 1` is the vector that is 1 at `s` and 0 elsewhere — the standard basis vector `e_s` the prose means."
+    ]
+  ]
+]

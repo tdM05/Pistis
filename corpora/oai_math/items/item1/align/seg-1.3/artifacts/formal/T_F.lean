@@ -1,0 +1,1 @@
+Dτ.mulVec x = (τ * x j) • (Pi.single s (1 : ℝ) : I → ℝ)

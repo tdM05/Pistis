@@ -1,0 +1,34 @@
+{
+  "name": "kernel_support",
+  "source": "oai-math",
+  "index": 1,
+  "paper": "A proof of Seymour's second-neighborhood conjecture",
+  "result": "Lemma 3.2 (Kernels at maximum support rank)",
+  "nl_source": {
+    "file": "preprints/A-proof-of-Seymours-second-neighborhood-conjecture-September-23-2026/build/source/02-pruning.tex",
+    "lines": "42-68",
+    "label": "lem:kernel-support",
+    "slice": {
+      "note": "nl.json holds two verbatim substrings of the file above, cut by these anchors; no whitespace, wrapping or macro normalization is applied. Regenerate with scripts/extract_tex.py.",
+      "stmt_from": "For finite index sets",
+      "stmt_to": "one has $x_jy_s=0$.",
+      "proof_from": "Suppose instead that",
+      "proof_to": "a contradiction."
+    },
+    "macros": {
+      "\\R": "\\mathbb R",
+      "\\im": "\\operatorname{im}",
+      "\\rank": "\\operatorname{rank}",
+      "\\abs{#1}": "\\lvert #1\\rvert"
+    }
+  },
+  "formal_source": {
+    "file": "lean/OAI/Combinatorics/SecondNeighborhood/MaxSupportKernel.lean",
+    "declaration": "OAI.SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel.kernel_support"
+  },
+  "upstream": {
+    "repo": "https://github.com/openai/math",
+    "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+    "date": "2026-10-12"
+  }
+}

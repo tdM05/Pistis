@@ -1,0 +1,76 @@
+[
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "A discourse marker introducing a further fact; it asserts nothing of its own."
+    ]
+  ],
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "LaTeX display delimiters. Presentation, not content."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "`J → ℝ` is ℝ^J, and `∀` is the prose's 'for every'."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      [
+        "S_N",
+        3
+      ]
+    ],
+    [
+      1,
+      "The displayed identity term for term: `mulVec` is the action, `Pi.single s 1` is `e_s`."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        4
+      ]
+    ],
+    [
+      1,
+      "The prose writes a CHAIN, `Dw = … ∈ im D_τ`, which asserts a second fact about the same quantity; the second conjunct states it of `Dw`, which the first conjunct equates to that quantity. Two assertions in the sentence, two conjuncts in the claim."
+    ]
+  ]
+]

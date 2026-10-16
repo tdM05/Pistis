@@ -1,0 +1,63 @@
+[
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "An inference marker. Whether `e_s ∈ im D_τ` really follows from the previous equation is this step's backing; the sentence's CONTENT is the membership alone."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "`Pi.single s 1` is the standard basis vector `e_s`."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "Membership, both sides."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        3
+      ]
+    ],
+    [
+      1,
+      "The image of `D_τ` is the range of the linear map it induces, which is what `mulVecLin` names."
+    ]
+  ]
+]

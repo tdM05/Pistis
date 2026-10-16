@@ -1,0 +1,92 @@
+[
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "A discourse marker contrasting this line of argument with the preceding one."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "'y annihilates im D' is that `y` pairs to zero with every element of the image, which is this universally quantified dot product."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "The prose's 'and' between the two facts it states."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        3
+      ]
+    ],
+    [
+      1,
+      "`y s ≠ 0` is `y_s ≠ 0`."
+    ]
+  ],
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        4
+      ]
+    ],
+    [
+      1,
+      "An inference marker: the prose DERIVES the third clause from the first two. Which clause follows from which is this step's backing, not its content."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        3
+      ],
+      [
+        "S_N",
+        5
+      ]
+    ],
+    [
+      1,
+      "`Pi.single s 1` is `e_s` and `LinearMap.range D.mulVecLin` is `im D`, so this is the prose's non-membership. It is a THIRD conjunct because the sentence asserts the two premises as well as the conclusion: a claim carrying only `e_s ∉ im D` would leave 'y annihilates im D' and 'y_s ≠ 0' with nothing to align against."
+    ]
+  ]
+]

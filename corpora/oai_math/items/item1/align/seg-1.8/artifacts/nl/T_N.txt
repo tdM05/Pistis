@@ -1,0 +1,1 @@
+Therefore $\rank D_\tau>\rank D$,

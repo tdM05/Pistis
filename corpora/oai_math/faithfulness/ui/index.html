@@ -1,0 +1,1421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>faithfulness labeler</title>
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      onerror="window.__noKatex=true">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- markdown (NL side) and Lean syntax highlighting (formal side). All optional:
+     if a CDN is unreachable the app falls back to plain text (see the __no* flags). -->
+<script defer src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" onerror="window.__noMarked=true"></script>
+<script type="module">
+  // Shiki gives the formal side authentic Lean-4 (VSCode) colours. It loads async;
+  // formal nodes render as plain monospace first, then upgrade once it's ready.
+  try{
+    const { createHighlighter } = await import("https://esm.sh/shiki@1.24.0");
+    window.__shiki = await createHighlighter({ themes:["github-light"], langs:["lean"] });
+  }catch(e){ window.__noShiki=true; }
+  if(window.shikiReady) window.shikiReady();
+</script>
+<style>
+  :root { --ok:#178a3a; --bad:#c0332b; --hl:#cfe3ff; --hlc:#fde2b8; --border:#d5d7db;
+          --mut:#666; --sfc:#2563eb; --snc:#c2790a; --cfc:#0f766e; --cnc:#7c3aed; --ic:#9333ea; }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 -apple-system, system-ui, sans-serif; margin:0; color:#111; }
+  header { display:flex; gap:10px; align-items:center; padding:8px 14px;
+           border-bottom:1px solid var(--border); position:sticky; top:0; background:#fafafa; z-index:20; flex-wrap:wrap; }
+  header .grow { flex:1; }
+  select,button,input,textarea { font:inherit; }
+  button { cursor:pointer; border:1px solid var(--border); background:#fff; border-radius:6px; padding:4px 10px; }
+  button.primary { background:#111; color:#fff; border-color:#111; }
+  button:disabled { opacity:.4; cursor:default; }
+  button.tiny { font-size:12px; padding:2px 8px; }
+  .mut { color:var(--mut); font-size:12px; }
+  .pill { padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); }
+  .pill.faithful { background:#e6f5ea; color:var(--ok); border-color:#bfe4c9; }
+  .pill.unfaithful { background:#fbe9e7; color:var(--bad); border-color:#f0c4bf; }
+  .pill.NaN { background:#eee; color:#555; }
+  .pill.untargeted { background:#fff4e5; color:#a15c00; border-color:#f0d7ad; }
+  #doneWrap { display:inline-flex; align-items:center; gap:5px; cursor:pointer; }
+  #doneWrap.on { background:#e6f5ea; color:var(--ok); border-color:#bfe4c9; }
+  #cov.bad { background:#fdecec; color:#b42318; border-color:#f3b9b3; cursor:help; }
+
+  /* ---------- two panels ----------
+     LEFT: `Main.lean`, verbatim and complete (see proof_pane.js) — the proof is the index, so
+     clicking a `pistis_` sentence right where it is written loads it.
+     RIGHT: that unit's align-then-label view. The left panel scrolls on its own, so the proof stays
+     put while you work; the right panel scrolls with the page, which is what drawEdges assumes.
+     The divider between them is draggable (#split), so how much room each gets is the reader's call;
+     `flex-basis` is set from JS, which is why the 46% here is only a default. */
+  #layout { display:flex; align-items:flex-start; }
+  #proof { flex:0 0 46%; min-width:0; background:#fcfcfc;
+           position:sticky; top:47px; height:calc(100vh - 47px); overflow:auto; }
+  #content { flex:1; min-width:0; }
+  /* the drag handle: full height, sticky alongside the proof, and wider than it looks (the ::before
+     bleeds a few px either side) so it can be grabbed without pixel-hunting */
+  #split { flex:0 0 7px; position:sticky; top:47px; height:calc(100vh - 47px);
+           cursor:col-resize; background:#f1f2f4; border-left:1px solid var(--border);
+           border-right:1px solid var(--border); z-index:5; }
+  /* bleeds to the RIGHT only: the proof pane's own scrollbar runs along the left edge of the handle
+     and grabbing it must not start a resize */
+  #split::before { content:""; position:absolute; inset:0 -5px 0 0; }
+  #split::after { content:""; position:absolute; top:50%; left:1px; right:1px; height:26px;
+                  margin-top:-13px; border-radius:3px; background:#c9ccd1; }
+  #split:hover, #split.dragging { background:var(--hl); }
+  #split:hover::after, #split.dragging::after { background:#5b82c9; }
+  body.resizing { cursor:col-resize; user-select:none; }   /* no text selection mid-drag */
+  .ptoolbar { position:sticky; top:0; z-index:3; display:flex; gap:8px; align-items:center;
+              padding:6px 10px; background:#fcfcfc; border-bottom:1px solid var(--border); }
+  .ptoolbar .grow { flex:1; }
+  .pitem { padding:8px 0 14px; }
+  .pitemhead { display:flex; gap:8px; align-items:baseline; padding:0 10px; }
+  .pitemhead .grow { flex:1; }
+  .pitemsub { padding:0 10px 7px; font-style:italic; }
+
+  /* The file itself: one grid row per source line, the line number in its own gutter cell. Rows
+     rather than a parallel column of numbers, because the text soft wraps (alt+Z, `.code` without
+     `.nowrap`) — a wrapped line is taller than one row, so a separate gutter would drift out of
+     step, while a per-line cell just grows with its line. `max-content max-content` in nowrap mode
+     sizes the content column to the longest line, so the pane scrolls sideways instead; the gutter
+     stays put through that because it is sticky. */
+  .code { display:grid; grid-template-columns:max-content minmax(0,1fr); align-content:start;
+          font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-size:12.5px;
+          line-height:1.65; tab-size:2; background:#fff; overflow-x:auto;
+          border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .code.nowrap { grid-template-columns:max-content max-content; }
+  .lnum { padding:0 8px 0 10px; color:#b0b4ba; text-align:right; background:#fbfbfc;
+          border-right:1px solid #eef0f2; position:sticky; left:0; z-index:1;
+          user-select:none; -webkit-user-select:none; }
+  /* `--ind` (set per line by proof_pane.js) is that line's own indentation: as padding plus an equal
+     and opposite text-indent it hangs the wrapped rows under the line's indent, the way VSCode's
+     `wrappingIndent: same` does. Nothing wraps in nowrap mode, so there it is dropped — it would
+     otherwise confuse the max-content sizing of the column. */
+  .lsrc { white-space:pre-wrap; overflow-wrap:anywhere;
+          padding:0 12px 0 calc(10px + var(--ind, 0px)); text-indent:calc(-1 * var(--ind, 0px)); }
+  .code.nowrap .lsrc { white-space:pre; padding-left:10px; text-indent:0; }
+  .lsrc:empty::after { content:"\00a0"; }   /* a blank line still occupies a row */
+  /* the line a citation jump landed on. It stays marked rather than flashing: you jumped here to
+     read the line, and a flash is over before a smooth scroll has settled. */
+  .lsrc.lit { background:#fff6d6; box-shadow:inset 2px 0 0 0 #e0a800; }
+  .lnum.lit { background:#fdf0c4; color:#8a6d00; font-weight:600; }
+
+  /* The only clickable things are a pistis tactic's head: keyword + loc + NL literal.
+     `.hov` rather than `:hover`, because a region that spans lines is
+     several <a>s and all of them should light up together (proof_pane.js sets it); `:hover` stays as
+     the fallback if that listener never runs. */
+  a.anchor { text-decoration:none; color:inherit; border-radius:3px; padding:1px 0;
+             box-shadow:inset 0 -1px 0 rgba(0,0,0,.18); cursor:pointer; }
+  a.anchor.hov, a.anchor:hover { box-shadow:inset 0 -2px 0 currentColor;
+                                 filter:saturate(1.25) brightness(.97); }
+  a.anchor.k-statement  { background:#fff4e0; }
+  a.anchor.k-segment    { background:#e4edfd; }
+  a.anchor.nodp { background:repeating-linear-gradient(45deg,#fff4e5,#fff4e5 6px,#ffe9c9 6px,#ffe9c9 12px); }
+  /* the unit the right panel is showing */
+  a.anchor.cur { box-shadow:inset 0 0 0 2px #111; }
+
+  /* source strip (where spans are made) */
+  #source { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:12px 16px; border-bottom:1px solid var(--border); }
+  #source .card { border:1px solid var(--border); border-radius:10px; padding:8px 10px; min-width:0; }
+  #source h3 { margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut);
+               display:flex; gap:8px; align-items:center; }
+  .lean { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:12.5px; }
+  .txt { white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; line-height:1.8;
+         max-height:200px; overflow:auto; background:#fff; border:1px solid #eee; border-radius:6px; padding:6px 8px; }
+  #TN { line-height:1.9; }
+  #TN .katex-display { overflow-x:auto; overflow-y:hidden; }
+  .mnode { cursor:default; display:inline-block; }
+  .mnode.seg { cursor:pointer; }
+  /* a display formula split at its span boundaries: the fragments are inline nodes, so they need a
+     block of their own to sit centred in, the way \[…\] would. */
+  .mdisp { display:block; text-align:center; margin:4px 0; overflow-x:auto; overflow-y:hidden; }
+  .katex-display { margin:4px 0; }
+  .seg { border-radius:3px; padding:1px 0; }
+  /* each span gets its own colour (set inline, keyed by index); overlapping
+     regions are striped with every covering span's colour. */
+  .seg.sf, .seg.sn { cursor:pointer; }
+  .seg.picked { outline:2px solid #111; }
+  .seg.flash { animation:segflash 1.6s ease-out; }
+  @keyframes segflash { 0%,40%{ background:#ffe08a; outline:2px solid #f0a800; } 100%{ background:transparent; outline:2px solid transparent; } }
+  /* nodes flash red when localizing an unfaithful label's failing edges. */
+  .node.flash { animation:nodeflash 1.6s ease-out; }
+  @keyframes nodeflash { 0%,40%{ background:#fbe0dc; outline:2px solid var(--bad); } 100%{ background:transparent; outline:2px solid transparent; } }
+  /* the ^index tag is a label, not part of the text -- don't let it be selected
+     (that would corrupt the char offsets read from a selection). */
+  .idxtag { font-size:9px; color:var(--mut); vertical-align:super; margin-left:1px;
+            user-select:none; -webkit-user-select:none; pointer-events:none; }
+
+  /* hint / connect bar */
+  #hint { display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+          padding:6px 16px; font-size:12px; color:var(--mut); background:#fafafa; border-bottom:1px solid var(--border); }
+  #hint b { color:#111; }
+
+  /* graph */
+  #graph { position:relative; display:grid; grid-template-columns:minmax(0,1fr) 150px minmax(0,1fr);
+           padding:14px 16px 60px; align-items:start; }
+  #edgeSvg { position:absolute; inset:0; pointer-events:none; z-index:3; }
+  #edgeSvg path.hit { stroke:transparent; stroke-width:18; fill:none; pointer-events:stroke; cursor:pointer; }
+  #edgeSvg path.wire { fill:none; stroke-width:2.5; }
+  #edgeSvg path.wire.ok { stroke:var(--ok); }
+  #edgeSvg path.wire.bad { stroke:var(--bad); }
+  #edgeSvg path.wire.selw { stroke-width:6; }
+  #edgeSvg path.hit:hover + path.wire { stroke-width:5; }
+  .col { display:flex; flex-direction:column; gap:10px; z-index:1; }
+  .colF { align-items:flex-end; text-align:right; }
+  .colN { align-items:flex-start; }
+  .colhead { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); font-weight:700; width:100%; }
+  .colF .colhead { text-align:right; } .colN .colhead { text-align:left; }
+  .grp { width:100%; display:flex; flex-direction:column; gap:6px; }
+  .colF .grp { align-items:flex-end; } .colN .grp { align-items:flex-start; }
+  .grplab { font-size:10px; color:var(--mut); font-weight:700; }
+  .node { display:inline-flex; align-items:center; gap:8px; max-width:100%; border:1px solid var(--border);
+          border-left-width:4px; border-radius:8px; padding:5px 9px; background:#fff; cursor:pointer;
+          font-size:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .colN .node { border-left-width:1px; border-right-width:4px; }
+  .node .ntext { white-space:pre-wrap; overflow-wrap:anywhere; max-width:300px; }
+  /* an S_N card's pieces: the " … " between two intervals of a discontinuous span, and a TeX
+     fragment that would not parse, left as its own source rather than silently dropped. */
+  .node .pgap { color:var(--mut); }
+  .node .rawtex { font-family:ui-monospace,monospace; font-size:11px; color:#555; }
+  #covPanel { position:absolute; z-index:40; max-width:560px; max-height:320px; overflow:auto;
+    background:#fff; border:1px solid #f3b9b3; border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,.14);
+    padding:8px; font-size:12px; }
+  #covPanel .chd { font-weight:600; color:#b42318; margin-bottom:6px; }
+  #covPanel .crow { padding:4px 6px; border-radius:6px; cursor:pointer; display:flex; gap:8px; }
+  #covPanel .crow:hover { background:#fdecec; }
+  #covPanel .cwhere { color:var(--mut); flex:none; font-family:ui-monospace,monospace; }
+  #covPanel .cwhat { overflow-wrap:anywhere; white-space:pre-wrap; }
+  .node .nlab { font-size:10px; color:var(--mut); flex:none; }
+  .node .dot { width:10px; height:10px; border-radius:50%; background:#9aa0a6; flex:none; }
+  .node.picked { outline:2px solid #111; outline-offset:1px; }
+  .node.picked .dot { background:#111; }
+  .node .del { color:var(--mut); flex:none; cursor:pointer; padding:0 3px; border-radius:4px; font-weight:600; }
+  .node .del:hover { color:#fff; background:#c0392b; }
+  .node .edit { color:var(--mut); flex:none; cursor:pointer; padding:0 3px; border-radius:4px; font-size:11px; }
+  .node .edit:hover { color:#fff; background:var(--sfc); }
+  .n-sf { border-left-color:var(--sfc); } .colN .n-sf{border-right-color:var(--sfc);}
+  .n-sn { border-right-color:var(--snc); }
+  .n-cf { border-left-color:var(--cfc); font-family:ui-monospace,monospace; }
+  .n-cn { border-right-color:var(--cnc); }
+  .n-i  { border-right-color:var(--ic); }
+  .node .src { display:block; color:var(--mut); font-size:10.5px; }
+  /* a `Main.lean:46` citation: clicking it jumps the proof panel to that line (alt+← comes back).
+     A citation that resolves to nothing is struck through rather than left looking live. */
+  .node .cite { cursor:pointer; text-decoration:underline dotted #9aa0a6; }
+  .node .cite:hover { color:var(--cfc); text-decoration-color:currentColor; }
+  .node .badcite { color:var(--bad); text-decoration:line-through; }
+  .node .pieces { display:flex; flex-wrap:wrap; gap:3px; margin-top:3px; }
+  .node .piece { display:inline-flex; align-items:center; gap:2px; font-size:9.5px; line-height:1.4;
+                 background:#eef0f3; border-radius:4px; padding:0 2px 0 4px; color:#444;
+                 font-family:ui-monospace,monospace; }
+  .node .piece .prm { cursor:pointer; color:var(--mut); padding:0 2px; border-radius:3px; }
+  .node .piece .prm:hover { color:#fff; background:#c0392b; }
+  .node .botmark { flex:none; color:var(--mut); opacity:.5; font-size:11px; margin-left:2px; cursor:pointer; }
+  .node .botmark.bad { color:#fff; background:var(--bad); opacity:1; font-weight:800; font-size:14px;
+                       padding:0 5px; border-radius:4px; }
+  .cf-hint { font-size:11px; color:var(--mut); font-style:italic; text-align:right; max-width:260px; }
+
+  /* edge menu (popup on click) */
+  #edgeMenu { position:fixed; z-index:50; width:480px; max-width:calc(100vw - 20px); background:#fff; border:1px solid var(--border);
+              border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.2); padding:12px; display:flex;
+              flex-direction:column; gap:10px; }
+  #edgeMenu[hidden] { display:none; }
+  #edgeMenu .mends { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:12px; }
+  #edgeMenu .ref { background:#eef0f3; border-radius:5px; padding:1px 7px; }
+  #edgeMenu .mtoggle { display:flex; gap:6px; }
+  #edgeMenu .mtoggle button { flex:1; }
+  #edgeMenu .mtoggle button.on[data-v="1"] { background:var(--ok); color:#fff; border-color:var(--ok); }
+  #edgeMenu .mtoggle button.on[data-v="0"] { background:var(--bad); color:#fff; border-color:var(--bad); }
+  #edgeMenu textarea { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px;
+                       min-height:150px; font-size:13px; line-height:1.55; resize:vertical; }
+  #edgeMenu .mrow { display:flex; justify-content:space-between; }
+  #edgeMenu .mdel { color:var(--bad); border-color:#f0c4bf; }
+
+  /* targets editor */
+  #targets { padding:22px; max-width:900px; margin:0 auto; }
+  #targets .field { margin-bottom:16px; }
+  #targets label { display:block; font-weight:600; margin-bottom:4px; }
+  #targets textarea { width:100%; border:1px solid var(--border); border-radius:8px; padding:8px; }
+  #targets textarea.mono { font-family:ui-monospace,monospace; font-size:13px; }
+  .banner { background:#fff4e5; border:1px solid #f0d7ad; color:#7a4600; border-radius:8px; padding:10px 12px; margin-bottom:16px; }
+  .err { background:#fbe9e7; border:1px solid #f0c4bf; color:var(--bad); border-radius:8px; padding:8px 12px; margin-top:8px; white-space:pre-wrap; font-size:12px; }
+  .cnform { border:1px dashed var(--border); border-radius:6px; padding:8px; margin:6px 0; background:#fff; text-align:left; width:100%; }
+  .cnform textarea, .cnform input { width:100%; border:1px solid var(--border); border-radius:6px; padding:4px 6px; margin-bottom:4px; }
+
+  /* rich node bodies (BOTH modes): markdown output + KaTeX + Shiki-highlighted Lean */
+  .node .ntext p { margin:0; }
+  .node .ntext p + p { margin-top:4px; }
+  .node .ntext ul, .node .ntext ol { margin:2px 0; padding-left:18px; }
+  .node .ntext .katex-display { margin:4px 0; }
+  .node .ntext code { font-family:ui-monospace,monospace; }
+  .node .ntext .shiki, .node .ntext .shiki code {
+    background:transparent !important; margin:0; padding:0;
+    font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:12px;
+    white-space:pre-wrap; overflow-wrap:anywhere; }
+</style>
+</head>
+<body>
+<header>
+  <span class="mut" id="curpath"></span>
+  <label id="doneWrap" class="pill" title="mark this datapoint done"><input type="checkbox" id="doneChk"> done</label>
+  <span id="label" class="pill"></span>
+  <span class="mut" id="derived"></span>
+  <span id="cov" class="pill" hidden></span>
+  <span class="grow"></span>
+  <span class="mut" id="pin"></span>
+  <button id="undo" class="tiny" disabled>↶ undo</button>
+  <button id="editTargets" class="tiny" style="display:none">edit targets</button>
+  <button id="reload" class="tiny">reload</button>
+  <button id="save" class="primary">Save</button>
+</header>
+<div id="covPanel" hidden></div>
+
+<div id="layout">
+<!-- left panel: Main.lean, verbatim; filled by proof_pane.js -->
+<aside id="proof"><div class="mut" style="padding:12px">loading the proof…</div></aside>
+<div id="split" title="drag to resize · double-click to reset"></div>
+<div id="content">
+
+<!-- targets editor -->
+<div id="targets" style="display:none">
+  <div class="banner" id="tBanner"></div>
+  <div class="field">
+    <label>T_F — formal statement (Lean); normalized to one flowing declaration</label>
+    <textarea id="tTF" class="mono" rows="10" placeholder="import Mathlib&#10;open ...&#10;theorem foo ... := by sorry"></textarea>
+  </div>
+  <div class="field">
+    <label>T_N — natural-language statement (may contain $LaTeX$)</label>
+    <textarea id="tTN" rows="6" placeholder="Suppose ... Prove that ..."></textarea>
+  </div>
+  <button id="setTargets" class="primary">Set targets &amp; derive C_F</button>
+  <button id="cancelTargets" class="tiny">cancel</button>
+  <span class="mut" id="tStatus" style="margin-left:10px"></span>
+  <div id="tErr"></div>
+</div>
+
+<!-- graph view -->
+<div id="view" style="display:none">
+  <section id="source">
+    <div class="card">
+      <h3>T_F <button class="tiny" id="addSF">+ S_F span</button></h3>
+      <div id="TF" class="txt lean"></div>
+    </div>
+    <div class="card">
+      <h3>T_N <button class="tiny" id="addSN">+ S_N span</button></h3>
+      <div id="TN" class="txt"></div>
+    </div>
+  </section>
+
+  <div id="hint"></div>
+
+  <section id="graph">
+    <svg id="edgeSvg"></svg>
+    <div class="col colF" id="colF"></div>
+    <div class="col" style="z-index:1"></div>   <!-- gutter (edges draw here) -->
+    <div class="col colN" id="colN"></div>
+  </section>
+</div>
+
+</div><!-- /content -->
+</div><!-- /layout -->
+
+<!-- edge popup menu -->
+<div id="edgeMenu" hidden>
+  <div class="mends"></div>
+  <div class="mtoggle">
+    <button data-v="1">λ = 1 &nbsp;ok</button>
+    <button data-v="0">λ = 0 &nbsp;not ok</button>
+  </div>
+  <textarea class="mreason" placeholder="reason"></textarea>
+  <div class="mrow"><button class="mdel tiny">delete edge</button><button class="mclose tiny">close</button></div>
+</div>
+
+<!-- the left panel. Loaded first so `ProofPane` exists by the time the script below boots. -->
+<script src="/proof_pane.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const BOT = "⊥";
+let B=null, sel={f:null,n:null}, selEdge=null, menuEdge=null, dirty=false;
+let undoStack=[], reasonPushed=false;
+let dpList=[];
+
+// ---------- refs ----------
+const endpointParts=ref=>ref?.parts||[ref];
+const refKey=ref=>ref?.parts?JSON.stringify(ref.parts.map(p=>JSON.stringify(p)).sort()):JSON.stringify(ref);
+const refEq=(a,b)=>refKey(a)===refKey(b);
+const refsOverlap=(a,b)=>endpointParts(a).some(p=>endpointParts(b).some(q=>refEq(p,q)));
+function mixedEndpoints(){
+  const refs=[];
+  B.lambda.forEach(([edge])=>{if(edge[0]?.parts&&!refs.some(ref=>refEq(ref,edge[0])))refs.push(edge[0]);});
+  return refs;
+}
+function formalEndpointText(ref){
+  return endpointParts(ref).map(([kind,i])=>kind==="S_F"?spanText(B.T_F,B.S_F[i]):B.C_F.items[i].signature||"").join("\n…\n");
+}
+const clip=(s,n=28)=>s.length>n?s.slice(0,n)+"…":s;
+function refLabel(ref){
+  if(ref===BOT) return BOT;
+  if(ref.parts) return ref.parts.map(refLabel).join(" + ");
+  const [set,i]=ref;
+  if(set==="S_F"){const s=B.S_F[i]; return `S_F[${i}] "${clip(spanText(B.T_F,s))}"`;}
+  if(set==="S_N"){const s=B.S_N[i]; return `S_N[${i}] "${clip(spanText(B.T_N,s))}"`;}
+  if(set==="C_N") return `C_N[${i}] "${clip((B.C_N[i]||{}).text||'')}"`;
+  if(set==="I")   return `I[${i}] "${clip(B.I[i]||'')}"`;
+  if(set==="C_F"){const it=(B.C_F.items||[])[i]||{}; return `C_F[${i}] "${clip(it.signature||'')}"`;}
+  return JSON.stringify(ref);
+}
+const escapeHtml=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- undo ----------
+function snapshot(){ return JSON.stringify({S_F:B.S_F,S_N:B.S_N,C_N:B.C_N,I:B.I,lambda:B.lambda,CFitems:B.C_F.items}); }
+function pushUndo(){ undoStack.push(snapshot()); if(undoStack.length>200) undoStack.shift(); $("#undo").disabled=false; }
+function undo(){
+  if(!undoStack.length) return;
+  const s=JSON.parse(undoStack.pop());
+  B.S_F=s.S_F; B.S_N=s.S_N; B.C_N=s.C_N; B.I=s.I; B.lambda=s.lambda;
+  if(s.CFitems) B.C_F.items=s.CFitems;
+  syncR(); sel={f:null,n:null}; closeMenu(); markDirty();
+  $("#undo").disabled=!undoStack.length; render();
+}
+
+// ---------- source text + span creation ----------
+// Spans may OVERLAP -- they need not be disjoint. Every character is rendered
+// exactly once (never duplicated): the text is cut at every span boundary and
+// each resulting sub-interval gets its span's colour; where spans overlap, the
+// shared region is striped with every covering span's colour.
+// A segment remembers *all* the spans covering it (data-covers) so a picked span
+// highlights across all its pieces; clicking picks the narrowest covering span.
+// A span is a SET of intervals (it may be discontinuous): span = [[a,b],[c,d],…].
+// These helpers treat one span as the union of its pieces.
+function coalesce(ivs){                         // sort + merge overlapping/adjacent
+  const s=ivs.filter(iv=>iv[1]>iv[0]).map(iv=>[iv[0],iv[1]]).sort((p,q)=>p[0]-q[0]||p[1]-q[1]);
+  const out=[]; for(const iv of s){ const last=out[out.length-1];
+    if(last&&iv[0]<=last[1]) last[1]=Math.max(last[1],iv[1]); else out.push(iv); } return out;
+}
+function spanStart(sp){ return sp.length?Math.min(...sp.map(iv=>iv[0])):0; }
+function spanText(text,sp){ return sp.map(iv=>text.slice(iv[0],iv[1])).join(" … "); }
+function sameSpan(a,b){ return JSON.stringify(coalesce(a))===JSON.stringify(coalesce(b)); }
+// the interval of span `sp` covering [a,b) (pieces are disjoint), else null.
+function pieceCovering(sp,a,b){ for(const iv of sp){ if(iv[1]>iv[0]&&iv[0]<=a&&iv[1]>=b) return iv; } return null; }
+function segCovers(spans,a,b){ const c=[]; for(let i=0;i<spans.length;i++){
+  if(pieceCovering(spans[i],a,b)) c.push(i); } return c; }
+// dominant (front) span for [a,b): the one whose *covering piece* is narrowest.
+function narrowest(spans,covers,a,b){ let p=covers[0],pw=Infinity;
+  for(const i of covers){ const iv=pieceCovering(spans[i],a,b); const w=iv?iv[1]-iv[0]:Infinity;
+    if(w<pw){pw=w;p=i;} } return p; }
+// per-span colour, keyed by span index so it matches its S_F[i]/S_N[i] card. When
+// spans overlap, the shared region is striped with each covering span's colour.
+const SEG_HUES=[210,28,150,315,45,265,0,180,95,330];
+function segHue(i){ return SEG_HUES[i%SEG_HUES.length]; }
+function segFill(i){ return `hsl(${segHue(i)} 72% 82%)`; }
+function segInk(i){ return `hsl(${segHue(i)} 60% 34%)`; }
+// paint a segment covered by `covers`: the dominant (narrowest) span fills the
+// background solidly -- it sits "in front", no blending -- and every other
+// covering span is a thin coloured underline bar stacked below, so the overlap
+// stays visible without muddying the colour.
+function paintSeg(seg,spans,covers,a,b){
+  const dom=narrowest(spans,covers,a,b);
+  seg.style.background=segFill(dom);
+  const others=covers.filter(i=>i!==dom);
+  if(others.length){
+    seg.style.boxShadow=others.map((idx,k)=>`inset 0 ${-3*(k+1)}px 0 0 ${segInk(idx)}`).join(", ");
+    seg.style.paddingBottom=(3*others.length)+"px";
+  }
+}
+function boundaries(len,spans,lo,hi){
+  const pts=new Set([lo,hi]);
+  spans.forEach(sp=>sp.forEach(iv=>{ if(iv[0]>lo&&iv[0]<hi)pts.add(iv[0]); if(iv[1]>lo&&iv[1]<hi)pts.add(iv[1]); }));
+  return [...pts].sort((a,b)=>a-b);
+}
+// build one text segment for [a,b): shaded/clickable if any span covers it.
+function segEl(text,a,b,spans,covers,kind,onPick){
+  const seg=document.createElement("span");
+  const cls=kind==="S_F"?"sf":"sn";
+  seg.className="seg"+(covers.length?" "+cls:""); seg.dataset.start=a; seg.dataset.end=b;
+  seg.textContent=text.slice(a,b);
+  if(covers.length){
+    paintSeg(seg,spans,covers,a,b);
+    seg.dataset.covers=JSON.stringify(covers.map(i=>[kind,i]));
+    const pick=narrowest(spans,covers,a,b); seg.onclick=()=>onPick(pick);
+    seg.title=covers.map(i=>kind+"["+i+"]").join(", ");
+  }
+  // superscript index tag (in the span's own colour) at the start of every PIECE,
+  // so each fragment of a discontinuous span is labelled with its span index.
+  covers.forEach(i=>{ if(spans[i].some(iv=>iv[0]===a)){ const t=document.createElement("span");
+    t.className="idxtag"; t.textContent=i; t.style.color=segInk(i); seg.appendChild(t); } });
+  return seg;
+}
+function renderText(el,text,spans,cls,onPick){
+  el.innerHTML="";
+  const kind=cls==="sf"?"S_F":"S_N";
+  const bs=boundaries(text.length,spans,0,text.length);
+  for(let k=0;k<bs.length-1;k++){
+    const a=bs[k],b=bs[k+1];
+    el.appendChild(segEl(text,a,b,spans,segCovers(spans,a,b),kind,onPick));
+  }
+}
+// nearest ancestor element carrying char offsets (a .seg / math node)
+function segAnc(node){
+  let el=node.nodeType===3?node.parentElement:node;
+  while(el&&!(el.dataset&&el.dataset.start!==undefined)) el=el.parentElement;
+  return el;
+}
+// the char offset at the very start / end of a whole node
+function edgeOffset(node,which){
+  const el=segAnc(node); if(!el) return null;
+  return which==="end"?parseInt(el.dataset.end,10):parseInt(el.dataset.start,10);
+}
+// map a DOM (node, offset) selection boundary to a char offset into the source.
+// A boundary may be reported inside a text node (offset = char index) OR on an
+// element with offset = a *child index* (typically at a segment boundary) -- the
+// old code confused the two, corrupting spans that started/ended on a boundary.
+function pointOffset(node,off,side){
+  if(node.nodeType===3){                                  // inside a text node
+    const el=segAnc(node); if(!el) return null;
+    if(el.dataset.atomic!==undefined)                     // math: snap to whole node
+      return side==="end"?parseInt(el.dataset.end,10):parseInt(el.dataset.start,10);
+    return parseInt(el.dataset.start,10)+off;             // exact char within the segment
+  }
+  // element node: `off` is a child index, not a char offset
+  if(node.dataset&&node.dataset.start!==undefined)        // the segment itself (child 0 = its text)
+    return off===0?parseInt(node.dataset.start,10):parseInt(node.dataset.end,10);
+  const kids=node.childNodes;                             // a container (#TF/#TN)
+  if(off<kids.length){ const s=edgeOffset(kids[off],"start"); if(s!=null) return s; }
+  if(off>0){ const e=edgeOffset(kids[off-1],"end"); if(e!=null) return e; }
+  return null;
+}
+// the current selection as a set of char-intervals. Reads EVERY range (Firefox
+// Ctrl-select yields several); Chromium gives one, and multi-piece spans are then
+// built up with "+ piece". Returns [] if nothing usable is selected here.
+function selectionIntervals(containerId){
+  const s=window.getSelection(); if(!s||s.rangeCount===0) return [];
+  const cont=$(containerId), ivs=[];
+  for(let k=0;k<s.rangeCount;k++){ const r=s.getRangeAt(k);
+    if(r.collapsed) continue;
+    if(!cont.contains(r.startContainer)||!cont.contains(r.endContainer)) continue;
+    let a=pointOffset(r.startContainer,r.startOffset,"start"), b=pointOffset(r.endContainer,r.endOffset,"end");
+    if(a==null||b==null) continue; if(a>b)[a,b]=[b,a]; if(a<b) ivs.push([a,b]);
+  }
+  return coalesce(ivs);
+}
+// T_N renderer: math ($...$, $$...$$) rendered inline as atomic nodes that carry
+// their raw [start,end]; plain text stays char-accurate. Selection maps to raw
+// offsets either way, so S_N spans always include the "$".
+function renderTN(el,text,spans,onPick){
+  el.innerHTML="";
+  // One map of where the math is, shared with the S_N cards (`renderNLSpan`): the strip and the card
+  // have to agree about which characters of a span are math, or a span would be typeset here and
+  // shown raw there.
+  const maths=(window.__noKatex||!window.katex)?[]:mathSegments(text);
+  // plain (non-math) range: same overlap-aware cut as renderText.
+  const addText=(lo,hi)=>{ if(hi<=lo) return;
+    const bs=boundaries(text.length,spans,lo,hi);
+    for(let k=0;k<bs.length-1;k++){ const a=bs[k],b=bs[k+1];
+      el.appendChild(segEl(text,a,b,spans,segCovers(spans,a,b),"S_N",onPick)); } };
+  // shade / tag / wire one math node, which covers raw [a,b). Returns how many spans cover it.
+  const mark=(seg,a,b)=>{
+    const covers=segCovers(spans,a,b);
+    if(covers.length){ seg.classList.add("seg","sn"); paintSeg(seg,spans,covers,a,b);
+      seg.dataset.covers=JSON.stringify(covers.map(i=>["S_N",i]));
+      const pick=narrowest(spans,covers,a,b); seg.onclick=()=>onPick(pick);
+      seg.title=covers.map(i=>"S_N["+i+"]").join(", "); }
+    covers.forEach(i=>{ if(spans[i].some(iv=>iv[0]===a)){ const t=document.createElement("span");
+      t.className="idxtag"; t.textContent=i; t.style.color=segInk(i); seg.appendChild(t); } });
+    return covers.length;
+  };
+  const mnode=(a,b)=>{ const seg=document.createElement("span"); seg.className="mnode";
+    seg.dataset.start=a; seg.dataset.end=b;
+    seg.dataset.atomic="1";   // rendered math: a selection inside it snaps to the whole node
+    return seg; };
+  // a whole formula, atomic: shaded by the spans that fully contain it.
+  const addMath=(mm)=>{
+    const seg=mnode(mm.s,mm.e);
+    try{ seg.innerHTML=katex.renderToString(mm.tex,texOpts(mm.display)); }
+    catch(e){ seg.textContent=text.slice(mm.s,mm.e); }
+    mark(seg,mm.s,mm.e);
+    el.appendChild(seg);
+  };
+  // A formula a span CUTS is still typeset AS MATH: it is split at the span boundaries and each
+  // fragment typeset on its own, so "$D_\tau=D+\tau e_s e_j^{\mathsf T}$" shows `D_\tau=` in one
+  // span's colour and `D+\tau e_s e_j^{\mathsf T}` in the other's. Shading a formula only when a span
+  // CONTAINS it hid real labels -- five of item1's nine segments had an unshaded formula, two of them
+  // showing nothing at all -- and the annotation is right to cut where it does: the prose puts the
+  // name on the left of the `=` and the definition on the right, and a displayed equation is aligned
+  // term by term.
+  //
+  // Atomicity survives at fragment resolution: each fragment is its own atomic node, so a selection
+  // still cannot land inside one and the boundaries you can drag to are exactly the ones already
+  // labelled. What this does cost is the spacing KaTeX would compute ACROSS a cut -- a lone `\in` has
+  // no operands to space against -- which is the price of showing where the span ends.
+  const addCutMath=(mm)=>{
+    const bs=boundaries(text.length,spans,mm.s,mm.e);
+    const parts=[];                      // built up front: one unparsable fragment abandons them all
+    for(let k=0;k<bs.length-1;k++){
+      const a=bs[k],b=bs[k+1];
+      const tex=text.slice(Math.max(a,mm.is),Math.min(b,mm.ie));
+      // A fragment holding only delimiters or the whitespace inside a display formula has no math in
+      // it. Those characters are not shown in rendered math at all, so the node stays empty and
+      // carries just its index tag -- but it is still emitted, so dragging across the formula can
+      // select them (`\[` is non-whitespace, so the coverage gate wants it in some span).
+      if(!tex.trim()){ parts.push([a,b,""]); continue; }
+      const html=texFrag(tex,mm.display);
+      if(html==null) return false;
+      parts.push([a,b,html]);
+    }
+    const box=mm.display?document.createElement("span"):el;
+    if(box!==el) box.className="mdisp";
+    for(const [a,b,html] of parts){
+      const seg=mnode(a,b);
+      if(html) seg.innerHTML=html;
+      mark(seg,a,b);
+      box.appendChild(seg);
+    }
+    if(box!==el) el.appendChild(box);
+    return true;
+  };
+  const cutBy=(mm)=>spans.some(sp=>sp.some(iv=>(iv[0]>mm.s&&iv[0]<mm.e)||(iv[1]>mm.s&&iv[1]<mm.e)));
+  let pos=0;
+  for(const mm of maths){ if(mm.s>pos) addText(pos,mm.s);
+    if(!cutBy(mm)||!addCutMath(mm)) addMath(mm);   // uncut, or cut where it cannot be split
+    pos=mm.e; }
+  addText(pos,text.length);
+}
+// Macros the corpus's papers use but whose \newcommand lives in a preamble the excerpted .tex does
+// not carry. Purely a RENDERING aid: T_N on disk and the S_N offsets are the verbatim source, so
+// defining these changes what you see, never what you label.
+const KATEX_MACROS={"\\im":"\\operatorname{im}","\\rank":"\\operatorname{rank}",
+                    "\\R":"\\mathbb{R}","\\N":"\\mathbb{N}","\\Z":"\\mathbb{Z}","\\Q":"\\mathbb{Q}",
+                    "\\C":"\\mathbb{C}","\\supp":"\\operatorname{supp}"};
+const texOpts=d=>({displayMode:d,throwOnError:false,macros:KATEX_MACROS});
+// all math segments in `text`, supporting every common delimiter:
+// $$…$$ / \[…\] (display) and $…$ / \(…\) (inline). Returns raw [s,e) offsets.
+const MATH_RE=()=>/\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g;
+function mathSegments(text){
+  const re=MATH_RE(); const out=[]; let m;
+  while((m=re.exec(text))){
+    const tex=m[1]??m[2]??m[3]??m[4];
+    const d=(m[0].length-tex.length)/2;   // both delimiters, same width
+    // `s`/`e` bound the formula WITH its delimiters; `is`/`ie` bound the TeX itself. A fragment of
+    // this formula needs both, to know which of its characters are math and which are the `$` / `\[`
+    // around them -- which is the question "is this span inside a formula?" reduces to.
+    out.push({s:m.index,e:re.lastIndex,is:m.index+d,ie:re.lastIndex-d,
+              display:m[1]!=null||m[2]!=null,tex});
+  }
+  return out;
+}
+// One TeX fragment, STRICTLY: null when it will not parse, so the caller can fall back to the raw
+// source instead of KaTeX drawing an error in red. Display fragments are typeset INLINE (so a cut
+// equation is not broken across lines) with \displaystyle restoring the sizing.
+const texFrag=(tex,display)=>{
+  try{ return katex.renderToString(display?"\\displaystyle "+tex:tex,
+                                   {displayMode:false,throwOnError:true,macros:KATEX_MACROS}); }
+  catch(e){ return null; }
+};
+// NL side: render text as MARKDOWN + math ("just works"). Math is protected from
+// the markdown pass (so \ldots, _, * inside formulae survive), then rendered with
+// KaTeX. Degrades to math-only, then to plain text, if a library is missing.
+function renderRich(el,text){
+  el.textContent="";
+  const noMd=window.__noMarked||!window.marked, noK=window.__noKatex||!window.katex;
+  if(noMd&&noK){ el.textContent=text; return; }
+  const segs=noK?[]:mathSegments(text);
+  let src=text;
+  if(segs.length){ let out="",pos=0; segs.forEach((sg,i)=>{ out+=text.slice(pos,sg.s)+`@@M${i}@@`; pos=sg.e; }); src=out+text.slice(pos); }
+  let html=noMd?escapeHtml(src).replace(/\n/g,"<br>"):marked.parse(src);
+  html=html.replace(/@@M(\d+)@@/g,(_,i)=>{ const sg=segs[+i];
+    try{ return katex.renderToString(sg.tex,texOpts(sg.display)); }
+    catch(e){ return escapeHtml(sg.tex); } });
+  el.innerHTML=html;
+}
+// Prose sitting BESIDE rendered math, so it has to stay inline: `marked.parse` wraps its output in a
+// block <p>, which would drop the formula onto its own line.
+function inlineRich(src){
+  if(!window.__noMarked&&window.marked&&marked.parseInline){
+    try{ return marked.parseInline(src); }catch(e){}
+  }
+  return escapeHtml(src).replace(/\n/g,"<br>");
+}
+// An `S_N` span cut into the pieces its card has to render DIFFERENTLY: the characters inside a
+// formula's body are math, everything else is prose. The decision is per PIECE, not per span,
+// because a span routinely straddles the boundary -- item1 has spans like "the matrix\n$D_\tau=" and
+// "$\in\im D_\tau,$" -- and the whole point is to show the formula part as a formula.
+//
+// Pieces are returned in reading order: {raw} for text to show as itself, {tex,display} for a
+// fragment to typeset, {sep} between two intervals of a discontinuous span (the " … " of spanText).
+function nlSpanPieces(text,span,maths){
+  const out=[];
+  span.forEach((iv,k)=>{
+    if(k) out.push({sep:true});
+    const a=iv[0], b=iv[1];
+    let p=a;
+    while(p<b){
+      // the first formula still open at `p` that starts before this interval ends. `maths` is in
+      // source order and its segments do not overlap, so this is the next one that matters.
+      const mm=maths.find(m=>m.e>p&&m.s<b);
+      if(!mm){ out.push({raw:text.slice(p,b)}); break; }
+      if(mm.s>p) out.push({raw:text.slice(p,mm.s)});          // prose before it
+      const ms=Math.max(p,mm.is), me=Math.min(b,mm.ie);       // the body, clipped to the interval
+      const tex=me>ms?text.slice(ms,me):"";
+      // A piece holding only delimiters, or only the whitespace inside a display formula, has no
+      // math in it. Those characters still have to appear -- seg-1.3's and seg-1.5's spans over a
+      // bare `\[` / `\]` are real labels, the presentation of a displayed equation -- so they are
+      // shown as themselves rather than handed to KaTeX as nothing.
+      if(tex.trim()) out.push({tex,display:mm.display});
+      else out.push({raw:text.slice(Math.max(p,mm.s),Math.min(b,mm.e))});
+      p=Math.min(b,mm.e);
+    }
+  });
+  return out;
+}
+// The NL text of one `S_N` span, typeset as math WHERE IT IS MATH. The test is the span itself: a
+// piece inside a `$…$` / `$$…$$` / `\[…\]` / `\(…\)` body is typeset, prose is rendered as before,
+// and a fragment KaTeX cannot parse falls back to its raw source. So the worst case is exactly
+// today's output, and `window.__noKatex` skips the path entirely.
+//
+// Two consequences, both deliberate: a typeset piece does not show its `$` / `\[` delimiters (the
+// card's hover title still carries the raw string, and T_N / S_N on disk are untouched -- this is a
+// rendering choice, like KATEX_MACROS), and display math is typeset inline rather than as a centred
+// block, because a card is one line in a column.
+function renderNLSpan(el,text,span){
+  const maths=(window.__noKatex||!window.katex)?[]:mathSegments(text);
+  // A span that goes nowhere near a formula takes the old path, so a prose-only card renders exactly
+  // as it did. The test is TOUCHING a formula, not having math to typeset: a span over a bare `\[`
+  // has no math in it, but joining its pieces with " … " and handing that to `renderRich` makes a
+  // formula out of the two delimiters and typesets the ellipsis between them (which is what seg-1.5
+  // used to show). Its pieces are rendered as the raw text they are instead.
+  if(!maths.some(m=>span.some(iv=>iv[0]<m.e&&iv[1]>m.s))){
+    renderRich(el,spanText(text,span)); return;
+  }
+  const pieces=nlSpanPieces(text,span,maths);
+  el.textContent="";
+  for(const p of pieces){
+    const s=document.createElement("span");
+    if(p.sep){ s.className="pgap"; s.textContent=" … "; }
+    else if(p.tex){
+      const html=texFrag(p.tex,p.display);
+      if(html) s.innerHTML=html;
+      else { s.className="rawtex"; s.textContent=p.tex; }     // will not parse: show the source
+    }
+    else s.innerHTML=inlineRich(p.raw);
+    el.appendChild(s);
+  }
+}
+// formal side: Lean-4 syntax highlighting via Shiki when ready; plain monospace
+// otherwise (and until Shiki finishes loading -- render() re-runs via shikiReady).
+function renderLean(el,code){
+  if(window.__shiki&&!window.__noShiki){
+    try{ el.innerHTML=window.__shiki.codeToHtml(code,{lang:"lean",theme:"github-light"}); return; }
+    catch(e){}
+  }
+  el.textContent=code;
+}
+function addSpanFrom(containerId,setName){
+  const sp=selectionIntervals(containerId);
+  if(!sp.length){ alert("Select text in the panel first."); return; }
+  const arr=B[setName];
+  if(arr.some(x=>sameSpan(x,sp))) return;
+  // append only -- edges reference spans by index, so never renumber the array.
+  // reading order is handled at render time; a new span is the last index, so it
+  // has no edge yet and ensureBotEdges() defaults it to ⊥.
+  pushUndo(); arr.push(sp); markDirty(); render();
+}
+// append the current selection to span `i` as MORE pieces (a span may be
+// discontinuous). Select another chunk, then click "+ piece".
+function addPiece(setName,i,containerId){
+  const ivs=selectionIntervals(containerId);
+  if(!ivs.length){ alert("Select the text to add as another piece, then click + piece."); return; }
+  const arr=B[setName]; pushUndo(); arr[i]=coalesce(arr[i].concat(ivs)); markDirty(); render();
+}
+// drop one piece from a span (keeps its index; a span must keep >=1 piece).
+function removePiece(setName,i,pieceIdx){
+  const sp=B[setName][i]; if(!sp||sp.length<=1) return;
+  pushUndo(); sp.splice(pieceIdx,1); markDirty(); render();
+}
+// re-point an existing span to the current text selection (keeps its index, so
+// all edges pointing at it are preserved). Select the new text, then click ✎.
+function editSpan(setName,i,containerId){
+  const sp=selectionIntervals(containerId);
+  if(!sp.length){ alert("Select the new text in the panel first, then click ✎ on the span."); return; }
+  const arr=B[setName];
+  if(arr.some((x,k)=>k!==i&&sameSpan(x,sp))){ alert("Another span already covers exactly that range."); return; }
+  pushUndo(); arr[i]=sp; markDirty(); render();
+}
+
+// ---------- selection + connect (explicit button) ----------
+function clickNode(side,ref){
+  sel[side]=refEq(sel[side],ref)?null:ref; paintSel();
+}
+function clearSel(){ sel={f:null,n:null}; paintSel(); }
+function doConnect(){ if(!(sel.f&&sel.n)) return; pushUndo(); createEdge(sel.f,sel.n); clearSel(); }
+function paintSel(){
+  document.querySelectorAll(".node.picked,.seg.picked").forEach(e=>e.classList.remove("picked"));
+  [sel.f,sel.n].forEach(r=>{ if(!r) return;
+    document.querySelectorAll("[data-ref]").forEach(e=>{ if(refEq(JSON.parse(e.dataset.ref),r)) e.classList.add("picked"); });
+    document.querySelectorAll("[data-covers]").forEach(e=>{ if(JSON.parse(e.dataset.covers).some(c=>refsOverlap(c,r))) e.classList.add("picked"); });
+  });
+  const h=$("#hint"); h.innerHTML="";
+  const both=sel.f&&sel.n&&!(sel.f===BOT&&sel.n===BOT);
+  if(both){
+    h.innerHTML=`Connect <b>${escapeHtml(refLabel(sel.f))}</b> ↔ <b>${escapeHtml(refLabel(sel.n))}</b>? `;
+    const c=document.createElement("button"); c.className="primary tiny"; c.textContent="Connect"; c.onclick=doConnect;
+    const x=document.createElement("button"); x.className="tiny"; x.textContent="clear"; x.onclick=clearSel;
+    h.append(c,x);
+  } else if(sel.f||sel.n){
+    const have=sel.f?refLabel(sel.f):refLabel(sel.n), need=sel.f?"NL":"Formal";
+    h.innerHTML=`Selected <b>${escapeHtml(have)}</b> — click a node on the <b>${need}</b> side. `;
+    const x=document.createElement("button"); x.className="tiny"; x.textContent="clear"; x.onclick=clearSel; h.append(x);
+  } else {
+    h.innerHTML=`Click a <b>Formal</b> node and an <b>NL</b> node, then <b>Connect</b>. Click an edge to edit · double-click a C_N/I node to edit · select text then <b>✎</b> to re-point a span, or <b>+piece</b> to add a discontinuous piece.`;
+  }
+}
+
+// ---------- render ----------
+function render(){
+  if(B&&B.has_targets&&ensureBotEdges()) markDirty();  // no span is ever line-less
+  renderText($("#TF"),B.T_F,B.S_F,"sf",(i)=>clickNode("f",["S_F",i]));
+  renderTN($("#TN"),B.T_N,B.S_N,(i)=>clickNode("n",["S_N",i]));
+  renderColumns();
+  renderLabel();
+  renderCoverage();
+  paintSel();
+  requestAnimationFrame(drawEdges);
+}
+// lambda index of a vertex's edge to ⊥ (its "unmatched" mapping), else -1.
+function botEdge(ref){
+  if(ref===BOT) return -1;
+  const formal=!!ref.parts||ref[0]==="S_F"||ref[0]==="C_F";
+  return B.lambda.findIndex(e=>{
+    const near=formal?e[0][0]:e[0][1], far=formal?e[0][1]:e[0][0];
+    return refEq(near,ref) && far===BOT;
+  });
+}
+// A `path:line` citation, as a chip under a context card. Clicking it jumps the LEFT panel to that
+// line -- same tab, no navigation: the proof panel already holds the whole file, and that is the
+// place the citation is talking about. alt+← (or the pane's ← button) comes back.
+//
+// A citation is only drawn as a live link when it resolves. The proof panel is asked, so the three
+// outcomes stay distinct: a line that exists is clickable; a file that IS on the page but has no such
+// line is struck through, which is what a stale citation looks like after the proof is edited; a file
+// that is not on the page at all (`Mathlib/…`, upstream's usual provenance) is plain text, since it
+// is real provenance that simply cannot be jumped to here. `check_citations.py` makes the same
+// distinctions offline, and also checks the signature the line carries.
+//
+// `file.lean:37-38` cites a range, for a record read off more than one line: `have h : ¬P := by` /
+// `intro hp` writes P on the first and binds hp on the second. Both lines are marked by the jump,
+// because both are what the item is quoting.
+const LEAN_CITE=/^(\S+\.lean):(\d+)(?:-(\d+))?$/;
+function citeEl(src){
+  const el=document.createElement("span"); el.className="src"; el.textContent=src;
+  const m=LEAN_CITE.exec(String(src||"").trim());
+  const lo=m?+m[2]:0, hi=m&&m[3]?+m[3]:lo;
+  const at=m&&window.ProofPane&&ProofPane.locate?ProofPane.locate(m[1],lo):null;
+  const end=m&&window.ProofPane&&ProofPane.locate?ProofPane.locate(m[1],hi):null;
+  if(!m||!at||!at.file){ if(m) el.title=m[1]+" is not the file shown in the proof panel"; return el; }
+  if(!at.row||!end.row){ el.classList.add("badcite");
+    el.title=`${m[1]} has ${at.lines} line(s) — there is no line ${hi>lo?hi:lo}`; return el; }
+  el.classList.add("cite");
+  el.title=`jump the proof to ${src}  (alt+← comes back)`;
+  el.onclick=(e)=>{ e.stopPropagation(); ProofPane.revealLine(m[1],lo,hi); };
+  return el;
+}
+function mkNode(side,ref,cls,label,text,sub,opts){
+  opts=opts||{};
+  const node=document.createElement("div");
+  node.className="node "+cls; node.dataset.ref=JSON.stringify(ref);
+  // tint the card's accent border to its span colour so it maps to the highlight
+  if(opts.accent){ if(side==="f") node.style.borderLeftColor=opts.accent; else node.style.borderRightColor=opts.accent; }
+  node.onclick=()=>clickNode(side,ref);
+  if(opts.onEdit) node.ondblclick=(e)=>{e.stopPropagation();opts.onEdit();};
+  const dot=document.createElement("span"); dot.className="dot";
+  // a vertex whose only mapping is to ⊥ shows a clickable ⊥ beside its dot,
+  // instead of a wire. (invariant: no ⊥ edge coexists with a real edge.)
+  let botMark=null; const bi=botEdge(ref);
+  if(bi>=0){
+    botMark=document.createElement("span");
+    botMark.className="botmark"+(B.lambda[bi][1][0]===0?" bad":"");
+    botMark.textContent="⊥"; botMark.title="maps to ⊥ (unmatched) — click to set verdict";
+    botMark.onclick=(ev)=>{ev.stopPropagation(); openMenu(bi,ev.clientX,ev.clientY);};
+  }
+  const lab=document.createElement("span"); lab.className="nlab"; lab.textContent=label;
+  const body=document.createElement("span");
+  const t=document.createElement("span"); t.className="ntext"; t.title=text;
+  if((cls||"").indexOf("n-bot")>=0) t.textContent=text;   // ⊥ node: no rich render
+  // An S_N card knows WHERE in T_N its text came from, so it can typeset the parts of it that are
+  // inside a formula. `text` (the raw slice) stays the hover title either way.
+  else if(opts.nlSpan) renderNLSpan(t,B.T_N,opts.nlSpan);
+  else if(side==="n") renderRich(t,text);                 // NL: markdown + math
+  else renderLean(t,text);                                // formal: Lean highlight
+  body.appendChild(t);
+  if(sub){ const s=document.createElement("span"); s.className="src"; s.textContent=sub; body.appendChild(s); }
+  if(opts.cite) body.appendChild(citeEl(opts.cite));
+  // pieces of a discontinuous span: one removable chip each (only shown when >1).
+  if(opts.pieceChips && opts.pieceChips.length>1){
+    const pc=document.createElement("span"); pc.className="pieces";
+    opts.pieceChips.forEach(p=>{ const chip=document.createElement("span"); chip.className="piece";
+      chip.textContent=p.text; chip.title=p.title||p.text;
+      const rm=document.createElement("span"); rm.className="prm"; rm.textContent="×"; rm.title="remove this piece";
+      rm.onmousedown=e=>e.preventDefault();
+      rm.onclick=e=>{e.stopPropagation();p.onRemove();}; chip.appendChild(rm); pc.appendChild(chip); });
+    body.appendChild(pc);
+  }
+  const parts=[lab,body];
+  if(opts.onAddPiece){ const p=document.createElement("span"); p.className="edit"; p.textContent="+piece";
+    p.title="append the current text selection to this span as another piece";
+    p.onmousedown=e=>e.preventDefault();
+    p.onclick=e=>{e.stopPropagation();opts.onAddPiece();}; parts.push(p); }
+  if(opts.onEditSpan){ const p=document.createElement("span"); p.className="edit"; p.textContent="✎";
+    p.title="re-point this whole span to the current text selection";
+    // don't let pressing the button collapse the text selection we're about to read
+    p.onmousedown=e=>e.preventDefault();
+    p.onclick=e=>{e.stopPropagation();opts.onEditSpan();}; parts.push(p); }
+  // context items (C_N / C_F / I) are edited via a visible button, not just dblclick.
+  if(opts.onEdit){ const p=document.createElement("span"); p.className="edit"; p.textContent="✎";
+    p.title="edit this item";
+    p.onclick=e=>{e.stopPropagation();opts.onEdit();}; parts.push(p); }
+  if(opts.onDel){ const x=document.createElement("span"); x.className="del"; x.textContent="✕";
+    x.onclick=e=>{e.stopPropagation();opts.onDel();}; parts.push(x); }
+  if(side==="f"){ parts.forEach(p=>node.appendChild(p)); if(botMark)node.appendChild(botMark); node.appendChild(dot); }
+  else { node.appendChild(dot); if(botMark)node.appendChild(botMark); parts.forEach(p=>node.appendChild(p)); }
+  return node;
+}
+function group(col,label){
+  const g=document.createElement("div"); g.className="grp"; g.dataset.sec=label;
+  const l=document.createElement("div"); l.className="grplab"; l.textContent=label; g.appendChild(l);
+  col.appendChild(g); return g;
+}
+function renderColumns(){
+  const F=$("#colF"), N=$("#colN"); F.innerHTML=""; N.innerHTML="";
+  F.innerHTML='<div class="colhead">Formal (F)</div>';
+  N.innerHTML='<div class="colhead">Natural language (N)</div>';
+
+  // spans are listed in reading order (by start offset), not creation order, so
+  // the cards scan top-to-bottom like the text. Labels keep the original index.
+  let g=group(F,"S_F");
+  B.S_F.map((s,i)=>({s,i})).sort((a,b)=>spanStart(a.s)-spanStart(b.s))
+    .forEach(({s,i})=>g.appendChild(mkNode("f",["S_F",i],"n-sf",`S_F[${i}]`,spanText(B.T_F,s),"",
+      {accent:segInk(i), onAddPiece:()=>addPiece("S_F",i,"#TF"),
+       onDel:()=>removeElem("S_F",i), onEditSpan:()=>editSpan("S_F",i,"#TF"),
+       pieceChips:s.map((iv,pi)=>({text:clip(B.T_F.slice(iv[0],iv[1]),14), onRemove:()=>removePiece("S_F",i,pi)}))})));
+
+  // C_F = the clauses of the proof that put something in scope, QUOTED: the text as the file writes
+  // it, plus the line(s) it is written on. One field, because one is all there is to say — a `name`
+  // beside the clause was a second, paraphrased way of saying what the clause already says, and
+  // `check_verbatim.py` holds the text to being a contiguous substring of the lines it cites.
+  const gCF=group(F,"C_F"); const items=(B.C_F&&B.C_F.items)||[];
+  const cfHead=document.createElement("div"); cfHead.className="grplab";
+  cfHead.innerHTML=`C_F <span class="mut">(${items.length} clause${items.length===1?"":"s"})</span> `;
+  const addcf=document.createElement("button"); addcf.className="tiny"; addcf.textContent="+ item";
+  addcf.title="add a formal-context clause — paste it verbatim from the proof, with its line";
+  addcf.onclick=(e)=>{e.stopPropagation(); openCFform(gCF);}; cfHead.appendChild(addcf);
+  gCF.replaceChild(cfHead, gCF.firstChild);
+  if(!items.length){ const hint=document.createElement("div"); hint.className="cf-hint";
+    hint.textContent="… no context yet — click + item, then paste a clause verbatim from the proof";
+    gCF.appendChild(hint); }
+  items.forEach((it,i)=>gCF.appendChild(mkNode("f",["C_F",i],"n-cf",`C_F[${i}]`,
+    it.signature||"","",{cite:it.source||"",
+      onDel:()=>removeElem("C_F",i),onEdit:()=>openCFform(gCF,i)})));
+  const mixed=mixedEndpoints();
+  if(mixed.length){
+    const combined=group(F,"Combined formal endpoints");
+    mixed.forEach(ref=>combined.appendChild(mkNode("f",ref,"n-cf n-mixed","",
+      formalEndpointText(ref),refLabel(ref))));
+  }
+
+  g=group(N,"S_N");
+  B.S_N.map((s,i)=>({s,i})).sort((a,b)=>spanStart(a.s)-spanStart(b.s))
+    .forEach(({s,i})=>g.appendChild(mkNode("n",["S_N",i],"n-sn",`S_N[${i}]`,spanText(B.T_N,s),"",
+      {accent:segInk(i), nlSpan:s, onAddPiece:()=>addPiece("S_N",i,"#TN"),
+       onDel:()=>removeElem("S_N",i), onEditSpan:()=>editSpan("S_N",i,"#TN"),
+       pieceChips:s.map((iv,pi)=>({text:clip(B.T_N.slice(iv[0],iv[1]),14), onRemove:()=>removePiece("S_N",i,pi)}))})));
+
+  const gCN=group(N,"C_N"); const cnHead=document.createElement("div"); cnHead.className="grplab";
+  cnHead.textContent="C_N ";
+  const addcn=document.createElement("button"); addcn.className="tiny"; addcn.textContent="+ item";
+  addcn.hidden=!!B.nl_context;
+  addcn.onclick=(e)=>{e.stopPropagation(); openCNform(gCN);}; cnHead.appendChild(addcn);
+  gCN.replaceChild(cnHead,gCN.firstChild);
+  // C_N provenance is free text by design ("Lemma 3.2, p. 7"), and `citeEl` leaves it as such —
+  // but one written as `file.lean:LINE` becomes the same clickable jump a C_F citation is.
+  B.C_N.forEach((it,i)=>gCN.appendChild(mkNode("n",["C_N",i],"n-cn","",it.text||"","",
+    {cite:it.source||"",onDel:()=>removeElem("C_N",i), onEdit:it.pieces?null:()=>openCNform(gCN,i)})));
+
+  const gI=group(N,"I"); const iHead=document.createElement("div"); iHead.className="grplab";
+  iHead.textContent="I ";
+  const addi=document.createElement("button"); addi.className="tiny"; addi.textContent="+ item";
+  addi.onclick=(e)=>{e.stopPropagation(); openIform(gI);}; iHead.appendChild(addi);
+  gI.replaceChild(iHead,gI.firstChild);
+  B.I.forEach((it,i)=>gI.appendChild(mkNode("n",["I",i],"n-i","",it,"",
+    {onDel:()=>removeElem("I",i), onEdit:()=>openIform(gI,i)})));
+}
+function closeCF(){ const m=$("#cfPicker"); if(m) m.remove(); }
+// add / (when idx given) edit a C_F clause -- a plain manual paste, like a C_N item: you select the
+// clause in the proof panel on the left, copy it, and paste it in with the line it is on. Two
+// fields, and both are a quotation: the TEXT must be in the file word for word (`check_verbatim.py`
+// rejects it otherwise, including a plausible `name : type` stitched out of two halves that are
+// each there), and the SOURCE says which line(s) it is read off, which is where the chip jumps to.
+function openCFform(g, idx){
+  const it=(idx!=null?(B.C_F.items||[])[idx]:null)||{signature:"",source:""};
+  const box=document.createElement("div"); box.className="cnform";
+  const sig=document.createElement("textarea"); sig.rows=4;
+  sig.placeholder="the clause, verbatim from the proof (e.g. obtain ⟨τ, hτ⟩ : ∃ τ : ℝ, τ ≠ 0)";
+  sig.value=it.signature||"";
+  const src=document.createElement("input");
+  src.placeholder="source — the line(s) it is written on, e.g. items/item1/Main.lean:46";
+  src.value=it.source||"";
+  const add=document.createElement("button"); add.className="primary tiny"; add.textContent=(idx!=null?"save":"add");
+  add.onclick=()=>{ const sg=sig.value, so=src.value.trim(); if(!sg.trim()) return;
+    pushUndo();
+    const rec={...it, signature:sg, kind:it.kind||""};
+    delete rec.name;
+    if(so||"source" in it||idx==null)rec.source=so;
+    if(sg!==it.signature){ delete rec.pieces; }
+    if(idx!=null) B.C_F.items[idx]=rec; else { B.C_F.items=B.C_F.items||[]; B.C_F.items.push(rec); }
+    markDirty(); render(); };
+  const cancel=document.createElement("button"); cancel.className="tiny"; cancel.textContent="cancel"; cancel.onclick=()=>render();
+  box.appendChild(sig); box.appendChild(src);
+  const row=document.createElement("div"); row.appendChild(add); row.appendChild(cancel); box.appendChild(row);
+  g.appendChild(box); sig.focus();
+}
+// Complete-coverage annotations require every target region to be covered.
+function covGaps(){
+  const out=[];
+  if(B.format?.coverage==="selective") return out;
+  [["f",B.T_F,B.S_F],["n",B.T_N,B.S_N]].forEach(([side,text,spans])=>{
+    if(text==null) return;
+    const n=text.length, cov=new Uint8Array(n);
+    (spans||[]).forEach(sp=>sp.forEach(([s,e])=>{ for(let i=Math.max(0,s);i<Math.min(n,e);i++) cov[i]=1; }));
+    let i=0;
+    while(i<n){
+      if(cov[i]){ i++; continue; }
+      let j=i; while(j<n&&!cov[j]) j++;
+      const chunk=text.slice(i,j);
+      if(chunk.trim()!=="") out.push({side,start:i,end:j,text:chunk});
+      i=j;
+    }
+  });
+  return out;
+}
+function gapLines(gaps){
+  return gaps.map(g=>`${g.side==="f"?"T_F":"T_N"} [${g.start},${g.end}) ${JSON.stringify(g.text)}`).join("\n");
+}
+function doneErrors(){
+  const gaps=covGaps();
+  return gaps.length?["Complete coverage is required before done.\n"+gapLines(gaps)]:[];
+}
+function renderCoverage(){
+  const el=$("#cov"); if(!el) return [];
+  const gaps=covGaps();
+  if(!gaps.length){ el.hidden=true; el.textContent=""; el.classList.remove("bad"); closeCovPanel(); return gaps; }
+  el.hidden=false; el.classList.add("bad");
+  el.textContent=`⚠ ${gaps.length} uncovered`;
+  el.title="click for details";
+  el.onclick=()=>toggleCovPanel(gaps);
+  if(!$("#covPanel").hidden) fillCovPanel(gaps);   // keep an open panel in sync
+  return gaps;
+}
+function fillCovPanel(gaps){
+  const p=$("#covPanel"); p.innerHTML="";
+  const h=document.createElement("div"); h.className="chd";
+  h.textContent=`${gaps.length} uncovered region(s) · Complete coverage is required before done.`;
+  p.appendChild(h);
+  gaps.forEach(g=>{
+    const row=document.createElement("div"); row.className="crow";
+    const w=document.createElement("span"); w.className="cwhere";
+    w.textContent=`${g.side==="f"?"T_F":"T_N"} [${g.start},${g.end})`;
+    const t=document.createElement("span"); t.className="cwhat"; t.textContent=JSON.stringify(g.text);
+    row.append(w,t);
+    row.onclick=()=>revealGap(g);
+    p.appendChild(row);
+  });
+}
+function toggleCovPanel(gaps){
+  const p=$("#covPanel");
+  if(!p.hidden){ closeCovPanel(); return; }
+  fillCovPanel(gaps);
+  const r=$("#cov").getBoundingClientRect();
+  p.style.left=Math.max(8,Math.min(r.left, window.innerWidth-580))+"px";
+  p.style.top=(r.bottom+4)+"px";
+  p.hidden=false;
+}
+function closeCovPanel(){ const p=$("#covPanel"); if(p) p.hidden=true; }
+// scroll the offending text into view and flash the segment containing the gap
+function revealGap(g){
+  const host=$(g.side==="f"?"#TF":"#TN"); if(!host) return;
+  host.scrollIntoView({block:"center",behavior:"smooth"});
+  const seg=[...host.querySelectorAll(".seg")].find(s=>{
+    const a=+s.dataset.start; if(isNaN(a)) return false;
+    const b=s.dataset.end!==undefined?+s.dataset.end:a+s.textContent.length;
+    return a<=g.start && g.start<b;
+  });
+  if(seg){ seg.classList.add("flash"); setTimeout(()=>seg.classList.remove("flash"),1600); }
+}
+function renderLabel(){
+  // label is fully DERIVED from (R,λ): faithful iff every λ=1, unfaithful iff any
+  // λ=0, NaN if no verdicts are defined. Never stored by hand.
+  const d=!B.lambda.length?"NaN":(B.lambda.some(e=>e[1][0]===0)?"unfaithful":"faithful");
+  const el=$("#label"); el.className="pill "+d; el.textContent=d; B.label=d;
+  const failing=B.lambda.filter(e=>e[1][0]===0);
+  $("#derived").textContent=`${B.lambda.length} edges`
+    +(d==="unfaithful"?` · ${failing.length} failing`:"");
+  // localize WHY: hovering an unfaithful label lists {r∈R : λ(r)₁=0}, each edge
+  // pointing to WHERE it failed and λ(r)₂ saying WHY. Also flash those edges on hover.
+  if(d==="unfaithful"){
+    el.title=`unfaithful — ${failing.length} failing edge${failing.length>1?"s":""} `
+      +`(λ=0):\n`+failing.map(([[f,n],[,why]])=>
+        `• ${refLabel(f)} ↔ ${refLabel(n)}\n    ${why?why:"(no reason given)"}`).join("\n");
+    el.onmouseenter=()=>failing.forEach(([[f,n]])=>{ flashRef(f); flashRef(n); });
+  } else {
+    el.title=d==="faithful"
+      ? `faithful — all ${B.lambda.length} edges verified (λ=1)`
+      : `NaN — no relation/verdicts defined`;
+    el.onmouseenter=null;
+  }
+}
+// briefly highlight the node for a ref (skips ⊥, which has no node).
+function flashRef(ref){
+  if(ref===BOT) return;
+  const el=nodeEl(ref); if(!el) return;
+  el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1600);
+}
+
+// ---------- edges in the gutter ----------
+function nodeEl(ref,side){
+  const els=[...document.querySelectorAll("#graph [data-ref]")]
+    .filter(e=>refEq(JSON.parse(e.dataset.ref),ref));
+  if(els.length<2||!side) return els[0]||null;
+  // ⊥ appears once per column; pick the one on the endpoint's own side so a
+  // formal endpoint's ⊥ sits in F and an NL endpoint's ⊥ sits in N.
+  return els.find(e=>e.closest(side==="f"?"#colF":"#colN"))||els[0];
+}
+function dotCenter(ref,side){
+  const el=nodeEl(ref,side); if(!el) return null;
+  const dot=el.querySelector(".dot"); const r=(dot||el).getBoundingClientRect();
+  const s=$("#edgeSvg").getBoundingClientRect();
+  return { x:r.left+r.width/2-s.left, y:r.top+r.height/2-s.top };
+}
+function drawEdges(){
+  const svg=$("#edgeSvg"), g=$("#graph"); if(!svg||!g) return;
+  svg.setAttribute("width",g.offsetWidth); svg.setAttribute("height",g.offsetHeight);
+  svg.innerHTML="";
+  B.lambda.forEach((entry,i)=>{
+    const [[f,n],[v]]=entry;
+    if(f===BOT || n===BOT) return;        // ⊥ is a node badge, not a wire
+    const a=dotCenter(f,"f"), b=dotCenter(n,"n");
+    if(!a||!b) return;
+    // control points curve toward each other; signed so it works whichever side (F or N) is left.
+    const dx=Math.sign(b.x-a.x||1)*Math.max(40,Math.abs(b.x-a.x)/2);
+    const d=`M ${a.x} ${a.y} C ${a.x+dx} ${a.y} ${b.x-dx} ${b.y} ${b.x} ${b.y}`;
+    const hit=svgEl("path"); hit.setAttribute("d",d); hit.setAttribute("class","hit");
+    hit.onclick=(ev)=>openMenu(i,ev.clientX,ev.clientY);
+    const wire=svgEl("path"); wire.setAttribute("d",d);
+    wire.setAttribute("class","wire "+(v?"ok":"bad")+(i===selEdge?" selw":""));
+    svg.appendChild(hit); svg.appendChild(wire);
+  });
+}
+function svgEl(t){ return document.createElementNS("http://www.w3.org/2000/svg",t); }
+
+// ---------- edge popup menu ----------
+function openMenu(i,x,y){
+  if(!B.lambda[i]) return;
+  menuEdge=i; selEdge=i; reasonPushed=false;
+  const m=$("#edgeMenu"), entry=B.lambda[i], [[f,n],[v,reason]]=entry;
+  m.querySelector(".mends").innerHTML=
+    `<span class="ref">${escapeHtml(refLabel(f))}</span><span class="mut">↔</span><span class="ref">${escapeHtml(refLabel(n))}</span>`;
+  m.querySelectorAll(".mtoggle button").forEach(btn=>{
+    btn.classList.toggle("on", String(entry[1][0])===btn.dataset.v);
+    btn.disabled=B.format?.coverage==="selective"&&f===BOT&&n!==BOT&&["C_N","I"].includes(n[0])&&btn.dataset.v==="1";
+    btn.onclick=()=>{ if(btn.disabled)return; if(String(entry[1][0])!==btn.dataset.v){ pushUndo(); entry[1][0]=+btn.dataset.v; markDirty(); render(); } openMenu(i,x,y); };
+  });
+  const ta=m.querySelector(".mreason"); ta.value=reason||"";
+  ta.onfocus=()=>{ if(!reasonPushed){ pushUndo(); reasonPushed=true; } };
+  ta.oninput=()=>{ entry[1][1]=ta.value; markDirty(); };
+  // a ⊥ edge can't be deleted -- ensureBotEdges would just re-create it (every
+  // vertex keeps its line). Hide the delete button so it isn't misleading.
+  const del=m.querySelector(".mdel"), isBot=(f===BOT||n===BOT);
+  del.style.display=isBot?"none":"";
+  del.onclick=()=>{ pushUndo(); B.lambda.splice(i,1); syncR(); closeMenu(); render(); };
+  m.querySelector(".mclose").onclick=closeMenu;
+  m.hidden=false;
+  const w=m.offsetWidth||480, h=m.offsetHeight||300;
+  m.style.left=Math.max(8,Math.min(x, window.innerWidth-w-10))+"px";
+  m.style.top =Math.max(8,Math.min(y, window.innerHeight-h-10))+"px";
+  drawEdges();
+}
+function closeMenu(){ $("#edgeMenu").hidden=true; menuEdge=null; selEdge=null; drawEdges(); }
+
+// ---------- edit ops ----------
+let saveTimer=null;
+function markDirty(){ dirty=true;
+  // any edit invalidates a prior "done" -- done is manual-only and must be
+  // re-checked by hand after edits, never carried over (or re-set) automatically.
+  if(B&&B.done){ B.done=false; setDoneUI(false); }
+  scheduleSave(); }
+// autosave: persist this datapoint shortly after any edit (debounced).
+function scheduleSave(){
+  if(!B||!B.has_targets) return;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{ if(dirty) save(); }, 700);
+}
+function syncR(){ B.R=B.lambda.map(e=>e[0]); }
+function deleteElem(set,i){
+  const remap=ref=>{
+    if(ref===BOT)return ref;
+    if(ref.parts){
+      const parts=ref.parts.map(remap).filter(p=>p!==null);
+      return parts.length>1?{parts}:parts[0]||null;
+    }
+    if(ref[0]!==set)return ref;
+    return ref[1]===i?null:[set,ref[1]-(ref[1]>i?1:0)];
+  };
+  B.lambda=B.lambda.flatMap(([edge,judgment])=>{
+    const mapped=edge.map(remap);
+    return mapped.includes(null)?[]:[[mapped,judgment]];
+  });
+  (set==="C_F"?B.C_F.items:B[set]).splice(i,1);
+}
+function removeElem(set,i){
+  pushUndo();
+
+  deleteElem(set,i);
+  syncR(); sel={f:null,n:null}; closeMenu(); markDirty(); render();
+}
+function createEdge(f,n){
+  if(f===BOT&&n===BOT) return;
+  if(f!==BOT&&(!endpointParts(f).every(p=>Array.isArray(p)&&p.length===2&&["S_F","C_F"].includes(p[0])&&Number.isInteger(p[1])&&p[1]>=0)||
+    f.parts&&(f.parts.length<2||new Set(f.parts.map(refKey)).size!==f.parts.length))) return;
+  if(n!==BOT&&!["S_N","C_N","I"].includes(n[0])) return;
+  if(B.lambda.some(e=>refEq(e[0][0],f)&&refEq(e[0][1],n))) return;
+  // A real link means neither endpoint is unmatched: drop any stale ⊥ edge left on
+  // either side so no phantom ⊥ coexists with the wire. This is the only place a
+  // real link ever lands on a vertex, so enforcing it here makes the "edge AND ⊥ on
+  // the same vertex" state unreachable -- no render-time reconciliation needed.
+  if(f!==BOT&&n!==BOT) B.lambda=B.lambda.filter(e=>!(refEq(e[0][0],f)&&e[0][1]===BOT)&&!(e[0][0]===BOT&&refEq(e[0][1],n)));
+  B.lambda.push([[f,n],[B.format?.coverage==="selective"&&f===BOT&&n!==BOT&&["C_N","I"].includes(n[0])?0:1,""]]); syncR(); markDirty(); render();
+}
+// Coverage only: every required vertex must map to something, so give any vertex
+// that has NO edge at all a ⊥ ("unmatched") edge. This function only ADDS to
+// genuinely edge-less vertices -- it never rewrites or removes existing edges, so
+// merely viewing a datapoint never mutates its stored relation. The no-coexistence
+// invariant (a vertex with a real link must never also carry a ⊥ edge) is enforced
+// at the source in createEdge, where connecting a real link drops any stale ⊥.
+function ensureBotEdges(){
+  let changed=false; const isBot=x=>x===BOT;
+  const fix=(kind,slot,count,mkBot)=>{
+    for(let k=0;k<count;k++){
+      const covered=B.lambda.some(e=>!isBot(e[0][slot])&&endpointParts(e[0][slot]).some(ref=>ref[0]===kind&&ref[1]===k));
+      if(!covered){ B.lambda.push([mkBot(k),[B.format?.coverage==="selective"&&["C_N","I"].includes(kind)?0:1,""]]); changed=true; }
+    }
+  };
+  // LCS formal-context items may be linked but need no exhaustive edge cover.
+  // Other datasets give each curated C_F item an explicit edge.
+  fix("S_F",0,B.S_F.length,k=>[["S_F",k],BOT]);
+  if(B.format?.coverage!=="selective") fix("C_F",0,((B.C_F&&B.C_F.items)||[]).length,k=>[["C_F",k],BOT]);
+  fix("S_N",1,B.S_N.length,k=>[BOT,["S_N",k]]);
+  fix("C_N",1,B.C_N.length,k=>[BOT,["C_N",k]]);
+  fix("I",1,B.I.length,k=>[BOT,["I",k]]);
+  if(changed) syncR();
+  return changed;
+}
+// add or (when idx given) edit an implicit assumption -- inline form, no
+// window.prompt (blocked in some embedded browsers, e.g. VS Code Simple Browser).
+function openIform(g, idx){
+  const box=document.createElement("div"); box.className="cnform";
+  const text=document.createElement("textarea"); text.rows=2;
+  text.placeholder="implicit assumption"; text.value=(idx!=null?B.I[idx]:"");
+  const add=document.createElement("button"); add.className="primary tiny";
+  add.textContent=(idx!=null?"save":"add");
+  add.onclick=()=>{ const v=text.value.trim(); if(!v)return; pushUndo();
+    if(idx!=null) B.I[idx]=v; else B.I.push(v); markDirty(); render(); };
+  const cancel=document.createElement("button"); cancel.className="tiny";
+  cancel.textContent="cancel"; cancel.onclick=()=>render();
+  box.appendChild(text);
+  const row=document.createElement("div"); row.appendChild(add); row.appendChild(cancel); box.appendChild(row);
+  g.appendChild(box); text.focus();
+}
+// add or (when idx given) edit a C_N context item -- inline form, no
+// window.prompt (blocked in some embedded browsers, e.g. VS Code Simple Browser).
+function openCNform(g, idx){
+  const it=(idx!=null?B.C_N[idx]:null)||{text:"",source:""};
+  if(it.pieces)return;
+  const box=document.createElement("div"); box.className="cnform";
+  const text=document.createElement("textarea"); text.rows=2; text.placeholder="what it is (definition / fact)";
+  text.value=it.text||"";
+  const src=document.createElement("input"); src.placeholder="source — where from, incl. page";
+  src.value=it.source||"";
+  const add=document.createElement("button"); add.className="primary tiny"; add.textContent=(idx!=null?"save":"add");
+  add.onclick=()=>{ if(!text.value.trim())return; pushUndo();
+    const rec={...it,text:text.value.trim(),source:src.value.trim()};
+    if(idx!=null) B.C_N[idx]=rec; else B.C_N.push(rec);
+    markDirty(); render(); };
+  const cancel=document.createElement("button"); cancel.className="tiny"; cancel.textContent="cancel"; cancel.onclick=()=>render();
+  box.appendChild(text); box.appendChild(src);
+  const row=document.createElement("div"); row.appendChild(add); row.appendChild(cancel); box.appendChild(row);
+  g.appendChild(box); text.focus();
+}
+
+// ---------- targets ----------
+function showTargets(prefill){
+  $("#view").style.display="none"; $("#targets").style.display="block";
+  $("#tBanner").textContent=B.has_targets?`Editing targets for ${B.path}. Re-setting T_F re-derives C_F.`
+    :`${B.path} has no targets yet. Paste T_F and T_N, then set them.`;
+  $("#tTF").value=prefill?B.T_F:""; $("#tTN").value=prefill?B.T_N:"";
+  $("#tStatus").textContent=""; $("#tErr").innerHTML="";
+  // cancel only makes sense once targets exist (else there's no graph to go back
+  // to -- the datapoint is still empty).
+  $("#cancelTargets").style.display=B.has_targets?"inline-block":"none";
+}
+function showGraph(){
+  $("#targets").style.display="none"; $("#view").style.display="block";
+  $("#editTargets").style.display="inline-block";
+  sel={f:null,n:null}; closeMenu(); render();
+}
+async function setTargets(){
+  $("#tStatus").textContent="normalizing targets…"; $("#tErr").innerHTML="";
+  const r=await fetch("/api/targets?path="+encodeURIComponent(B.path),{method:"POST",
+    headers:{"Content-Type":"application/json"}, body:JSON.stringify({T_F:$("#tTF").value,T_N:$("#tTN").value})});
+  const j=await r.json();
+  if(j.error){ $("#tErr").innerHTML=`<div class="err">${escapeHtml(j.error)}</div>`; $("#tStatus").textContent=""; return; }
+  B=j.bundle; B.R=B.R||[]; B.lambda=B.lambda||[]; undoStack=[]; $("#undo").disabled=true;
+  $("#pin").textContent=(B.C_F.pin&&B.C_F.pin.toolchain)||"";
+  if(j.cf_error) $("#tErr").innerHTML=`<div class="err">C_F not derived (targets saved):\n${escapeHtml(j.cf_error)}</div>`;
+  $("#tStatus").textContent="done ✓"; dirty=false; showGraph(); refreshList();
+}
+
+// ---------- load / save ----------
+function urlPath(){ return new URLSearchParams(location.search).get("path"); }
+function setDoneUI(v){ $("#doneChk").checked=!!v; $("#doneWrap").classList.toggle("on",!!v); }
+// the flat datapoint list, used only to tell whether a `?path=` actually exists on disk.
+async function refreshList(){
+  const r=await fetch("/api/datapoints"); dpList=await r.json(); return dpList;
+}
+// a click in the left panel. Switching units in place would silently drop unsaved edits, which
+// navigating away used to be protected from by the beforeunload guard -- so ask.
+async function openUnit(path){
+  if(path===(B&&B.path)) return;
+  if(dirty && !confirm("This unit has unsaved changes. Discard them?")) return;
+  await loadDP(path);
+}
+async function loadList(){
+  const list=await refreshList(); if(!list.length) return;
+  const want=urlPath();
+  await loadDP(want&&list.some(d=>d.path===want)
+               ? want
+               : (ProofPane.firstPath()||list[0].path));   // default to the first unit in PROOF order
+}
+async function loadDP(path){
+  const r=await fetch("/api/datapoint?path="+encodeURIComponent(path));
+  B=await r.json(); B.R=B.R||[]; B.lambda=B.lambda||[];
+  $("#pin").textContent=(B.C_F.pin&&B.C_F.pin.toolchain)||"";
+  sel={f:null,n:null}; selEdge=null; dirty=false; closeCF(); undoStack=[]; $("#undo").disabled=true;
+  history.replaceState(null,"","?path="+encodeURIComponent(path));
+  $("#curpath").textContent=path; setDoneUI(B.done);
+  closeMenu();
+  if(B.has_targets){ $("#label").className="pill"; showGraph(); }
+  else{ $("#editTargets").style.display="none"; $("#label").className="pill untargeted";
+    $("#label").textContent="no targets"; $("#derived").textContent=""; showTargets(false); }
+  ProofPane.setCurrent(path);   // last: purely cosmetic, so it can't get in the way of the load
+}
+async function save(){
+  if(!B.has_targets){ alert("Set the targets first."); return; }
+  syncR();
+  try{
+    const r=await fetch("/api/save?path="+encodeURIComponent(B.path),{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({S_F:B.S_F,S_N:B.S_N,C_F:B.C_F,C_N:B.C_N,nl_context:B.nl_context,I:B.I,R:B.R,lambda:B.lambda,label:B.label,done:B.done})});
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||"Save rejected");
+    $("#save").textContent="Saved ✓"; $("#save").title=""; dirty=false;
+    // the proof pane carries the progress count, so re-read it: this unit now counts as done, and
+    // its hover title carries the label the server derived.
+    ProofPane.refresh();
+    setTimeout(()=>$("#save").textContent="Save",1200);
+  }catch(error){
+    dirty=true; if(B.done){B.done=false;setDoneUI(false);}
+    $("#save").textContent="Save failed"; $("#save").title=String(error);
+  }
+}
+
+// ---------- wire up ----------
+$("#doneChk").onchange=()=>{ if(!B) return;
+  if($("#doneChk").checked){
+    const errors=doneErrors();
+    if(errors.length){alert("Cannot mark done:\n"+errors.join("\n"));setDoneUI(false);return;}
+  }
+  B.done=$("#doneChk").checked;setDoneUI(B.done);save(); };
+$("#reload").onclick=()=>loadDP(B.path);
+$("#save").onclick=save;
+$("#undo").onclick=undo;
+$("#editTargets").onclick=()=>showTargets(true);
+$("#setTargets").onclick=setTargets;
+$("#cancelTargets").onclick=()=>{ if(B.has_targets) showGraph(); };
+$("#addSF").onclick=()=>addSpanFrom("#TF","S_F");
+$("#addSN").onclick=()=>addSpanFrom("#TN","S_N");
+document.addEventListener("mousedown",e=>{
+  const p=$("#covPanel");
+  if(p&&!p.hidden&&!p.contains(e.target)&&e.target!==$("#cov")) closeCovPanel();
+  const m=$("#edgeMenu"); if(m.hidden) return;
+  if(m.contains(e.target)||e.target.closest("#edgeSvg")) return;
+  closeMenu();
+});
+document.addEventListener("keydown",e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="z"){
+    const t=document.activeElement;
+    if(t&&(t.tagName==="TEXTAREA"||t.tagName==="INPUT")) return;   // let native undo run in fields
+    e.preventDefault(); undo(); return;
+  }
+  if(e.key==="Escape"){ if($("#cfPicker")) closeCF(); else if(!$("#edgeMenu").hidden) closeMenu(); else if(sel.f||sel.n) clearSel(); }
+});
+// ---------- the divider between the two panels ----------
+// How much room the proof gets versus the labeler is a reading preference, so it is draggable and
+// remembered. Stored as a PERCENTAGE of the window, so it still means the same thing in a window of
+// a different size. Every width change has to redraw the edges: the wires are positioned from
+// getBoundingClientRect, so moving the right panel moves every endpoint under them.
+const SPLIT_KEY="pistis.proofWidth", SPLIT_DEFAULT=46;
+function setProofWidth(pct){
+  if(!isFinite(pct)) return;
+  pct=Math.min(85,Math.max(15,pct));                 // always leave both panels usable
+  $("#proof").style.flexBasis=pct.toFixed(2)+"%";
+  try{ localStorage.setItem(SPLIT_KEY,String(pct)); }catch(e){}
+  if(B&&B.has_targets) drawEdges();
+}
+(function initSplit(){
+  let saved=null; try{ saved=localStorage.getItem(SPLIT_KEY); }catch(e){}
+  if(saved!==null) setProofWidth(parseFloat(saved));
+  const bar=$("#split");
+  // pointer capture, so the drag survives the cursor crossing into either panel (or leaving the
+  // window) without needing listeners on document
+  bar.addEventListener("pointerdown",e=>{
+    if(e.button!==0) return;
+    e.preventDefault();
+    bar.setPointerCapture(e.pointerId);
+    bar.classList.add("dragging"); document.body.classList.add("resizing");
+  });
+  bar.addEventListener("pointermove",e=>{
+    if(!bar.classList.contains("dragging")) return;
+    setProofWidth(e.clientX/window.innerWidth*100);
+  });
+  const end=e=>{
+    if(!bar.classList.contains("dragging")) return;
+    try{ bar.releasePointerCapture(e.pointerId); }catch(err){}
+    bar.classList.remove("dragging"); document.body.classList.remove("resizing");
+  };
+  bar.addEventListener("pointerup",end);
+  bar.addEventListener("pointercancel",end);
+  bar.addEventListener("dblclick",()=>setProofWidth(SPLIT_DEFAULT));
+})();
+
+let raf=null;
+window.addEventListener("scroll",()=>{ if(raf)return; raf=requestAnimationFrame(()=>{raf=null; if(B&&B.has_targets)drawEdges();}); },true);
+window.addEventListener("resize",()=>{ if(B&&B.has_targets)drawEdges(); });
+window.addEventListener("beforeunload",e=>{ if(dirty){e.preventDefault();e.returnValue="";} });
+window.addEventListener("load",()=>{ if(B&&B.has_targets) render(); });   // re-render once KaTeX (deferred) is ready
+// re-render once Shiki (async) is ready — both panels highlight Lean with it
+window.shikiReady=()=>{ ProofPane.rerender(); if(B&&B.has_targets) render(); };
+// the proof first: it is the index, and it decides which unit opens when no ?path= is given
+ProofPane.mount($("#proof"),openUnit).then(loadList);
+</script>
+</body>
+</html>

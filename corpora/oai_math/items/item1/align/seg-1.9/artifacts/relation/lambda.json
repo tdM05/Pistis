@@ -1,0 +1,18 @@
+[
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "`False` is the contradiction the reductio reaches. The hypothesis it refutes is `step1`, opened by this proof's `have … : ¬(…) := by intro …`; what makes `False` derivable is this step's backing, not the content of 'a contradiction'."
+    ]
+  ]
+]

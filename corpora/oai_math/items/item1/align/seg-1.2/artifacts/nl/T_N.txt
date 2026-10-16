@@ -1,0 +1,2 @@
+For a nonzero real $\tau$, the matrix
+$D_\tau=D+\tau e_s e_j^{\mathsf T}$ is still supported on $T$,

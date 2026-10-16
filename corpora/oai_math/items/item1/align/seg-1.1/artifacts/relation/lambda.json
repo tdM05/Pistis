@@ -1,0 +1,50 @@
+[
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "`x j * y s ≠ 0` is `x_j y_s ≠ 0`, the proposition this sentence supposes."
+    ]
+  ],
+  [
+    [
+      [
+        "C_F",
+        1
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "'Suppose … that P' is the `intro`: it is what takes P as given. That is context, not the claim — the claim is P itself, the supposing is the frame it is stated in."
+    ]
+  ],
+  [
+    [
+      [
+        "C_F",
+        0
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "And 'instead': `have habsurd1 : ¬(x j * y s ≠ 0)` is what is actually being proved, so taking P as given is taking it in order to refute it. The `intro` above is this `have`'s body."
+    ]
+  ]
+]

@@ -1,0 +1,82 @@
+[
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "The same predicate as in the statement, re-applied rather than re-defined — which is what 'still supported on' says: the property is the old one, the matrix is new."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "The support set the prose writes `T`, the theorem's own `T`."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "The subject of the clause, under the prose's own name for it, `D_τ`."
+    ]
+  ],
+  [
+    [
+      [
+        "C_F",
+        0
+      ],
+      [
+        "S_N",
+        3
+      ]
+    ],
+    [
+      1,
+      "`obtain ⟨τ, hτ⟩ : ∃ τ : ℝ, τ ≠ 0` is this whole clause: `τ : ℝ` is 'a real τ' and `τ ≠ 0` is 'nonzero'. It fixes one such τ and never looks at its value, so it is as general as the prose's 'a'. The claim does not mention `τ`, so the clause is answered by the context the claim is stated in."
+    ]
+  ],
+  [
+    [
+      [
+        "C_F",
+        1
+      ],
+      [
+        "S_N",
+        4
+      ]
+    ],
+    [
+      1,
+      "The prose DEFINES `D_τ` here, and the `set` is that definition — `:=` carries the prose's `=`, and `Matrix.single s j 1` is the matrix with a single 1 at `(s, j)`, i.e. `e_s e_jᵀ`. `with hDτ` names the equation, which is why the clause and not just the name is what is shown."
+    ]
+  ]
+]

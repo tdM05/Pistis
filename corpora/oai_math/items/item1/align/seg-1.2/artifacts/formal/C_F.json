@@ -1,0 +1,20 @@
+{
+  "pin": {
+    "toolchain": "leanprover/lean4:v4.34.1",
+    "packages": {
+      "mathlib": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+      "batteries": "f2effa3d803fda822b1f97b806c47cf2adfbcbc2"
+    }
+  },
+  "available": [],
+  "items": [
+    {
+      "signature": "obtain ⟨τ, hτ⟩ : ∃ τ : ℝ, τ ≠ 0",
+      "source": "items/item1/Main.lean:46"
+    },
+    {
+      "signature": "set Dτ : Matrix I J ℝ := D + τ • Matrix.single s j (1 : ℝ) with hDτ",
+      "source": "items/item1/Main.lean:47"
+    }
+  ]
+}

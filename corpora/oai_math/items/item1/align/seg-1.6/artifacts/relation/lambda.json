@@ -1,0 +1,63 @@
+[
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "An inference marker: the containment is drawn from the previous sentence. The content is the containment."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "The image of `D` as the range of its induced map. 'entire' is the whole range, which is what the unqualified `LinearMap.range` is."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "`≤` on submodules IS inclusion, so this is the prose's containment and not a rank comparison."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        3
+      ]
+    ],
+    [
+      1,
+      "The image of `D_τ`, the same way."
+    ]
+  ]
+]

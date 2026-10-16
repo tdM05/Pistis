@@ -1,0 +1,4 @@
+Moreover, for every $w\in\R^J$,
+\[
+ Dw=D_\tau w-\tau w_j e_s\in\im D_\tau,
+\]
