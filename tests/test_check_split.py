@@ -77,18 +77,46 @@ def test_boundary_extra_space_carried_in_left_slice():
 
 
 def test_boundary_newline_carried_in():
-    # Display-math style: a newline at the boundary carried as leading part of the right slice.
+    # The boundary whitespace belongs to the GAP, not to a slice. Re-including the `\n` as a leading
+    # part of the right slice double-counts it (the gap already consumed it) -> must FAIL.
     stmt = "S."
     proof = "Then\n$$x=1$$"
     segs = [
         seg("intro", stmt),
         seg("deduction", "Then"),
-        seg("deduction", "\n$$x=1$$"),  # leading newline; join adds one space -> "Then \n$$x=1$$"? no
+        seg("deduction", "\n$$x=1$$"),  # the \n is already the gap; carrying it again is a duplicate
     ]
-    # NOTE: join is "Then" + " " + "\n$$x=1$$" = "Then \n$$x=1$$" which is NOT "Then\n$$x=1$$".
-    # So this SHOULD fail — the newline cannot also absorb the mandatory join-space. Verify it fails.
     ok, _ = check_tiling(segs, stmt, proof)
     assert not ok
+
+
+def test_boundary_bare_newline_is_a_legal_cut():
+    # THE GENERALIZATION: a boundary whose only separator is a newline IS a legal cut, with the `\n`
+    # as the gap. Hard-wrapped LaTeX (openai/math at 72 cols) puts a bare \n at many sentence
+    # boundaries; under the old one-space-join rule these two assertions had to be merged.
+    stmt = "S."
+    proof = "Thus $e_s\\in\\im D$.\nOn the other hand, $y_s\\ne0$."
+    segs = [
+        seg("intro", stmt),
+        seg("deduction", "Thus $e_s\\in\\im D$."),
+        seg("deduction", "On the other hand, $y_s\\ne0$."),
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert ok, lines
+
+
+def test_display_math_block_as_its_own_gap_boundary():
+    # A `\]` followed by a bare newline then prose: both cuts legal, display math stays intact in its
+    # own slice.
+    stmt = "S."
+    proof = "and\n\\[\n Dx=0.\n\\]\nThus $x=0$."
+    segs = [
+        seg("intro", stmt),
+        seg("deduction", "and\n\\[\n Dx=0.\n\\]"),
+        seg("deduction", "Thus $x=0$."),
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert ok, lines
 
 
 def test_boundary_single_newline_as_the_join():
@@ -145,17 +173,35 @@ def test_overrun_detected():
     assert any("runs past the end" in l for l in lines)
 
 
-def test_whitespace_only_mismatch_detected():
+def test_non_whitespace_gap_detected():
+    # The gap between two segments must be WHITESPACE-ONLY. Here the source has a real word between
+    # them, so the segmentation silently drops content -> must FAIL. This is the invariant that makes
+    # the whitespace-gap rule safe: only whitespace may go unattributed.
     stmt = "S."
-    proof = "A.  B."  # two spaces in source
+    proof = "A. DROPPED B."
     segs = [
         seg("intro", stmt),
-        seg("deduction", "A."),   # no trailing space -> join gives single space only
+        seg("deduction", "A."),
         seg("deduction", "B."),
     ]
     ok, lines = check_tiling(segs, stmt, proof)
     assert not ok
-    assert any("whitespace mismatch" in l for l in lines)
+    assert any("does not match the source" in l for l in lines)
+
+
+def test_segments_must_be_separated_by_whitespace():
+    # Two slices that abut with NO whitespace between them in the source would let a split cut a word
+    # in half ("sup|ported"). Require a non-empty gap.
+    stmt = "S."
+    proof = "supported."
+    segs = [
+        seg("intro", stmt),
+        seg("deduction", "sup"),
+        seg("deduction", "ported."),
+    ]
+    ok, lines = check_tiling(segs, stmt, proof)
+    assert not ok
+    assert any("no whitespace" in l for l in lines)
 
 
 def test_intro_must_match_statement():

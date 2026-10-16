@@ -16,15 +16,27 @@ A problem's NL source has TWO fields, `nl_statement` and `nl_proof` (in the item
 `<corpus>/item<N>/data/nl.json`). The split tiles the WHOLE thing:
 
   * the `intro` segment (index 0) must equal `nl_statement` VERBATIM;
-  * every NON-intro segment, joined by exactly one space in array order, must equal `nl_proof` VERBATIM.
+  * every NON-intro segment, in array order, must tile `nl_proof` VERBATIM (see "Join semantics").
 
 The two halves are checked independently (no artificial join-space is inserted between the statement
 and the proof).
 
-Join semantics (identical to the joined-with-one-space convention): segment texts are concatenated with
-EXACTLY ONE space between consecutive segments. Any extra whitespace/newline the source contains at a
-boundary must be carried INSIDE a segment slice (trailing the left / leading the right). Whitespace
-inside a slice is copied verbatim.
+Join semantics — ORDERED VERBATIM PARTITION WITH WHITESPACE GAPS. The segments must tile the source as
+
+    source == t1 + g1 + t2 + g2 + ... + g(n-1) + tn
+
+where each `ti` is a segment's text matched VERBATIM and each interior `gi` is a NON-EMPTY,
+WHITESPACE-ONLY run taken from the source. So the source is reconstructed byte-for-byte from the
+segments plus the inter-segment whitespace; nothing non-whitespace may be dropped, reworded,
+duplicated or reordered, and whitespace INSIDE a slice is still copied verbatim.
+
+This generalizes the older "joined by exactly one space" convention, which is the special case
+`gi == " "`. The old rule could not express a boundary whose only separator is a newline: the join
+inserted a space the source did not have, so a cut there was impossible and two distinct assertions had
+to be merged into one segment (visible in tests/test_check_split.py::test_proofnet8_shaped). Hard-wrapped
+LaTeX — e.g. openai/math preprints at 72 columns — puts a bare `\n` at a large fraction of its sentence
+boundaries, so under the old rule atomicity (one `assert` per segment) was unachievable there. The gap is
+whatever whitespace the source actually has, so no segmentation can hide content in it.
 
 Usage
 -----
@@ -90,6 +102,68 @@ def _compare(concat: str, canon: str, label: str) -> Tuple[bool, List[str]]:
     ]
 
 
+def tile(texts: List[str], canon: str, label: str) -> Tuple[bool, List[str]]:
+    """Check that `texts`, in order, tile `canon` verbatim up to non-empty whitespace gaps.
+
+    Walks `canon` with a cursor: each text must match VERBATIM at the cursor, and between consecutive
+    texts the source must supply a non-empty whitespace-only run (the gap). The gaps are taken FROM the
+    source, so `t1 + g1 + t2 + ... + tn` is then byte-identical to `canon` — which is asserted at the
+    end rather than assumed.
+
+    No backtracking is needed or wanted: a segment must start exactly where the previous one's gap
+    ended, which is what makes the partition ordered and total. On failure we delegate the human-readable
+    diff to `_compare` on the one-space join, which pinpoints a word/whitespace divergence.
+    """
+    canon = canon.rstrip("\n")
+    if not texts:
+        return False, [f"{label}: no segments to tile against a {len(canon)}-char source"]
+
+    for i, t in enumerate(texts):
+        if not t.strip():
+            return False, [f"{label}: segment {i} has empty/whitespace-only text"]
+
+    pos, gaps = 0, []
+    for i, t in enumerate(texts):
+        if i > 0:
+            start = pos
+            while pos < len(canon) and canon[pos].isspace():
+                pos += 1
+            gap = canon[start:pos]
+            if not gap:
+                _, msg = _compare(" ".join(texts), canon, label)
+                return False, [
+                    f"{label}: segment {i} starts immediately after segment {i - 1} with no whitespace "
+                    f"between them (char {pos}) — segments must be separated by whitespace in the source",
+                ] + msg
+            gaps.append(gap)
+        if not canon.startswith(t, pos):
+            # Either this slice's bytes are wrong, or the previous slice over/under-ran. Show where.
+            _, msg = _compare(" ".join(texts), canon, label)
+            return False, [
+                f"{label}: segment {i} does not match the source at char {pos}",
+                f"  source:  {canon[pos:pos + 60]!r}",
+                f"  segment: {t[:60]!r}",
+            ] + msg
+        pos += len(t)
+
+    if pos != len(canon):
+        _, msg = _compare(" ".join(texts), canon, label)
+        tail = canon[pos:]
+        if not tail.strip():
+            return False, [f"{label}: {len(tail)} trailing whitespace char(s) left unaccounted: {tail!r}"] + msg
+        return False, [f"{label}: source continues past your last segment — "
+                       f"missing {tail[:60]!r} ..."] + msg
+
+    # Belt and braces: the partition must literally reassemble the source.
+    rebuilt = "".join(t + g for t, g in zip(texts, gaps + [""]))
+    if rebuilt != canon:
+        return False, [f"{label}: internal error — reassembly from segments + gaps != source"]
+
+    kinds = sorted({repr(g) for g in gaps})
+    return True, [f"{label}: reproduces source exactly ({len(canon)} chars, {len(texts)} segment(s), "
+                  f"gap(s) {', '.join(kinds) if kinds else 'none'})"]
+
+
 def check_tiling(segments: List[dict], nl_statement: str, nl_proof: str) -> Tuple[bool, List[str]]:
     """Core, pure tiling check. `segments` is the ordered split.json array.
 
@@ -111,8 +185,7 @@ def check_tiling(segments: List[dict], nl_statement: str, nl_proof: str) -> Tupl
             return False, [f"segment {i} (role {seg.get('role')!r}) has no 'text' field"]
 
     ok_stmt, msg_stmt = _compare(intro.get("text", ""), nl_statement, "statement/intro")
-    proof_concat = " ".join(seg["text"] for seg in rest)
-    ok_proof, msg_proof = _compare(proof_concat, nl_proof, "proof")
+    ok_proof, msg_proof = tile([seg["text"] for seg in rest], nl_proof, "proof")
 
     ok_sub, msg_sub = _check_substrings(segments)
 

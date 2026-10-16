@@ -67,6 +67,29 @@ def _next_quote(src: str, i: int) -> int:
     return j
 
 
+def _skip_trivia(src: str, i: int) -> int:
+    """Advance past whitespace and Lean comments (`--` to EOL, nestable `/- … -/`)."""
+    n = len(src)
+    while i < n:
+        if src[i].isspace():
+            i += 1
+        elif src.startswith("--", i):
+            j = src.find("\n", i)
+            i = n if j < 0 else j + 1
+        elif src.startswith("/-", i):
+            depth, i = 1, i + 2
+            while i < n and depth:
+                if src.startswith("/-", i):
+                    depth, i = depth + 1, i + 2
+                elif src.startswith("-/", i):
+                    depth, i = depth - 1, i + 2
+                else:
+                    i += 1
+        else:
+            break
+    return i
+
+
 def parse_main(src: str) -> List[dict]:
     """Return the ordered list of pistis segments in `src` (a Main.lean's text).
 
@@ -85,7 +108,11 @@ def parse_main(src: str) -> List[dict]:
         text, after_text = read_string_literal(src, q2)
         entry = {"kind": kind, "loc": loc, "text": text, "line": line}
         if kind == "segment":
-            popen = src.index("(", after_text)
+            # A comment may sit between the NL literal and the claim, explaining the formalization
+            # choice; `(see split.json)` in one would otherwise be read as the claim's binder.
+            popen = _skip_trivia(src, after_text)
+            if src[popen:popen + 1] != "(":
+                popen = src.index("(", after_text)
             colon = src.index(":", popen)
             entry["name"] = src[popen + 1:colon].strip()
             claim, _ = _balanced_type(src, colon + 1)

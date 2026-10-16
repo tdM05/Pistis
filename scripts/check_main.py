@@ -32,7 +32,7 @@ import sys
 from typing import List, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from check_split import _compare  # reuse the exact tiling diff
+from check_split import _compare, tile  # reuse the exact same tiling gate as the split stage
 from pistis_lean import parse_main, parse_assumptions
 
 
@@ -82,8 +82,7 @@ def check_main(main_src: str, nl_statement: str, nl_proof: str) -> Tuple[bool, L
         lines.append(f"segment 0 must be pistis_intro (the statement); got pistis_{intro['kind']}")
     ok_stmt, msg_stmt = _compare(intro["text"], nl_statement, "statement/intro")
     rest = segs[1:]
-    proof_concat = " ".join(s["text"] for s in rest)
-    ok_proof, msg_proof = _compare(proof_concat, nl_proof, "proof")
+    ok_proof, msg_proof = tile([s["text"] for s in rest], nl_proof, "proof")
     lines += msg_stmt + msg_proof
     ok = ok and ok_stmt and ok_proof
 
