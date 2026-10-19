@@ -1,0 +1,5 @@
+If $0<\varepsilon<\frac{1}{M}$, we certainly have
+$$
+f^{\prime}(x) \geq 1-\varepsilon M>0,
+$$
+and this implies that $f(x)$ is one-to-one, by the preceding problem.

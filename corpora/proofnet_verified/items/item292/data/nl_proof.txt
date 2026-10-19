@@ -1,0 +1,1 @@
+If we now considered $\mathcal{A}$ as a subbasis, then the elements of $\mathcal{T}$ are union of finite intersections of elements of $\mathcal{A}$. The inclusion $\mathcal{O} \subset \mathcal{T}$ is again clear and $\mathcal{T} \subset \mathcal{O}$ holds since every union of finite intersections of elements of $\mathcal{A}$ belongs to $\mathcal{O}$.

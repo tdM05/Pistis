@@ -1,0 +1,26 @@
+{
+  "id": "item1/1.6",
+  "loc": "1.6",
+  "title": "step 1.6 — im D ≤ im D_τ",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 9,
+    "n": 7
+  },
+  "F_locs": [
+    "scaffold",
+    "old",
+    "le",
+    "new"
+  ],
+  "N_locs": [
+    "so",
+    "old",
+    "contained",
+    "new"
+  ],
+  "done": true
+}

@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Prove that if $T \\in \\mathcal{L}(V)$ is normal, then $\\operatorname{range} T=\\operatorname{range} T^{*}.$",
-  "nl_proof": "Let $T \\in \\mathcal{L}(V)$ to be a normal operator.\nSuppose $u \\in \\operatorname{null} T$. Then, by $7.20$,\n$$\n0=\\|T u\\|=\\left\\|T^* u\\right\\|,\n$$\nwhich implies that $u \\in \\operatorname{null} T^*$.\nHence\n$$\n\\operatorname{null} T=\\operatorname{null} T^*\n$$\nbecause $\\left(T^*\\right)^*=T$ and the same argument can be repeated.\nNow we have\n$$\n\\begin{aligned}\n\\text { range } T & =\\left(\\text { null } T^*\\right)^{\\perp} \\\\\n& =(\\text { null } T)^{\\perp} \\\\\n& =\\operatorname{range} T^*,\n\\end{aligned}\n$$\nwhere the first and last equality follow from items (d) and (b) of 7.7.\nHence, range $T=$ range $T^*$."
-}

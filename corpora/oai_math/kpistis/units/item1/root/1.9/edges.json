@@ -1,0 +1,20 @@
+[
+  {
+    "f": 1,
+    "n": 0,
+    "v": 1,
+    "why": "`absurd : a → ¬a → b` IS the contradiction, and applied here at `b = False` it closes the reductio that 1.1 opened. The whole sentence is three words, so the whole edge is one span."
+  },
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "The tactic that supplies the term. Lean needs to be told the goal is being closed; a paragraph that stops is already closed."
+  },
+  {
+    "f": 2,
+    "n": null,
+    "v": 1,
+    "why": "The two contradictory facts: `hmax Dτ hsupp` is the maximality hypothesis applied to `Dτ`, which 1.2 showed is supported on `T`, giving `Dτ.rank ≤ D.rank`; `not_le.mpr hrank` is 1.8's strict inequality in the form that refutes it. The prose says only 'a contradiction' and leaves the reader to find them, so there is nothing in this sentence to align them against. A real ⊥: the formalization is more explicit than the paper, and that is visible here rather than hidden."
+  }
+]

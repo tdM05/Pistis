@@ -1,0 +1,1 @@
+We know that $\mathcal{B}=\{(a,b)|a<b, a \text{ and } b \text rational\}$ is a basis for $\mathcal{R}$, therefore the set we are concerned with in the above question is a basis for $\mathcal{R}^2$.

@@ -1,0 +1,1 @@
+Let $E:=(0,1)$, and define $f(x):=1 / x$ for all $x \in E$. If $f$ has a continuous extension $g$ to $\mathbb{R}$, then $g$ is continuous on $[-1,1]$, and therefore bounded by the intermediate value theorem. However, $f$ is not bounded in any neighborhood of $x=0$, so therefore $g$ is not bounded either, a contradiction.

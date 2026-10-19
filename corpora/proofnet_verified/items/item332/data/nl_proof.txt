@@ -1,0 +1,1 @@
+If $r x$ were rational, then $x=\frac{r x}{r}$ would also be rational.

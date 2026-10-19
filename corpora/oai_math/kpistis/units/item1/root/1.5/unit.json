@@ -1,0 +1,28 @@
+{
+  "id": "item1/1.5",
+  "loc": "1.5",
+  "title": "step 1.5 — Dw = D_τ w − τ w_j e_s ∈ im D_τ",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 8,
+    "n": 6
+  },
+  "F_locs": [
+    "scaffold",
+    "forall",
+    "eqn",
+    "conj",
+    "mem"
+  ],
+  "N_locs": [
+    "moreover",
+    "forall",
+    "display",
+    "eqn",
+    "mem"
+  ],
+  "done": true
+}

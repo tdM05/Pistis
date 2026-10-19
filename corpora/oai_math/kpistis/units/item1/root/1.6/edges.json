@@ -1,0 +1,32 @@
+[
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "`have himg :` names the claim and `:= by sorry` is where its proof goes. How a claim is stated and discharged in Lean; the prose states its claim by writing a sentence and proves it elsewhere or not at all. Neither half has anything to correspond to."
+  },
+  {
+    "f": 1,
+    "n": 1,
+    "v": 1,
+    "why": "$\\im D$, the image of the original matrix. 'the entire old image' is emphasis on the quantifier, which `≤` between submodules already carries."
+  },
+  {
+    "f": 2,
+    "n": 2,
+    "v": 1,
+    "why": "`≤` on `Submodule`s IS containment, and it is the containment of the whole subspace, which is what 'the entire old image is contained in' asserts."
+  },
+  {
+    "f": 3,
+    "n": 3,
+    "v": 1,
+    "why": "$\\im D_\\tau$, as in 1.4 and 1.5."
+  },
+  {
+    "f": null,
+    "n": 0,
+    "v": 1,
+    "why": "'so' marks the inference from 1.5. As in 1.4, Lean's `have` states the conclusion and leaves the inference to the proof, so there is no token here to align it with."
+  }
+]

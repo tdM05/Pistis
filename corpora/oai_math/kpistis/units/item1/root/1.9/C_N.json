@@ -1,0 +1,31 @@
+[
+  [
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "What is contradicted, and it is named nowhere in this sentence. Three words of prose stand for 'this contradicts the hypothesis that $D$ has maximum rank among matrices supported on $T$' — the extreme case for `C_N`, since `T_N` here is 'a contradiction.' and the formal side is `absurd (hmax Dτ hsupp) (not_le.mpr hrank)`, which names both halves explicitly."
+    },
+    {
+      "spans": [
+        [
+          606,
+          632
+        ]
+      ],
+      "why": "And why $D_\\tau$ is even a candidate for the maximum: maximality is only over matrices supported on $T$, so 1.2's claim is what makes the contradiction land. `hsupp` is that claim, passed to `hmax` on the formal side."
+    },
+    {
+      "spans": [
+        [
+          496,
+          516
+        ]
+      ],
+      "why": "And what the contradiction discharges — the reductio opened nine sentences earlier. 'a contradiction' is the END of a scope whose beginning is not in view, which is `refine not_not.mp` closing on the formal side."
+    }
+  ]
+]

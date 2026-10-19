@@ -1,0 +1,27 @@
+{
+  "id": "item1/1.3",
+  "loc": "1.3",
+  "title": "step 1.3 — D_τ x",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 6,
+    "n": 4
+  },
+  "F_locs": [
+    "scaffold",
+    "lhs",
+    "eq",
+    "rhs"
+  ],
+  "N_locs": [
+    "and",
+    "display",
+    "lhs",
+    "eq",
+    "rhs"
+  ],
+  "done": true
+}

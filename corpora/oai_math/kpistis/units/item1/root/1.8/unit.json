@@ -1,0 +1,27 @@
+{
+  "id": "item1/1.8",
+  "loc": "1.8",
+  "title": "step 1.8 — rank D_τ > rank D",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 11,
+    "n": 9
+  },
+  "F_locs": [
+    "scaffold",
+    "lhs",
+    "gt",
+    "rhs"
+  ],
+  "N_locs": [
+    "therefore",
+    "lhs",
+    "gt",
+    "rhs",
+    "comma"
+  ],
+  "done": true
+}

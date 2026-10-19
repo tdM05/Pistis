@@ -1,0 +1,1 @@
+$V=U \bigoplus U^{\perp}$, therefore $U^\perp = \{0\}$ iff $U=V$.

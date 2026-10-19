@@ -1,0 +1,1 @@
+For each $\alpha$ we have $A \cap A_\alpha \neq \emptyset$, so each $A \cup A_\alpha$ is connected by Theorem 23.3. In turn $\left\{A \cup A_\alpha\right\}_\alpha$ is a collection of connected spaces that have a point in common (namely any point in $A)$, so $\bigcup_\alpha\left(A \cup A_\alpha\right)=A \cup\left(\bigcup_\alpha A_\alpha\right)$ is connected.

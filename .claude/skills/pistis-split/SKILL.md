@@ -25,10 +25,12 @@ character-for-character.
 
 ## Input / output
 
-- **Input (the ONLY file you read):** the item's `<corpus>/item<N>/data/nl.json` — you are given the
-  item as a path like `proofnet_verified/item8`, so read `proofnet_verified/item8/data/nl.json`, which
-  has exactly two fields: `nl_statement` and `nl_proof`. Read it DIRECTLY with the Read tool — do NOT
-  search for it, do NOT open the item's `data/statement.lean` formal statement, do NOT open any baseline.
+- **Input (the ONLY files you read):** the item's `<corpus>/item<N>/data/nl_statement.txt` and
+  `<corpus>/item<N>/data/nl_proof.txt` — you are given the item as a path like
+  `proofnet_verified/item8`, so read `proofnet_verified/item8/data/nl_statement.txt` and
+  `proofnet_verified/item8/data/nl_proof.txt`. Each file's bytes ARE the text you must tile: plain
+  UTF-8, no JSON escaping, no trailing newline. Read them DIRECTLY with the Read tool — do NOT
+  search for them, do NOT open the item's `data/statement.lean` formal statement, do NOT open any baseline.
 - **Output:** an ordered JSON array at `<corpus>/item<N>/split.json`, e.g.
   `proofnet_verified/item8/split.json` (written in the item folder, alongside `data/`).
 
@@ -39,13 +41,14 @@ into ordered segments, then an optional `conclusion` at the end.
 
 ## HARD RULES
 
-**RULE 1 — TEXT ONLY.** You read EXACTLY ONE input file: the item's `data/nl.json`. You may
+**RULE 1 — TEXT ONLY.** You read EXACTLY TWO input files: the item's `data/nl_statement.txt` and
+`data/nl_proof.txt`. You may
 NOT open the formal `.lean` statement, the baseline proof, Mathlib, or any other problem. If you feel the
 urge to "check" the formalization — STOP. Everything you need is the NL statement + NL proof.
 
 **RULE 2 — VERBATIM TILING (WHITESPACE INCLUDED).** Your output slices, joined by EXACTLY ONE space in
 index order, must reproduce the source CHARACTER-FOR-CHARACTER. The source to reproduce is
-`nl_statement` (for the intro segment) followed by `nl_proof` (for the proof segments) — see "How the two
+`nl_statement.txt` (for the intro segment) followed by `nl_proof.txt` (for the proof segments) — see "How the two
 fields tile" below. Nothing reworded, dropped, duplicated, or reordered. This is mechanically checked
 (byte-exact).
 
@@ -248,12 +251,13 @@ statement and the proof):
 
 ## Procedure
 
-1. Read the item's `<corpus>/item<N>/data/nl.json` (the ONLY file you read).
-2. Set index 0 = a `role: intro` segment = `nl_statement` verbatim.
-3. Split `nl_proof` into ordered atomic segments. Most are DEFAULT segments (no `role`) with an
+1. Read the item's `<corpus>/item<N>/data/nl_statement.txt` and `data/nl_proof.txt` (the ONLY files
+   you read).
+2. Set index 0 = a `role: intro` segment = `nl_statement.txt` verbatim.
+3. Split `nl_proof.txt` into ordered atomic segments. Most are DEFAULT segments (no `role`) with an
    `assumptions` set + single `assert`; use `role: wts` for a mid-proof "we claim/it suffices"
    announcement, and mark reductio `frame`s where a contradiction argument opens/closes.
-4. Add a `role: conclusion` segment ONLY if `nl_proof` ends with an explicit closing restatement; else omit.
+4. Add a `role: conclusion` segment ONLY if `nl_proof.txt` ends with an explicit closing restatement; else omit.
 5. Write the JSON array to `<corpus>/item<N>/split.json`.
 6. VERIFY — MACHINE GATE (mandatory; run it, do NOT just eyeball). Run
    `python3 scripts/check_split.py <corpus>/item<N>` (e.g. `python3 scripts/check_split.py proofnet_verified/item8`).

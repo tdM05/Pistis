@@ -1,0 +1,89 @@
+[
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "`import Mathlib`, `open Matrix` and the linter `set_option` are how the file is BUILT, not anything it asserts, and the paper has no counterpart to them. ⊥ is the right answer here rather than a gap in coverage: the judgment being recorded is 'this says nothing', and it is made in the open instead of by leaving the lines out of every region."
+  },
+  {
+    "f": 1,
+    "n": 0,
+    "v": 1,
+    "why": "The paper's definition, and the sentence that gives it. `SupportedOn T D := ∀ s j, (s, j) ∉ T → D s j = 0` constrains only the entries OUTSIDE `T`, and the implication runs one way, which is exactly the sentence's last clause — 'entries in $T$ are allowed to vanish' asks nothing of them. The region also carries `variable {I J : Type*} [Fintype I] [Fintype J]`, because 'For finite index sets $I,J$' is part of this same sentence; it is shared with the `thm` region below, which is legal and deliberate (see this file's docstring)."
+  },
+  {
+    "f": 2,
+    "n": 1,
+    "v": 1,
+    "why": "The lemma, binder for binder: `hD` and `hmax` are 'has maximum rank among all real matrices supported on $T$', `hx` and `hy` are the two kernels (`Dᵀ.mulVecLin` for $D^{\\mathsf T}$), `hsj` is $(s,j)\\in T$, and the goal is $x_jy_s=0$. 'where $I$ and $J$ are finite' is the lemma re-stating what the ambient `variable` fixes, so this region includes that `variable` line too — otherwise the phrase would have to be matched against a formal-context item, which is the thing this prototype exists to avoid."
+  },
+  {
+    "f": 3,
+    "n": null,
+    "v": 1,
+    "why": "`classical` supplies the `DecidableEq I` / `DecidableEq J` that `Matrix.single` and `Pi.single` need and that the statement deliberately does not assume. It changes no goal and asserts nothing; the paper never had to name an instance, so there is nothing for it to correspond to."
+  },
+  {
+    "f": 4,
+    "n": 2,
+    "v": 1,
+    "why": "Opens the reductio the whole proof runs inside. Refined below.",
+    "child": "1.1"
+  },
+  {
+    "f": 5,
+    "n": 3,
+    "v": 1,
+    "why": "Fixes $\\tau$, defines $D_\\tau$ and claims it is still supported on $T$ — the three things the sentence does, in the order it does them. Refined below; this is the step that motivated the prototype.",
+    "child": "1.2"
+  },
+  {
+    "f": 6,
+    "n": 4,
+    "v": 1,
+    "why": "The displayed identity for $D_\\tau x$. Refined below.",
+    "child": "1.3"
+  },
+  {
+    "f": 7,
+    "n": 5,
+    "v": 1,
+    "why": "The membership the previous identity yields. Refined below.",
+    "child": "1.4"
+  },
+  {
+    "f": 8,
+    "n": 6,
+    "v": 1,
+    "why": "The universally quantified chain the sentence displays, as one claim. Refined below.",
+    "child": "1.5"
+  },
+  {
+    "f": 9,
+    "n": 7,
+    "v": 1,
+    "why": "The containment of images. Refined below.",
+    "child": "1.6"
+  },
+  {
+    "f": 10,
+    "n": 8,
+    "v": 1,
+    "why": "The three clauses the sentence asserts about $y$ and $e_s$. Refined below.",
+    "child": "1.7"
+  },
+  {
+    "f": 11,
+    "n": 9,
+    "v": 1,
+    "why": "The strict rank inequality. Refined below.",
+    "child": "1.8"
+  },
+  {
+    "f": 12,
+    "n": 10,
+    "v": 1,
+    "why": "Closes the reductio `1.1` opened, against the maximality hypothesis. Refined below.",
+    "child": "1.9"
+  }
+]

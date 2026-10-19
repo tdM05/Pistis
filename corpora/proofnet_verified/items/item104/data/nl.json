@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Show that 1729 is the smallest positive integer expressible as the sum of two different integral cubes in two ways.",
-  "nl_proof": "Let $n=a^3+b^3$, and suppose that $\\operatorname{gcd}(a, b)=1$. If a prime $p \\mid a^3+b^3$, then\n$$\n\\left(a b^{-1}\\right)^3 \\equiv_p-1\n$$\nThus $3 \\mid \\frac{p-1}{2}$, that is, $p \\equiv_6 1$.\nIf we have $n=a^3+b^3=c^3+d^3$, then we can factor $n$ as\n$$\n\\begin{aligned}\n& n=(a+b)\\left(a^2-a b+b^2\\right) \\\\\n& n=(c+d)\\left(c^2-c d+d^2\\right)\n\\end{aligned}\n$$\nThus we need $n$ to have at least 3 distinct prime factors, and so the smallest taxicab number is on the form\n$$\nn=(6 k+1)(12 k+1)(18 k+1)\n$$"
-}

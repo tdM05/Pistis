@@ -1,0 +1,9 @@
+Note first that $f_n(1) > 0$, so $1$ is not a root of $f_n$.
+Next, note that
+\[
+(z-1)f_n(z) = z^n + \cdots + z - n;
+\]
+however, for $\left| z \right| \leq 1$, we have 
+$\left| z^n + \cdots + z \right| \leq n$ by the triangle inequality;
+equality can only occur if $z,\dots,z^n$ have norm 1 and the same argument, which only happens for $z=1$.
+Thus there can be no root of $f_n$ with $|z| \leq 1$.

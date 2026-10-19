@@ -1,0 +1,1 @@
+First off, fix $\lambda \in F$. Secondly, let $v \in \operatorname{null}(T-\lambda I)$. If so, then $(T-\lambda I)(S v)=T S v-\lambda S v=$ $S T v-\lambda S v=S(T v-\lambda v)=0$. Therefore, $S v \in \operatorname{null}(T-\lambda I)$ since $n u l l(T-\lambda I)$ is actually invariant under $S$.

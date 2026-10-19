@@ -1,0 +1,29 @@
+{
+  "id": "item1/1.2",
+  "loc": "1.2",
+  "title": "step 1.2 — fix τ and define D_τ",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 5,
+    "n": 3
+  },
+  "F_locs": [
+    "scaffold",
+    "exists",
+    "witness",
+    "set",
+    "formula",
+    "with",
+    "supported"
+  ],
+  "N_locs": [
+    "nonzero",
+    "name",
+    "rhs",
+    "still"
+  ],
+  "done": true
+}

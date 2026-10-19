@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Show that if $X$ is normal, every pair of disjoint closed sets have neighborhoods whose closures are disjoint.",
-  "nl_proof": "Let $A$ and $B$ be disjoint closed sets. Then there exist disjoint open sets $U$ and $V$ containing $A$ and $B$ respectively.\n\nSince $X \\backslash V$ is closed and contains $U$, the closure of $U$ is contained in $X \\backslash V$ hence $B$ and closure of $U$ are disjoint.\n\nRepeat steps 1 and 2 for $B$ and $\\bar{U}$ instead of $A$ and $B$ respectively and you will have open set $V^{\\prime}$ which contains $B$ and its closure doesn't intersect with $\\bar{U}$."
-}

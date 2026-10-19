@@ -9,7 +9,7 @@
     "lines": "42-68",
     "label": "lem:kernel-support",
     "slice": {
-      "note": "nl.json holds two verbatim substrings of the file above, cut by these anchors; no whitespace, wrapping or macro normalization is applied. Regenerate with scripts/extract_tex.py.",
+      "note": "data/nl_statement.txt and data/nl_proof.txt hold two verbatim substrings of the file above, cut by these anchors; each file's bytes are the .tex's bytes, with no trailing newline and no whitespace, wrapping or macro normalization. Regenerate with scripts/extract_tex.py.",
       "stmt_from": "For finite index sets",
       "stmt_to": "one has $x_jy_s=0$.",
       "proof_from": "Suppose instead that",

@@ -1,0 +1,5 @@
+Suppose $r \in \varphi[Z(R)]$. Then $r=\varphi(z)$ for some $z \in Z(R)$. Now let $x \in S$. Since $\varphi$ is surjective, we have $x=\varphi y$ for some $y \in R$. Now
+$$
+x r=\varphi(y) \varphi(z)=\varphi(y z)=\varphi(z y)=\varphi(z) \varphi(y)=r x .
+$$
+Thus $r \in Z(S)$.

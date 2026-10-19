@@ -1,0 +1,2 @@
+If a ∈ ℂ satisfies p(a) = 0 where p(x) = x^5 + √2·x³ + √5·x² + √7·x + √11,
+then a is algebraic over ℚ of degree at most 80.

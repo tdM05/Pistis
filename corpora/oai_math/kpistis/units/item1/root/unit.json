@@ -1,0 +1,41 @@
+{
+  "id": "item1",
+  "loc": "root",
+  "title": "Lemma 3.2 (Kernels at maximum support rank)",
+  "category": "document",
+  "child_category": "proof step",
+  "provenance": {
+    "kind": "file",
+    "T_F": "kpistis/items/item1/Proof.lean",
+    "T_N": "items/item1/data/nl_statement.txt + nl_proof.txt"
+  },
+  "F_locs": [
+    "hdr",
+    "def",
+    "thm",
+    "tech",
+    "1.1",
+    "1.2",
+    "1.3",
+    "1.4",
+    "1.5",
+    "1.6",
+    "1.7",
+    "1.8",
+    "1.9"
+  ],
+  "N_locs": [
+    "defn",
+    "thm",
+    "1.1",
+    "1.2",
+    "1.3",
+    "1.4",
+    "1.5",
+    "1.6",
+    "1.7",
+    "1.8",
+    "1.9"
+  ],
+  "done": true
+}

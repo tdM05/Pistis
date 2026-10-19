@@ -1,0 +1,26 @@
+[
+  {
+    "f": 0,
+    "n": 0,
+    "v": 1,
+    "why": "The goal here is `x j * y s = 0`. `not_not.mp` turns proving it into refuting its negation and the `fun` binds that negation as a hypothesis, leaving `False` to be derived — which is what 'Suppose instead' does: it opens a reductio, it does not justify one."
+  },
+  {
+    "f": 1,
+    "n": 1,
+    "v": 1,
+    "why": "The supposition itself, written in the prose's own `≠` form. Note WHERE it is written: in the target. `Main.lean` has to get this from the `have habsurd1 : ¬(x j * y s ≠ 0) := by intro hsuppose1` the segment sits inside, i.e. from formal context, and the quoted-clause rules in `faithfulness/README.md` then forbid showing it as `hsuppose1 : x j * y s ≠ 0` because that string is in no single line of the file. Here the type ascription on the `fun` binder puts it in the proof text, so the span is an offset and there is nothing left to get wrong."
+  },
+  {
+    "f": 2,
+    "n": null,
+    "v": 1,
+    "why": "Lean needs a name for the hypothesis it just introduced. The prose introduces the same hypothesis and names nothing."
+  },
+  {
+    "f": 3,
+    "n": null,
+    "v": 1,
+    "why": "The `?_` is the remaining goal, `False`, that steps 1.2–1.9 fill. Syntax for 'continue here', with no counterpart in a paragraph that simply continues."
+  }
+]

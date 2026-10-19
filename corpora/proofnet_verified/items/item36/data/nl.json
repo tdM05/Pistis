@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Let $G$ be any group. Prove that the map from $G$ to itself defined by $g \\mapsto g^{-1}$ is a homomorphism if and only if $G$ is abelian.",
-  "nl_proof": "$(\\Rightarrow)$ Suppose $G$ is abelian. Then\n$$\n\\varphi(a b)=(a b)^{-1}=b^{-1} a^{-1}=a^{-1} b^{-1}=\\varphi(a) \\varphi(b),\n$$\nso that $\\varphi$ is a homomorphism.\n$(\\Leftarrow)$ Suppose $\\varphi$ is a homomorphism, and let $a, b \\in G$. Then\n$$\na b=\\left(b^{-1} a^{-1}\\right)^{-1}=\\varphi\\left(b^{-1} a^{-1}\\right)=\\varphi\\left(b^{-1}\\right) \\varphi\\left(a^{-1}\\right)=\\left(b^{-1}\\right)^{-1}\\left(a^{-1}\\right)^{-1}=b a,\n$$\nso that $G$ is abelian."
-}

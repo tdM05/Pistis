@@ -12,11 +12,13 @@ particular corpus — it only compares strings. It is shared by every case study
 
 Source model
 ------------
-A problem's NL source has TWO fields, `nl_statement` and `nl_proof` (in the item's
-`<corpus>/item<N>/data/nl.json`). The split tiles the WHOLE thing:
+A problem's NL source is TWO plain-text files in the item's `<corpus>/item<N>/data/`:
+`nl_statement.txt` and `nl_proof.txt`. Each file's bytes ARE the text — no JSON escaping, no
+trailing newline, nothing normalized — so the same bytes these gates compare are the bytes you can
+Ctrl-F in the paper's `.tex`. The split tiles the WHOLE thing:
 
-  * the `intro` segment (index 0) must equal `nl_statement` VERBATIM;
-  * every NON-intro segment, in array order, must tile `nl_proof` VERBATIM (see "Join semantics").
+  * the `intro` segment (index 0) must equal `nl_statement.txt` VERBATIM;
+  * every NON-intro segment, in array order, must tile `nl_proof.txt` VERBATIM (see "Join semantics").
 
 The two halves are checked independently (no artificial join-space is inserted between the statement
 and the proof).
@@ -41,7 +43,7 @@ whatever whitespace the source actually has, so no segmentation can hide content
 Usage
 -----
     python3 scripts/check_split.py <corpus>/item<N>          # e.g. proofnet_verified/item8
-    python3 scripts/check_split.py --split-file path/to/split.json --source path/to/nl.json
+    python3 scripts/check_split.py --split-file path/to/split.json --source path/to/item/data
 
 Exit code 0 = PASS, 1 = FAIL (with an actionable diff), 2 = usage / file error.
 """
@@ -239,41 +241,55 @@ def _check_substrings(segments: List[dict]) -> Tuple[bool, List[str]]:
     return True, ["substring check: all assert/assumptions are substrings of their segment"]
 
 
-def _load_source(source_path: str) -> Tuple[str, str]:
-    with open(source_path, encoding="utf-8") as fh:
-        d = json.load(fh)
-    if "nl_statement" not in d or "nl_proof" not in d:
-        raise KeyError(f"{source_path} must have 'nl_statement' and 'nl_proof'")
-    return d["nl_statement"], d["nl_proof"]
+NL_FILES = ("nl_statement.txt", "nl_proof.txt")
+
+
+def load_nl(data_dir: str) -> Tuple[str, str]:
+    """(nl_statement, nl_proof) read verbatim from `<data_dir>/nl_{statement,proof}.txt`.
+
+    The files ARE the text — their bytes are the paper's bytes, with no trailing newline and no
+    normalization (see scripts/convert_nl_to_txt.py). So this reads them with `newline=""` to keep
+    universal-newline translation from rewriting a `\r\n` the source actually has; every gate here
+    compares byte-for-byte, and silently repairing line endings on load is exactly the kind of
+    invisible edit those gates exist to catch.
+    """
+    out = []
+    for name in NL_FILES:
+        path = os.path.join(data_dir, name)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"{path} not found (expected {' and '.join(NL_FILES)} in {data_dir})")
+        with open(path, encoding="utf-8", newline="") as fh:
+            out.append(fh.read())
+    return out[0], out[1]
 
 
 def _resolve_problem(problem: str) -> Tuple[str, str]:
     """Given an item path `<corpus>/item<N>` (e.g. proofnet_verified/item8), return
-    (split_path, source_path).
+    (split_path, data_dir).
 
-    Per-item layout: split lives at `<corpus>/item<N>/split.json`; the NL source at
-    `<corpus>/item<N>/data/nl.json`.
+    Per-item layout: split lives at `<corpus>/item<N>/split.json`; the NL source is the pair of
+    `.txt` files in `<corpus>/item<N>/data/`.
     """
     itemdir = problem.rstrip("/")
     if not os.path.basename(itemdir):
         raise ValueError(f"expected <corpus>/item<N>, got {problem!r}")
     split_path = os.path.join(itemdir, "split.json")
-    source_path = os.path.join(itemdir, "data", "nl.json")
-    return split_path, source_path
+    data_dir = os.path.join(itemdir, "data")
+    return split_path, data_dir
 
 
 def main(argv: List[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Coverage (verbatim tiling) gate for a Pistis split.json.")
     ap.add_argument("problem", nargs="?", help="<corpus>/item<N>, e.g. proofnet_verified/item8")
     ap.add_argument("--split-file", help="explicit path to split.json (overrides <problem>)")
-    ap.add_argument("--source", help="explicit path to the source json with nl_statement/nl_proof")
+    ap.add_argument("--source", help="explicit path to the dir holding nl_statement.txt/nl_proof.txt")
     args = ap.parse_args(argv)
 
     if args.split_file and args.source:
-        split_path, source_path = args.split_file, args.source
+        split_path, data_dir = args.split_file, args.source
     elif args.problem:
         try:
-            split_path, source_path = _resolve_problem(args.problem)
+            split_path, data_dir = _resolve_problem(args.problem)
         except ValueError as e:
             print(f"usage error: {e}", file=sys.stderr)
             return 2
@@ -281,14 +297,18 @@ def main(argv: List[str] | None = None) -> int:
         ap.print_usage(sys.stderr)
         return 2
 
-    for p in (split_path, source_path):
+    for p in (split_path, data_dir):
         if not os.path.exists(p):
             print(f"file not found: {p}", file=sys.stderr)
             return 2
 
     with open(split_path, encoding="utf-8") as fh:
         segments = json.load(fh)
-    nl_statement, nl_proof = _load_source(source_path)
+    try:
+        nl_statement, nl_proof = load_nl(data_dir)
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
+        return 2
 
     ok, lines = check_tiling(segments, nl_statement, nl_proof)
     status = "PASS" if ok else "FAIL"

@@ -1,0 +1,32 @@
+[
+  {
+    "f": 0,
+    "n": 0,
+    "v": 1,
+    "why": "The matrix the statement fixes, unchanged."
+  },
+  {
+    "f": 1,
+    "n": 1,
+    "v": 1,
+    "why": "Addition of matrices, on both sides."
+  },
+  {
+    "f": 2,
+    "n": 2,
+    "v": 1,
+    "why": "The scalar $\\tau$ times the matrix. `•` is `SMul`, which for `Matrix I J ℝ` is the entrywise scalar multiple the paper means."
+  },
+  {
+    "f": 3,
+    "n": 3,
+    "v": 1,
+    "why": "$e_s e_j^{\\mathsf T}$ is the outer product of two standard basis vectors: the matrix with a single 1 in position $(s,j)$ and zeros elsewhere. That matrix is `Matrix.single s j 1`. The paper names it by a construction and Mathlib by what it is, so this edge is the one place in the step where the two notations genuinely differ — which is why it is worth its own level."
+  },
+  {
+    "f": null,
+    "n": 4,
+    "v": 1,
+    "why": "The closing `$` of the inline formula."
+  }
+]

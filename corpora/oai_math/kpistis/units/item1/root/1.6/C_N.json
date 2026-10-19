@@ -1,0 +1,36 @@
+[
+  [],
+  [
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "What 'old' means and what $D$ is: the matrix the lemma fixes, before any $\\tau$ perturbs it. 'Old' is doing the work of a name here and the name is fifteen lines up."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          693,
+          770
+        ]
+      ],
+      "why": "What 'is contained in' is a conclusion of. 'The entire old image' inherits the universal quantifier of the previous sentence — this sentence has none of its own, so read alone it says neither why the containment holds nor what makes it 'entire'. `≤` between submodules is the formalization supplying the quantifier."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "What $D_\\tau$ is, four sentences back. $\\im D_\\tau$ is the only term here that mentions the perturbed matrix, and nothing nearby says what it is."
+    }
+  ]
+]

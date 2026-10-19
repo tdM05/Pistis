@@ -1,0 +1,1 @@
+refine not_not.mp fun hne : x j * y s ≠ 0 => ?_

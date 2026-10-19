@@ -1,0 +1,1 @@
+Let $\varepsilon>0$. Since $p_n \rightarrow L$, we have that, for all $n$ except $n \leq N$, $d\left(p_n, L\right)<\epsilon$. Let $S=\{n \mid f(n) \leq N\}$, let $n_0$ be the largest $n \in S$, we know there is such a largest $n$ because $f(n)$ is injective. Now we have that $\forall n>n_0 f(n)>N$ which implies that $p_{f(n)} \rightarrow L$, as required.

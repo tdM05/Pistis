@@ -1,0 +1,1 @@
+Since $E$ is bounded in $\mathbb{R}$, it is totally bounded. A uniformly continuous function maps totally bounded sets to totally bounded sets. In $\mathbb{R}$, totally bounded sets are bounded, so $f(E)$ is bounded.

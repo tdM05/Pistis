@@ -1,0 +1,1 @@
+Suppose $a|b$ in $\mathbb{Z}[i]$ and $a,b\in\mathbb{Z}$. Then $a(x+yi)=b$ for $x,y\in\mathbb{Z}$. Expanding this we get $ax+ayi=b$, and equating imaginary parts gives us $ay=0$, implying $y=0$.

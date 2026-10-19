@@ -1,0 +1,1 @@
+The contradiction is evidently that $x_0$ is a limit point of the set of $t$ such that $f(t)=r$, yet, $x_0$ does not belong to this set. This contradicts the hypothesis that the set is closed.

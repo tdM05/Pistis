@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<!--
+  One unit, at whatever depth. Formal target on the left, natural-language target on the right.
+
+  NOTHING is shown except the one edge you are on. No shaded regions, no table of thirteen rows:
+  hovering lights one edge's two spans, draws its ribbon, and fills the strip at the bottom with that
+  edge and nothing else. `j`/`k` step through the rest.
+
+  Above the formal target: WHERE it is — the enclosing step with this target marked, derived from the
+  chain (`model.ancestry`). Above the NL target: `C_N` — the sentences of the paper this unit has to
+  be read against, authored, each with its reason. Different things, different labels.
+
+  Navigation is two buttons: click to pin, `deeper` to refine the pinned edge, `back` to return.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>K-Pistis</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      onerror="window.__noKatex=true">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        onerror="window.__noKatex=true"></script>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">K&#8209;Pistis</div>
+  <nav id="crumbs" class="crumbs"></nav>
+  <div class="spacer"></div>
+  <div id="badges" class="badges"></div>
+  <div class="nav">
+    <button id="back" class="navbtn">&#9652; back</button>
+    <button id="deeper" class="navbtn">&#9662; deeper</button>
+  </div>
+  <label class="toggle"><input type="checkbox" id="ctxon" checked> context</label>
+  <label class="toggle"><input type="checkbox" id="raw"> source</label>
+  <label class="toggle"><input type="checkbox" id="donebox"> done</label>
+</header>
+
+<main>
+  <section class="panes">
+    <div class="pane" id="paneF">
+      <div class="pane-head"><span class="tag">T<sub>F</sub></span>
+        <span class="pane-sub" id="subF"></span></div>
+      <div class="ctx" id="ctxF"></div>
+      <div class="scroll" id="scrollF"><div class="lines" id="linesF"></div><pre id="bodyF"></pre></div>
+    </div>
+    <div class="gutter" id="gutter"><svg id="ribbons"></svg></div>
+    <div class="pane" id="paneN">
+      <div class="pane-head"><span class="tag">T<sub>N</sub></span>
+        <span class="pane-sub" id="subN"></span></div>
+      <div class="ctx" id="ctxN"></div>
+      <div class="scroll" id="scrollN"><div id="bodyN" class="nl"></div></div>
+    </div>
+  </section>
+
+  <section id="edge">
+    <div class="side-head">
+      <span id="edgeno">edge</span>
+      <span class="hint" id="pinhint"></span>
+      <span class="spacer"></span>
+      <span class="hint" id="tally"></span>
+    </div>
+    <div id="edgebody"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>

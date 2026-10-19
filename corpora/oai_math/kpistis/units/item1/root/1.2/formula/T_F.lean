@@ -1,0 +1,1 @@
+D + τ • Matrix.single s j (1 : ℝ)

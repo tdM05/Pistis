@@ -1,0 +1,64 @@
+[
+  [
+    {
+      "spans": [
+        [
+          947,
+          963
+        ]
+      ],
+      "why": "Why τ may be chosen freely: nothing later in the proof constrains it — the final contradiction holds for any nonzero τ — which is what makes Lean's `⟨1, one_ne_zero⟩` an adequate reading of 'For a nonzero real $\\tau$'. That is a fact about the whole proof and this clause cannot show it."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "What $D$ is, since `D_\\tau` is named in terms of it: the maximum-rank matrix fixed by the lemma. The clause writes `D` with no introduction."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          559,
+          578
+        ]
+      ],
+      "why": "The left-hand side of the equation this is the right-hand side of. It stops exactly where this region starts, which is the cleanest demonstration of the no-overlap rule: the two are adjacent and `cn_errors` can still prove they do not intersect."
+    },
+    {
+      "spans": [
+        [
+          461,
+          473
+        ]
+      ],
+      "why": "Where $s$ and $j$ come from — the lemma's last binder, and ALL the paper offers: $e_s$ and $e_j^{\\mathsf T}$ are never defined anywhere in it. The reader is expected to supply 'standard basis vector', and `Matrix.single s j 1` is the formalization committing to that reading. The child unit `formula` is where that edge is taken apart."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          29,
+          167
+        ]
+      ],
+      "why": "'supported on $T$' is defined thirteen lines earlier, in the statement paragraph, in a sentence this step has no other business with. The formal side needs no such citation — `SupportedOn` is a `def` the region could simply have included — which is exactly the asymmetry: the Lean file can be arranged so a definition is adjacent, the paper cannot be rearranged at all."
+    },
+    {
+      "spans": [
+        [
+          330,
+          387
+        ]
+      ],
+      "why": "What 'still' is relative to: $D$ was supported on $T$ to begin with. Lean's `hD` carries that and the word 'still' is the paper's entire record of it."
+    }
+  ]
+]

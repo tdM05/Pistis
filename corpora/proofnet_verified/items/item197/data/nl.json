@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Let $K$ be a finite field. Prove that the product of the nonzero elements of $K$ is $-1$.",
-  "nl_proof": "Since we are working with a finite field with $q$ elements, anyone of them is a root of the following polynomial\n$$\nx^q-x=0 .\n$$\nIn particular if we rule out the 0 element, any $a_i \\neq 0$ is a root of\n$$\nx^{q-1}-1=0 .\n$$\nThis polynomial splits completely in $\\mathbb{F}_q$ so we find\n$$\n\\left(x-a_1\\right) \\cdots\\left(x-a_{q-1}\\right)=0\n$$\nin particular\n$$\nx^{q-1}-1=\\left(x-a_1\\right) \\cdots\\left(x-a_{q-1}\\right)\n$$\nThus $a_1 \\cdots a_{q-1}=-1$."
-}

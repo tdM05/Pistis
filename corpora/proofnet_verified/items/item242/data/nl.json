@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Prove that if $u$ is a unit in $R$ then so is $-u$.",
-  "nl_proof": "Solution: Since $u$ is a unit, we have $u v=v u=1$ for some $v \\in R$. Thus, we have\n$$\n(-v)(-u)=v u=1\n$$\nand\n$$\n(-u)(-v)=u v=1 .\n$$\nThus $-u$ is a unit."
-}

@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Suppose $V$ is a complex inner-product space. Prove that every normal operator on $V$ has a square root. (An operator $S \\in \\mathcal{L}(V)$ is called a square root of $T \\in \\mathcal{L}(V)$ if $S^{2}=T$.)",
-  "nl_proof": "Let $V$ be a complex inner product space.\nIt is known that an operator $S \\in \\mathcal{L}(V)$ is called a square root of $T \\in \\mathcal{L}(V)$ if\n$$\nS^2=T\n$$\nNow, suppose that $T$ is a normal operator on $V$.\nBy the Complex Spectral Theorem, there is $e_1, \\ldots, e_n$ an orthonormal basis of $V$ consisting of eigenvalues of $T$ and let $\\lambda_1, \\ldots, \\lambda_n$ denote their corresponding eigenvalues.\nDefine $S$ by\n$$\nS e_j=\\sqrt{\\lambda_j} e_j,\n$$\nfor each $j=1, \\ldots, n$.\nObviously, $S^2 e_j=\\lambda_j e_j=T e_j$.\nHence, $S^2=T$ so there exist a square root of $T$."
-}

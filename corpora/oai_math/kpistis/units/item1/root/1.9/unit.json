@@ -1,0 +1,22 @@
+{
+  "id": "item1/1.9",
+  "loc": "1.9",
+  "title": "step 1.9 — contradiction",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 12,
+    "n": 10
+  },
+  "F_locs": [
+    "exact",
+    "absurd",
+    "facts"
+  ],
+  "N_locs": [
+    "contra"
+  ],
+  "done": true
+}

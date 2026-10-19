@@ -1,0 +1,7 @@
+Not commutative since
+$$
+1 \star(-1)=1-(-1)=2
+$$
+$$
+(-1) \star 1=-1-1=-2 .
+$$

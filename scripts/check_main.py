@@ -4,8 +4,8 @@
 After the map stage fills `Main.lean`, this checks — source-level, no Lean build — that the map is
 FAITHFUL by the paper's conditions that survive into Main:
 
-  1. coverage — the `pistis_*` segment texts recovered from Main tile the item's nl.json BYTE-FOR-BYTE
-     (statement/intro == nl_statement; the joined non-intro segments == nl_proof), and in the SAME order
+  1. coverage — the `pistis_*` segment texts recovered from Main tile the item's NL source BYTE-FOR-BYTE
+     (statement/intro == nl_statement.txt; the joined non-intro segments == nl_proof.txt), and in the SAME order
      and locators the scaffold stamped (the map agent must never edit text/locator/order);
   2. no vacuous claim — no `pistis_segment` claim is `True` (RULE 2: every reasoning segment asserts
      something);
@@ -18,21 +18,20 @@ build-free faithfulness half.
 
 Usage:
     python3 scripts/check_main.py <corpus>/item<N>          # e.g. proofnet_verified/item8
-    python3 scripts/check_main.py --main path/to/Main.lean --source path/to/nl.json
+    python3 scripts/check_main.py --main path/to/Main.lean --source path/to/item/data
 
 Exit 0 = PASS, 1 = FAIL, 2 = usage / file error.
 """
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import sys
 from typing import List, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from check_split import _compare, tile  # reuse the exact same tiling gate as the split stage
+from check_split import _compare, load_nl, tile  # the exact same tiling gate + loader as the split stage
 from pistis_lean import parse_main, parse_assumptions
 
 
@@ -121,32 +120,36 @@ def check_main(main_src: str, nl_statement: str, nl_proof: str) -> Tuple[bool, L
 
 def _resolve(item: str) -> Tuple[str, str]:
     item = item.rstrip("/")
-    return os.path.join(item, "Main.lean"), os.path.join(item, "data", "nl.json")
+    return os.path.join(item, "Main.lean"), os.path.join(item, "data")
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Faithfulness gate for a mapped Main.lean.")
     ap.add_argument("item", nargs="?", help="<corpus>/item<N>, e.g. proofnet_verified/item8")
     ap.add_argument("--main", help="explicit path to Main.lean")
-    ap.add_argument("--source", help="explicit path to nl.json")
+    ap.add_argument("--source", help="explicit path to the dir holding nl_statement.txt/nl_proof.txt")
     args = ap.parse_args(argv)
 
     if args.main and args.source:
-        main_path, source_path = args.main, args.source
+        main_path, data_dir = args.main, args.source
     elif args.item:
-        main_path, source_path = _resolve(args.item)
+        main_path, data_dir = _resolve(args.item)
     else:
         ap.print_usage(sys.stderr)
         return 2
 
-    for p in (main_path, source_path):
+    for p in (main_path, data_dir):
         if not os.path.exists(p):
             print(f"file not found: {p}", file=sys.stderr)
             return 2
 
     main_src = open(main_path, encoding="utf-8").read()
-    d = json.load(open(source_path, encoding="utf-8"))
-    ok, lines = check_main(main_src, d["nl_statement"], d["nl_proof"])
+    try:
+        nl_statement, nl_proof = load_nl(data_dir)
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    ok, lines = check_main(main_src, nl_statement, nl_proof)
     print(f"{'PASS' if ok else 'FAIL'} — {main_path}")
     for line in lines:
         print(line)

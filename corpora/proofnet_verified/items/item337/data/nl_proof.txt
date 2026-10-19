@@ -1,0 +1,1 @@
+Not true when $k=1$, since the product of two nonzero real numbers is nonzero.

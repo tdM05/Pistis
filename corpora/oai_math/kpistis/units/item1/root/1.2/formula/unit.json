@@ -1,0 +1,27 @@
+{
+  "id": "item1/root/1.2/formula",
+  "loc": "formula",
+  "title": "D_τ's defining expression",
+  "category": "atomic",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root/1.2",
+    "f": 4,
+    "n": 2
+  },
+  "F_locs": [
+    "D",
+    "plus",
+    "scalar",
+    "single"
+  ],
+  "N_locs": [
+    "D",
+    "plus",
+    "scalar",
+    "outer",
+    "delim"
+  ],
+  "done": true
+}

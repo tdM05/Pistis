@@ -1,0 +1,1 @@
+Note that there is some $k \in \mathbb{Z}$ such that $M^{d d^{\prime}} \equiv M^{k \varphi(N)+1} \equiv\left(M^{\varphi(N)}\right)^k \cdot M \bmod N$. By Euler's Theorem we have $M^{\varphi(N)} \equiv 1 \bmod N$, so that $M_1^{d^{\prime}} \equiv M \bmod N$.

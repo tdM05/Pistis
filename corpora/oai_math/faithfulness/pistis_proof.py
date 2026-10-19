@@ -4,7 +4,7 @@ The faithfulness-dataset model is per-STATEMENT: one datapoint = one (T_F, T_N) 
 align-then-label. A Pistis item is a whole PROOF, so it decomposes into many such pairs — one per
 place where the formalization claims to say what the prose says:
 
-    statement     the item's `nl_statement`            <-> the Lean theorem statement
+    statement     the item's `nl_statement.txt`        <-> the Lean theorem statement
     seg-<loc>     one `pistis_segment`'s text          <-> that segment's Lean claim
 
 Every unit is derived, never hand-maintained: edit `Main.lean` or `split.json` and the units move with
@@ -332,13 +332,22 @@ def _statement_target(src: str) -> str:
     return normalize_tf(head + src[thm.start():thm.start() + body.end()] + " sorry")
 
 
+
+def read_nl(item_dir, name: str) -> str:
+    """One of the item's NL source files, verbatim: `name` is "nl_statement" or "nl_proof".
+
+    The file's bytes ARE the paper's bytes — no JSON escaping, no trailing newline — so `newline=""`
+    keeps universal-newline translation out of a value that is compared byte-for-byte downstream.
+    """
+    return (Path(item_dir) / "data" / f"{name}.txt").read_text(encoding="utf-8", newline="")
+
+
 def proof_outline(item_dir) -> dict:
     """The item's align-then-label units, in proof order. See the module docstring."""
     item_dir = Path(item_dir)
     src = (item_dir / "Main.lean").read_text(encoding="utf-8")
     split = json.loads((item_dir / "split.json").read_text(encoding="utf-8"))
     meta = json.loads((item_dir / "meta.json").read_text(encoding="utf-8"))
-    nl = json.loads((item_dir / "data" / "nl.json").read_text(encoding="utf-8"))
     rel_main = f"items/item{meta['index']}/Main.lean"
 
     ambient = _ambient(src, rel_main)
@@ -360,7 +369,7 @@ def proof_outline(item_dir) -> dict:
         "loc": segs[0]["loc"] if segs else "",
         "title": meta.get("result", meta.get("name", "")),
         "depth": 0,
-        "nl_text": nl["nl_statement"],
+        "nl_text": read_nl(item_dir, "nl_statement"),
         "nl_focus": "",
         "formal": _statement_target(src),
         "context": [],                      # the statement's T_F already carries its own context

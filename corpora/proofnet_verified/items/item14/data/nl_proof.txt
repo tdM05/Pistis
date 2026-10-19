@@ -1,0 +1,5 @@
+In particular, we have
+$$
+\frac{x^a+1}{x+1}=\frac{(-x)^a-1}{(-x)-1}=1-x+x^2-\cdots+(-x)^{a-1}
+$$
+by the geometric sum formula. In this case, specialize to $x=2^{2^m}$ and we have a nontrivial divisor.

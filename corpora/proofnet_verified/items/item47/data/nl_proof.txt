@@ -1,0 +1,1 @@
+Solution: Let $p$ be the smallest prime dividing $n$, and write $n=p m$. Now $G$ has a subgroup $H$ of order $m$, and $H$ has index $p$. Then $H$ is normal in $G$.

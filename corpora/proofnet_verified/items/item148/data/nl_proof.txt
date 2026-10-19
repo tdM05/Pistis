@@ -1,0 +1,1 @@
+If $r$ and $r+x$ were both rational, then $x=r+x-r$ would also be rational.

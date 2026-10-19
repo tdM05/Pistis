@@ -1,0 +1,12 @@
+Suppose instead that $x_jy_s\ne0$.  For a nonzero real $\tau$, the matrix
+$D_\tau=D+\tau e_s e_j^{\mathsf T}$ is still supported on $T$, and
+\[
+ D_\tau x=\tau x_j e_s.
+\]
+Thus $e_s\in\im D_\tau$.  Moreover, for every $w\in\R^J$,
+\[
+ Dw=D_\tau w-\tau w_j e_s\in\im D_\tau,
+\]
+so the entire old image $\im D$ is contained in $\im D_\tau$.
+On the other hand, $y$ annihilates $\im D$ and $y_s\ne0$, so
+$e_s\notin\im D$.  Therefore $\rank D_\tau>\rank D$, a contradiction.

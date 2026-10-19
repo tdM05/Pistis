@@ -1,0 +1,44 @@
+[
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "`have hDw :` names the claim and `:= by sorry` is where its proof goes. How a claim is stated and discharged in Lean; the prose states its claim by writing a sentence and proves it elsewhere or not at all. Neither half has anything to correspond to."
+  },
+  {
+    "f": 1,
+    "n": 1,
+    "v": 1,
+    "why": "`∀ w : J → ℝ` is 'for every $w\\in\\R^J$'; the paper's $\\R^J$ is the function type `J → ℝ`, which is how `mulVec` takes its argument."
+  },
+  {
+    "f": 2,
+    "n": 3,
+    "v": 1,
+    "why": "The identity, term for term: `D.mulVec w` is $Dw$, the subtraction is the prose's minus sign, and `(τ * w j) • Pi.single s 1` is $\\tau w_j e_s$ exactly as in 1.3 with $x$ replaced by $w$."
+  },
+  {
+    "f": 4,
+    "n": 4,
+    "v": 1,
+    "why": "The second half of the chain. The prose writes $Dw=\\dots\\in\\im D_\\tau$, so the subject $Dw$ is written once and does duty twice; Lean has to write `D.mulVec w` again, which is why this region repeats it and the NL region is only the `\\in\\im D_\\tau` part."
+  },
+  {
+    "f": 3,
+    "n": null,
+    "v": 1,
+    "why": "The sentence is a CHAIN — $Dw = D_\\tau w - \\tau w_je_s \\in \\im D_\\tau$ — which asserts two things with one `\\in`, and Lean's `∧` is those two things joined. There is no character in the prose that is the conjunction, so the connective itself goes to ⊥ while both conjuncts are linked above. `split.json` makes the same call from the other side: segment 1.5's `assert` is the whole chain, because it cannot be cut into contiguous pieces."
+  },
+  {
+    "f": null,
+    "n": 0,
+    "v": 1,
+    "why": "A discourse connective ('here is a further fact'), carried in Lean by the `have` simply coming next."
+  },
+  {
+    "f": null,
+    "n": 2,
+    "v": 1,
+    "why": "Display-math delimiters and the comma the display ends on."
+  }
+]

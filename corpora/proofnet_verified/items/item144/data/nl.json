@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Prove that for each positive integer $n$, the number $10^{10^{10^n}}+10^{10^n}+10^n-1$ is not prime.",
-  "nl_proof": "Put\n\\[\nN = 10^{10^{10^n}} + 10^{10^n} + 10^n - 1.\n\\]\nWrite $n = 2^m k$ with $m$ a nonnegative integer and $k$ a positive odd integer.\nFor any nonnegative integer $j$,\n\\[\n10^{2^m j} \\equiv (-1)^j \\pmod{10^{2^m} + 1}.\n\\]\nSince $10^n \\geq n \\geq 2^m \\geq m+1$, $10^n$ is divisible by $2^n$ and hence by $2^{m+1}$,\nand similarly $10^{10^n}$ is divisible by $2^{10^n}$ and hence by $2^{m+1}$. It follows that\n\\[\nN \\equiv 1 + 1 + (-1) + (-1) \\equiv 0 \\pmod{10^{2^m} + 1}.\n\\]\nSince $N \\geq 10^{10^n} > 10^n + 1 \\geq 10^{2^m} + 1$, it follows that $N$ is composite."
-}

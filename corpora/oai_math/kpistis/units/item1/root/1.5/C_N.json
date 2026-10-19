@@ -1,0 +1,46 @@
+[
+  [],
+  [
+    {
+      "spans": [
+        [
+          314,
+          329
+        ]
+      ],
+      "why": "What $\\R^J$ is here: the domain of $D$, as the lemma fixes it. `∀ w : J → ℝ` reads $\\R^J$ as the function type, which is right because that is what `mulVec` eats — but the paper writes $\\R^J$ and leaves the identification to the reader."
+    }
+  ],
+  [],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "The identity displayed here is this definition rearranged and applied to $w$. Without it $Dw=D_\\tau w-\\tau w_j e_s$ is an unexplained assertion, and `hDw`'s `sorry` body is where the rearrangement would live."
+    },
+    {
+      "spans": [
+        [
+          461,
+          473
+        ]
+      ],
+      "why": "$w_j$ and $e_s$ use the lemma's $j$ and $s$ — the same two indices, still undefined as basis vectors. `(τ * w j) • Pi.single s 1` commits to the reading for the third time."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          667,
+          691
+        ]
+      ],
+      "why": "What puts the last term inside $\\im D_\\tau$: $D_\\tau w$ is there by definition, and $e_s$ is there by the previous sentence. The '$\\in$' at the end of the chain is an inference and half its input is outside this sentence."
+    }
+  ]
+]

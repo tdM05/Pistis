@@ -54,7 +54,7 @@ citations it wrote.
 
 The right panel is read as a quotation of the proof, so **`check_verbatim.py` holds every string it
 shows to being text the cited source contains.** `T_N` must be a byte-for-byte substring of
-`data/nl.json`; a segment's `T_F` must be its claim as written in `Main.lean` (whitespace collapse is
+`data/nl_{statement,proof}.txt`; a segment's `T_F` must be its claim as written in `Main.lean` (whitespace collapse is
 the one liberty, and it is forced — `parse_main` collapses it); the statement's `T_F` must be its
 lines, in source order, with `sorry` the only inserted token; `S_F`/`S_N` are slices, so they are
 checked for being inside their target. The file is read through `_code_lines`, so nothing can be
@@ -123,7 +123,7 @@ formalization asserts:
 | `seg-<loc>` | one `pistis_segment`'s text | its claim — the type inside `(stepK : …)`  | complete |
 
 Units are **derived, never hand-maintained** — they come out of `Main.lean`, `split.json`,
-`meta.json` and `data/nl.json` on every request, so editing the proof moves them with it. They land
+`meta.json` and `data/nl_{statement,proof}.txt` on every request, so editing the proof moves them with it. They land
 on disk as `items/item<N>/align/<unit>/artifacts/`, which is what `find_datapoints()` discovers.
 
 Two deliberate choices:
@@ -161,7 +161,7 @@ Two deliberate choices:
 
 `gen_datapoints.py` seeds only what is already **derived** from text the Pistis gates hold verbatim:
 
-* both targets (`T_N` is byte-identical to its slice of `data/nl.json`; `T_F` is the Lean claim,
+* both targets (`T_N` is byte-identical to its slice of `data/nl_{statement,proof}.txt`; `T_F` is the Lean claim,
   gated by `check_targets.py`);
 * `S_N[0]`, the unit's focus substring — `split.json`'s `assert`, already gated as an exact
   substring of the segment's text;

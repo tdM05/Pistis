@@ -1,0 +1,27 @@
+{
+  "id": "item1/1.4",
+  "loc": "1.4",
+  "title": "step 1.4 — e_s ∈ im D_τ",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 7,
+    "n": 5
+  },
+  "F_locs": [
+    "scaffold",
+    "es",
+    "mem",
+    "range"
+  ],
+  "N_locs": [
+    "thus",
+    "es",
+    "mem",
+    "im",
+    "stop"
+  ],
+  "done": true
+}

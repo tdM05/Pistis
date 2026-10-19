@@ -1,0 +1,65 @@
+[
+  [
+    {
+      "spans": [
+        [
+          559,
+          578
+        ]
+      ],
+      "why": "The left-hand side of the equation this is the right-hand side of. It stops exactly where this target starts, which is the point: `C_N` cites the paper, so 'the rest of my own sentence' is expressible as a citation and `cn_errors` can still prove the two do not overlap."
+    },
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "And what this $D$ is. The paper introduces it as a map $\\R^J\\to\\R^I$; the Lean side is a `Matrix I J ℝ`. Two levels up that identification is invisible — here it is the edge."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          606,
+          632
+        ]
+      ],
+      "why": "What the sum has to satisfy, which is the only reason this is a sum at all: the second summand is supported at a single position of $T$, so adding it keeps the support inside $T$. The claim is the tail of the sentence this formula sits in, not part of the formula."
+    },
+    {
+      "spans": [
+        [
+          29,
+          167
+        ]
+      ],
+      "why": "And the definition that makes 'still supported on $T$' a checkable statement about the sum rather than a word about it. It is eight sentences back, in the paragraph before the lemma."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          532,
+          558
+        ]
+      ],
+      "why": "The only place $\\tau$ is ever quantified, and the only place its nonzeroness is stated. This formula uses the symbol as if it were already in scope; the binder is in the clause before."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          461,
+          473
+        ]
+      ],
+      "why": "The only introduction $s$ and $j$ ever get. $e_s$ and $e_j^{\\mathsf T}$ are not defined anywhere in the paper — the notation is assumed — so the edge from `Matrix.single s j 1` to $e_s e_j^{\\mathsf T}$ is judged against a convention rather than a definition. That is a fact about the paper worth recording, and a citation with a reason is where it can be recorded."
+    }
+  ],
+  []
+]

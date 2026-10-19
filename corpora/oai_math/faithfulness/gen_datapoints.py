@@ -21,7 +21,7 @@ What is SEEDED and what is not
 ------------------------------
 Seeded, because it is DERIVED from files already gated as verbatim:
   * both targets — `T_N` is the unit's own text from `Main.lean` (byte-identical to the slice of
-    `data/nl.json` that `check_main.py` gates), `T_F` is its Lean claim;
+    `data/nl_{statement,proof}.txt` that `check_main.py` gates), `T_F` is its Lean claim;
   * `S_N[0]` — the unit's focus substring: `split.json`'s `assert`, the single thing the segment
     asserts, already gated as an exact substring of the segment's text by `check_split.py`;
   * `S_F[0]` — the whole formal target, as one region;

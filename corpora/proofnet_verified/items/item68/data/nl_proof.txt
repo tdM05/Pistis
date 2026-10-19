@@ -1,0 +1,5 @@
+$$
+x^6+30 x^5-15 x^3+6 x-120
+$$
+The coefficients of the low order.: $30,-15,0,6,-120$
+They are divisible by the prime 3 , but $3^2=9$ doesn't divide $-120$. So this polynomial is irreducible over $\mathbb{Z}$.

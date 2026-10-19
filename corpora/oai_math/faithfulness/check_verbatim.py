@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate: every string a datapoint SHOWS is text that `Main.lean` / `nl.json` actually contains.
+"""Gate: every string a datapoint SHOWS is text that `Main.lean` / the NL source actually contains.
 
 The right panel is read as a quotation. `hsuppose1 : x j * y s ≠ 0` next to a citation of
 `Main.lean:38` says "line 38 of the proof puts this in scope, in these words" — but line 38 is
@@ -12,11 +12,11 @@ Checked, per datapoint:
 
 | string                  | held to                                                               |
 | ----------------------- | --------------------------------------------------------------------- |
-| `T_N`                   | a byte-for-byte substring of `data/nl.json`                           |
+| `T_N`                   | a byte-for-byte substring of `data/nl_{statement,proof}.txt`          |
 | `T_F` (segment)         | the claim, verbatim in `Main.lean` up to whitespace                   |
 | `T_F` (statement)       | every line verbatim and in source order; only `sorry` may be inserted |
 | `C_F.items[].signature` | a CONTIGUOUS substring of the line(s) it cites                         |
-| `C_N[].text`            | a substring of `nl.json`, as its own provenance claims                |
+| `C_N[].text`            | a substring of the NL source, as its own provenance claims            |
 | `S_F` / `S_N`           | in range of the target they index (they are slices, so verbatim)      |
 
 The `C_F` rule is one rule and it has no exceptions: **the signature must occur, contiguously, in the
@@ -77,12 +77,19 @@ def _collapse(s: str) -> str:
 
 
 def _nl_sources(item_dir: Path) -> dict[str, str]:
-    nl = json.loads((item_dir / "data" / "nl.json").read_text(encoding="utf-8"))
-    return {k: v for k, v in nl.items() if isinstance(v, str)}
+    """The item's NL source documents, keyed by name: `{"nl_statement": ..., "nl_proof": ...}`.
+
+    Each is a plain-text file whose bytes are the paper's bytes (no JSON escaping, no trailing
+    newline), read with `newline=""` so nothing about line endings is repaired on the way in — this
+    gate's whole claim is byte-for-byte containment.
+    """
+    data = item_dir / "data"
+    return {name: (data / f"{name}.txt").read_text(encoding="utf-8", newline="")
+            for name in ("nl_statement", "nl_proof")}
 
 
 def _find_nl(text: str, sources: dict[str, str]) -> str | None:
-    """Which `nl.json` field contains `text` verbatim, if any.
+    """Which NL source file contains `text` verbatim, if any.
 
     A trailing newline is allowed to be missing from the source: a unit's `T_N` ends at a sentence
     boundary, and the artifact is written with a newline whether or not the excerpt had one.
@@ -166,13 +173,13 @@ def check_unit(art: Path, unit: str, blanked: list[str], code: str,
     notes: list[str] = []
     seen: list[str] = []
 
-    # ---- T_N: no liberty at all. It is a slice of nl.json and nothing else.
+    # ---- T_N: no liberty at all. It is a slice of the NL source and nothing else.
     tn = (art / "nl" / "T_N.txt").read_text(encoding="utf-8")
     key = _find_nl(tn, nl_sources)
     if key:
         seen.append(f"T_N        quoted   ({key}, {len(tn)} chars)")
     else:
-        errors.append(f"T_N is not a substring of data/nl.json: {_collapse(tn)[:70]!r}…")
+        errors.append(f"T_N is not a substring of data/nl_*.txt: {_collapse(tn)[:70]!r}…")
 
     # ---- T_F: the claim, up to whitespace. The statement unit is several lines (header + theorem),
     # each of which must be found, in order; its `sorry` is the one token tf_norm puts in.
@@ -233,10 +240,10 @@ def check_unit(art: Path, unit: str, blanked: list[str], code: str,
         if key:
             seen.append(f"C_N[{i}]   quoted   ({key})")
         elif src and not src.startswith(("items/", "data/")):
-            notes.append(f"C_N[{i}] is not in data/nl.json; its source is {src!r}, outside this "
+            notes.append(f"C_N[{i}] is not in data/nl_*.txt; its source is {src!r}, outside this "
                          f"corpus — unchecked")
         else:
-            errors.append(f"C_N[{i}] is not a substring of data/nl.json: {_collapse(text)[:70]!r}")
+            errors.append(f"C_N[{i}] is not a substring of data/nl_*.txt: {_collapse(text)[:70]!r}")
 
     # ---- I: implicit NL context is what the reader supplies and the text does NOT say, so being
     # absent from the source is its definition. Counted, never checked.

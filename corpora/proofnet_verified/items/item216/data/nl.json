@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Deduce that $|a b|=|b a|$ for all $a, b \\in G$.",
-  "nl_proof": "Let $a$ and $b$ be arbitrary group elements. Letting $x=a b$ and $g=a$, we see that\n$$\n|a b|=\\left|a^{-1} a b a\\right|=|b a| .\n$$"
-}

@@ -1,0 +1,38 @@
+[
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "`have hDτx :` names the claim and `:= by sorry` is where its proof goes. How a claim is stated and discharged in Lean; the prose states its claim by writing a sentence and proves it elsewhere or not at all. Neither half has anything to correspond to."
+  },
+  {
+    "f": 1,
+    "n": 2,
+    "v": 1,
+    "why": "`Dτ.mulVec x` is $D_\\tau x$ — the prose's juxtaposition is matrix-vector application, which is what `mulVec` is."
+  },
+  {
+    "f": 2,
+    "n": 3,
+    "v": 1,
+    "why": "Equality of vectors in $\\R^I$, on both sides."
+  },
+  {
+    "f": 3,
+    "n": 4,
+    "v": 1,
+    "why": "`Pi.single s 1` is the vector that is 1 at `s` and 0 elsewhere, i.e. $e_s$, and `(τ * x j) •` is the scalar $\\tau x_j$ in front of it. The ascription `: I → ℝ` is Lean fixing which function space the basis vector lives in; `Pi.single` alone does not say."
+  },
+  {
+    "f": null,
+    "n": 0,
+    "v": 1,
+    "why": "A connective: it joins this claim to 1.2's. Lean's `have` is already in sequence after 1.2, so the sequencing is carried by position and there is no token to point at."
+  },
+  {
+    "f": null,
+    "n": 1,
+    "v": 1,
+    "why": "`\\[`, `\\]` and the full stop: how LaTeX presents the equation and how the sentence ends. Presentation, not content — and recorded as a ⊥ edge rather than left uncovered, because 'these characters say nothing mathematical' is itself the judgment."
+  }
+]

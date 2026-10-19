@@ -1,0 +1,1 @@
+To prove that $f(E)$ is dense in $f(X)$, simply use that $f(X)=f(\bar{E}) \subseteq \overline{f(E)}$.

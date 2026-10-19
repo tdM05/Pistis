@@ -1,0 +1,217 @@
+[
+  [
+    {
+      "spans": [
+        [
+          242,
+          299
+        ]
+      ],
+      "why": "The finiteness of $I$ and $J$ is asserted HERE as well, inside the lemma, and Lean asserts it once — `variable {I J : Type*} [Fintype I] [Fintype J]`. So the `variable` line is in this region and in `thm`, and a reader checking either against Lean has to know the other exists or the sharing looks like double-counting. The paper saying something twice is what forces two formal regions to overlap; this citation is where that is written down."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          923,
+          945
+        ]
+      ],
+      "why": "'has maximum rank among all real matrices supported on $T$' is the hypothesis `hmax : ∀ A, SupportedOn T A → A.rank ≤ D.rank`, i.e. a ≤ over a set — but the paper never defines `rank` and writes `$\\rank$` for the first and only time in the proof's last line. The reading that makes `hmax` the right formalization is anchored thirteen lines FORWARD, not backward."
+    },
+    {
+      "spans": [
+        [
+          29,
+          167
+        ]
+      ],
+      "why": "'supported on $T$' twice in one lemma, defined in the paragraph above. `hD` and `hmax` both quantify over it, so the definition is load-bearing for two binders."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          389,
+          494
+        ]
+      ],
+      "why": "The conclusion this negates. 'Suppose instead' is a pure back-reference: without 'one has $x_jy_s=0$' sitting in the lemma, the word 'instead' names nothing and the sentence cannot be read at all. It is eight lines and one paragraph break away, so no widening of `T_N` short of the whole document would reach it — this is the case `C_F` could not have, and `C_N` must."
+    },
+    {
+      "spans": [
+        [
+          947,
+          963
+        ]
+      ],
+      "why": "Where the reductio opened here is discharged, nine sentences later. Cited because the scope of 'Suppose instead' is the rest of the proof, and scope is not visible in one sentence."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          29,
+          167
+        ]
+      ],
+      "why": "'is still supported on $T$' is the claim of this sentence, and 'supported on $T$' is defined thirteen lines earlier, in the statement paragraph, in a sentence this step has no other business with. The formal side needs no such citation — `SupportedOn` is a `def` that the region could simply have included — which is exactly the asymmetry: the Lean file can be arranged so a definition is adjacent, the paper cannot be rearranged at all."
+    },
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "What $D$ is. The sentence writes `D` with no introduction; it is the maximum-rank matrix fixed by the lemma's hypothesis, which is also why `D_\\tau` having to stay supported on $T$ is the point of the step rather than an aside."
+    },
+    {
+      "spans": [
+        [
+          461,
+          473
+        ]
+      ],
+      "why": "Where $s$ and $j$ come from — the lemma's last binder. Worth recording for a reason the formal side makes obvious: `Matrix.single s j 1` is `e_s e_j^{\\mathsf T}`, and $e_s$, $e_j^{\\mathsf T}$ are never defined anywhere in the paper. This is the nearest the document comes, so the alignment rests on a convention the reader supplies."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "What $D_\\tau$ is, from the previous sentence. $D_\\tau x=\\tau x_j e_s$ is a one-line computation FROM that definition, and the Lean region states only the result."
+    },
+    {
+      "spans": [
+        [
+          399,
+          417
+        ]
+      ],
+      "why": "That $x$ is in $\\ker D$ — the lemma's binder, which is what makes $Dx=0$ available and the $D$ term of $D_\\tau x$ vanish. The paper never shows the cancellation."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          637,
+          666
+        ]
+      ],
+      "why": "The equation this concludes from, immediately above. On its own 'Thus $e_s\\in\\im D_\\tau$' is not checkable."
+    },
+    {
+      "spans": [
+        [
+          517,
+          529
+        ]
+      ],
+      "why": "The step needs $x_j\\ne0$ to divide by $\\tau x_j$, and that comes from the reductio supposition, not from anywhere near this sentence. It is the load-bearing hypothesis of the inference and it is nowhere in the sentence that makes it."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "What $D_\\tau$ is. $Dw=D_\\tau w-\\tau w_j e_s$ is that definition rearranged."
+    },
+    {
+      "spans": [
+        [
+          667,
+          691
+        ]
+      ],
+      "why": "Why the right-hand side lies in $\\im D_\\tau$: $D_\\tau w$ is there by definition and $e_s$ by the previous sentence. The '$\\in\\im D_\\tau$' clause is an inference, and half its input is the sentence above."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          693,
+          770
+        ]
+      ],
+      "why": "The 'so' makes this sentence a conclusion of the previous one, and the previous one is where all the content is: $\\im D\\le\\im D_\\tau$ is just that statement re-quantified. Lean states the two separately (`hDw`, then `himg`), so the edge joining them is the paper's 'so'."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          419,
+          449
+        ]
+      ],
+      "why": "That $y\\in\\ker D^{\\mathsf T}$ — the lemma's binder, and the reason '$y$ annihilates $\\im D$' is true. In Lean that is `hy` plus the transpose/inner-product unfolding; in the paper it is this phrase, eleven lines up."
+    },
+    {
+      "spans": [
+        [
+          517,
+          529
+        ]
+      ],
+      "why": "$y_s\\ne0$ is asserted here flatly, but it is not a hypothesis of the lemma — it follows from the reductio supposition $x_jy_s\\ne0$. The sentence gives no hint of that, and a reader checking `y s ≠ 0` against it would otherwise have no idea where it comes from."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          771,
+          832
+        ]
+      ],
+      "why": "One half of 'Therefore': $\\im D\\subseteq\\im D_\\tau$."
+    },
+    {
+      "spans": [
+        [
+          667,
+          691
+        ],
+        [
+          894,
+          911
+        ]
+      ],
+      "why": "The other half: $e_s$ is in the new image and not in the old, so the inclusion is strict. 'Therefore' performs three inferences at once — inclusion, strictness, and the jump from images to ranks — which is why this one word needs two citations and why its Lean counterpart is a single `have` with a `sorry` body."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "The maximality that is contradicted. 'a contradiction' is three words; the fact it contradicts is fifteen lines up, in the lemma's hypothesis, and nothing in this sentence points at it. `exact absurd (hmax Dτ hsupp) (not_le.mpr hrank)` names `hmax` explicitly — the formal side cannot leave it implicit, and the paper does."
+    },
+    {
+      "spans": [
+        [
+          606,
+          632
+        ]
+      ],
+      "why": "Why `hmax` applies to $D_\\tau$ at all: it has to be supported on $T$, which was step 1.2. In Lean this is the `hsupp` argument; in the paper it is nowhere near this sentence."
+    }
+  ]
+]

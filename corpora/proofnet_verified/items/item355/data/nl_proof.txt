@@ -1,0 +1,1 @@
+Dividing by $x-y$, and letting $x \rightarrow y$, we find that $f^{\prime}(y)=0$ for all $y$. Hence $f$ is constant.

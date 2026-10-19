@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Prove that the products $a b$ and $b a$ are conjugate elements in a group.",
-  "nl_proof": "We have that $(a^{-1})ab(a^{-1})^{-1} = ba$."
-}

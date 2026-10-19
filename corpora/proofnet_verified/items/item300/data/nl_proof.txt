@@ -1,0 +1,1 @@
+Let $1_Y: Y \rightarrow Y$ be the identity map in $Y$. If $U$ is a subset of $Y$ and $p^{-1}(U)$ is open in $X$, then $f^{-1}\left(p^{-1}(U)\right)=1_Y^{-1}(U)=U$ is open in $Y$ by continuity of $f$. Thus $p$ is a quotient map.

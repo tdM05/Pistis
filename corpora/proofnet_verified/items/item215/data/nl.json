@@ -1,4 +1,0 @@
-{
-  "nl_statement": "For $x$ an element in $G$ show that $x$ and $x^{-1}$ have the same order.",
-  "nl_proof": "Recall that the order of a group element is either a positive integer or infinity.\nSuppose $|x|$ is infinite and that $\\left|x^{-1}\\right|=n$ for some $n$. Then\n$$\nx^n=x^{(-1) \\cdot n \\cdot(-1)}=\\left(\\left(x^{-1}\\right)^n\\right)^{-1}=1^{-1}=1,\n$$\na contradiction. So if $|x|$ is infinite, $\\left|x^{-1}\\right|$ must also be infinite. Likewise, if $\\left|x^{-1}\\right|$ is infinite, then $\\left|\\left(x^{-1}\\right)^{-1}\\right|=|x|$ is also infinite.\nSuppose now that $|x|=n$ and $\\left|x^{-1}\\right|=m$ are both finite. Then we have\n$$\n\\left(x^{-1}\\right)^n=\\left(x^n\\right)^{-1}=1^{-1}=1,\n$$\nso that $m \\leq n$. Likewise, $n \\leq m$. Hence $m=n$ and $x$ and $x^{-1}$ have the same order."
-}

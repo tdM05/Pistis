@@ -1,0 +1,44 @@
+[
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "`have hker :` names the claim and `:= by sorry` is where its proof goes. How a claim is stated and discharged in Lean; the prose states its claim by writing a sentence and proves it elsewhere or not at all. Neither half has anything to correspond to."
+  },
+  {
+    "f": 1,
+    "n": 1,
+    "v": 1,
+    "why": "'annihilates' spelled out: every $v$ in $\\im D$ has $y\\cdot v=0$. That `y` is in $\\ker D^{\\mathsf T}$ is the theorem's hypothesis `hy`; this clause is the consequence the sentence states, and it states it, so it is claimed here rather than assumed."
+  },
+  {
+    "f": 2,
+    "n": 2,
+    "v": 1,
+    "why": "Conjunction, on both sides."
+  },
+  {
+    "f": 3,
+    "n": 3,
+    "v": 1,
+    "why": "$y_s\\ne0$, written as `y s ≠ 0`."
+  },
+  {
+    "f": 5,
+    "n": 5,
+    "v": 1,
+    "why": "$e_s\\notin\\im D$, with $e_s$ the same `Pi.single s 1` as in 1.4 and $\\im D$ the same range as in 1.6."
+  },
+  {
+    "f": 4,
+    "n": 4,
+    "v": 1,
+    "why": "A judgment worth being explicit about. The prose's 'so' is an INFERENCE — the third clause is drawn from the first two — and Lean's second `∧` only asserts the three side by side. The edge is still 1: the sentence ASSERTS all three (which is why `split.json` lists the first two as `assumptions` and the third as the `assert`), and the formalization asserts all three. What is not captured is the direction of the reasoning, and no Pistis level claims to capture it: the `sorry` under this `have` is where that would be checked."
+  },
+  {
+    "f": null,
+    "n": 0,
+    "v": 1,
+    "why": "'On the other hand' signals a turn in the argument — the preceding steps grew $\\im D_\\tau$, this one bounds $\\im D$. Rhetorical structure, with nothing in the claim to carry it."
+  }
+]

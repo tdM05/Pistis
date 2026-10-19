@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Let $p$ be a prime integer. Prove that the polynomial $x^n-p$ is irreducible in $\\mathbb{Q}[x]$.",
-  "nl_proof": "Straightforward application of Eisenstein's criterion with $p$."
-}

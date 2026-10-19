@@ -1,0 +1,50 @@
+[
+  [],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "What $D_\\tau$ is. And $\\rank$: the paper writes it here for the first time, having said 'maximum rank' in words in the lemma and never defined either. `Matrix.rank` is the formalization choosing a definition the document does not give."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          771,
+          832
+        ]
+      ],
+      "why": "Half of the strict inequality: the containment, which gives $\\rank D_\\tau\\ge\\rank D$."
+    },
+    {
+      "spans": [
+        [
+          667,
+          691
+        ],
+        [
+          894,
+          911
+        ]
+      ],
+      "why": "The other half, which makes it STRICT: $e_s$ is in the new image and not in the old, so the containment is proper. A single `>` whose justification is three sentences in three different places — the largest gap in this annotation between what a region says and what it uses, and the reason `T_F` here is a bare `Dτ.rank > D.rank` with a `sorry` under it."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "What $D$ is, and that 'maximum rank' was a claim about this same $\\rank$. Without that the inequality is a fact about two matrices rather than the contradiction it is about to become."
+    }
+  ],
+  []
+]

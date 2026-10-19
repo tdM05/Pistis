@@ -1,0 +1,38 @@
+[
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "`have hrank :` names the claim and `:= by sorry` is where its proof goes. How a claim is stated and discharged in Lean; the prose states its claim by writing a sentence and proves it elsewhere or not at all. Neither half has anything to correspond to."
+  },
+  {
+    "f": 1,
+    "n": 1,
+    "v": 1,
+    "why": "$\\rank D_\\tau$ as `Matrix.rank`, the rank of the perturbed matrix."
+  },
+  {
+    "f": 2,
+    "n": 2,
+    "v": 1,
+    "why": "Strict inequality, on both sides."
+  },
+  {
+    "f": 3,
+    "n": 3,
+    "v": 1,
+    "why": "$\\rank D$, the rank of the original."
+  },
+  {
+    "f": null,
+    "n": 0,
+    "v": 1,
+    "why": "'Therefore' marks the inference from 1.4, 1.6 and 1.7 — $\\im D_\\tau$ contains $\\im D$ and also $e_s$, which $\\im D$ omits. The `have` states the conclusion only. Trailing `$` is a delimiter."
+  },
+  {
+    "f": null,
+    "n": 4,
+    "v": 1,
+    "why": "Closing math delimiter and the comma before the final clause."
+  }
+]

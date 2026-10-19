@@ -1,0 +1,1 @@
+We have $x \cdot x^{n-1}=x^n=1$, so by the uniqueness of inverses $x^{-1}=x^{n-1}$.

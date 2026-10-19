@@ -1,0 +1,217 @@
+/* Visual language borrowed from `faithfulness/ui/index.html` so the two prototypes read as siblings:
+   same ink, same paper, same monospace for anything that is Lean.
+
+   The rule the rest of this file follows: a region always carries its edge's colour, and hovering or
+   pinning makes that colour stronger. So the wash says "an edge claims this text" — visible the
+   moment the page loads, without hunting — and the bright one says "this is the edge you are on".
+   Text no region claims is greyed (`.run.bare`), because that is a fact about coverage. */
+
+:root{
+  --paper:#fbfaf7; --ink:#1d1f21; --dim:#6b6f76; --line:#dedbd3;
+  --ok:#2e7d52; --bad:#b4342a; --open:#9a7b1f; --bot:#8a8f98;
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--paper); color:var(--ink); font:14px/1.5 -apple-system,BlinkMacSystemFont,
+  "Segoe UI",Helvetica,Arial,sans-serif;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+
+/* ------------------------------------------------------------------ header */
+header{
+  display:flex; align-items:center; gap:14px; padding:8px 14px;
+  border-bottom:1px solid var(--line); background:#fff; flex:none;
+}
+.brand{font-weight:700; letter-spacing:.04em; font-size:13px; text-transform:uppercase}
+.spacer{flex:1}
+.crumbs{display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:12.5px}
+.crumbs a{color:var(--ink); text-decoration:none; padding:2px 6px; border-radius:4px;
+          border:1px solid transparent}
+.crumbs a:hover{background:#f1efe9; border-color:var(--line)}
+.crumbs a.here{background:#eceef7; border-color:#c7cde6; font-weight:600}
+.crumbs .sep{color:var(--dim)}
+.badges{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end}
+.badge{font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:999px;
+       border:1px solid var(--line); background:#fff; color:var(--dim); white-space:nowrap}
+.badge b{color:var(--ink); font-weight:600}
+.badge.faithful{border-color:#bfdcc9; background:#eef7f1; color:var(--ok)}
+.badge.unfaithful{border-color:#e6c3bf; background:#fdf0ee; color:var(--bad)}
+.badge.NaN{border-color:#e4d7ac; background:#fcf7e8; color:var(--open)}
+.badge.broken{border-color:#ccc; background:#333; color:#fff}
+.toggle{font-size:12px; color:var(--dim); display:flex; align-items:center; gap:4px;
+        user-select:none; cursor:pointer}
+
+/* The whole of navigation: two buttons acting on the pinned edge. `deeper` is the primary one —
+   it is the move this prototype is about, so it is the one that looks clickable. */
+.nav{display:flex; gap:6px; flex:none}
+.navbtn{font-family:var(--mono); font-size:11.5px; padding:3px 9px; border-radius:5px;
+        border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer;
+        white-space:nowrap; max-width:22ch; overflow:hidden; text-overflow:ellipsis}
+.navbtn:hover:enabled{background:#f1efe9}
+.navbtn:disabled{color:#b9bcc2; cursor:default; background:#fcfbf9}
+#deeper:enabled{background:#eceef7; border-color:#c7cde6; font-weight:600}
+#deeper:hover:enabled{background:#dfe4f3}
+
+/* ------------------------------------------------------------------ frame */
+main{
+  flex:1; min-height:0; display:grid; gap:0;
+  /* `auto`, not a fixed fraction: the strip at the bottom holds ONE edge, so it should take the
+     height one edge needs and give the rest to the two targets. The old table wanted 36vh. */
+  grid-template-columns:1fr; grid-template-rows:minmax(0,1fr) auto;
+  grid-template-areas:"panes" "edge";
+}
+.panes{grid-area:panes; min-height:0; overflow:hidden; display:grid;
+       grid-template-columns:1fr 92px 1fr; grid-template-rows:minmax(0,1fr)}
+#edge{grid-area:edge; border-top:1px solid var(--line); background:#fff; max-height:40vh;
+      overflow:auto}
+
+.side-head{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
+           padding:6px 12px 4px; border-bottom:1px solid var(--line); background:#fcfbf9;
+           display:flex; gap:10px; align-items:baseline}
+#edgeno{font-family:var(--mono); font-weight:700; color:var(--ink); letter-spacing:.04em}
+.hint{text-transform:none; letter-spacing:0; font-size:10.5px; color:#9aa0a8}
+.hint b{color:var(--dim)}
+
+/* ------------------------------------------------------------------ panes */
+.pane{min-width:0; min-height:0; overflow:hidden; display:flex; flex-direction:column;
+      background:#fff}
+.pane+.gutter+.pane{border-left:1px solid var(--line)}
+.pane-head{display:flex; gap:8px; align-items:baseline; padding:5px 12px;
+           border-bottom:1px solid var(--line); background:#fcfbf9; flex:none}
+.tag{font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.04em}
+.pane-sub{font-size:11px; color:var(--dim); overflow:hidden; text-overflow:ellipsis;
+          white-space:nowrap}
+.scroll{flex:1; min-height:0; overflow:auto; position:relative; padding:10px 12px 40px}
+#scrollF{display:flex; gap:10px}
+.lines{font-family:var(--mono); font-size:12.5px; line-height:1.65; color:#b9bcc2;
+       text-align:right; user-select:none; flex:none; white-space:pre}
+#bodyF{margin:0; font-family:var(--mono); font-size:12.5px; line-height:1.65; white-space:pre;
+       flex:1; min-width:0}
+.nl{font-size:14.5px; line-height:1.85; white-space:pre-wrap; max-width:62ch}
+.nl.src{font-family:var(--mono); font-size:12.5px; line-height:1.7}
+
+/* ------------------------------------------------------------------ context
+   Two rails, both quieter than the target they sit above, both with their own scroll.
+
+   LEFT (`#ctxF`, "where") is DERIVED: the enclosing step with this target marked. Nothing is
+   authored, which is why a model with no `C_F` can show it — slide the arithmetic by one and check 8
+   says so.
+
+   RIGHT (`#ctxN`, `C_N`) is AUTHORED: the sentences of the paper this unit must be read against,
+   each with its reason. Styled as a short list of citations rather than as prose, so it never looks
+   like more target. */
+.ctx{flex:none; border-bottom:1px solid var(--line); background:#fbfaf7;
+     padding:5px 12px 7px; display:flex; flex-direction:column; gap:3px}
+.ctx.off{display:none}
+.ctx-bar{display:flex; align-items:baseline; gap:5px; flex-wrap:wrap}
+.ctx-label{font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#a7abb1}
+.ctx-note{font-size:10px; color:#b9bcc2; margin-left:auto; font-style:italic}
+.chip{font-family:var(--mono); font-size:10.5px; padding:1px 6px; border-radius:999px;
+      border:1px solid var(--line); background:#fff; color:var(--dim); cursor:pointer}
+.chip:hover{background:#f1efe9}
+.chip.on{background:#eceef7; border-color:#c7cde6; color:var(--ink); font-weight:600}
+.ctx-text{max-height:7.5em; overflow:auto; font-size:12px; line-height:1.6; color:#8f949b;
+          white-space:pre-wrap}
+.ctx-text.mono{font-family:var(--mono); font-size:11.5px; line-height:1.55}
+/* where this unit's target sits in the text above it — the arithmetic check 8 verifies */
+.ctx-hit{color:var(--ink); background:#f3f1e6; box-shadow:0 0 0 1px #e4ddbe; border-radius:2px}
+.ctx-count{font-family:var(--mono); font-size:10.5px; color:var(--dim)}
+
+/* one `C_N` citation. The offset is shown because that is what is actually stored — the text beside
+   it was sliced out of the paper at render time, never typed into a file. */
+.cite{display:flex; gap:7px; align-items:baseline; padding:2px 0; cursor:help;
+      border-bottom:1px dotted #eae7df}
+.cite:last-child{border-bottom:none}
+.cite:hover{background:#f6f4ee}
+.cite-at{font-family:var(--mono); font-size:10px; color:#b9bcc2; flex:none; min-width:4.5em;
+         text-align:right}
+.cite-text{color:#80858c; white-space:pre-wrap; min-width:0}
+.cite:hover .cite-text{color:var(--ink)}
+/* Every region's citations at once, each clamped to one line so the rail is a list you can scan. The
+   height is FIXED, not capped: the live edge's citations are marked and opened up in place, and if
+   that could change the rail's height it would shove the pane below it out from under the pointer. */
+#ctxN .ctx-text{height:7.6em}
+.ctx-text.many .cite{padding:1px 0}
+.ctx-text.many .cite-at{min-width:6.2em}
+.ctx-text.many .cite-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* belongs to the edge in view */
+.cite.on{background:#fbf7e4; box-shadow:inset 2px 0 0 0 #d9c879}
+.cite.on .cite-at{color:#8a8f98}
+.cite.on .cite-text{color:var(--ink); white-space:pre-wrap; overflow:visible}
+
+/* ------------------------------------------------------------------ runs
+   A run is a stretch of characters owned by the same SET of regions. Regions may overlap and may be
+   non-contiguous, so runs — not regions — are what gets drawn.
+
+   Every run wears its edge's colour all the time, faintly: the annotation is a property of the text
+   and you should be able to see that it is there without going looking for it. Hover or pin then
+   RAISES one edge out of that wash — stronger tint, a solid underline instead of a hairline. So
+   colour means "an edge claims this" and brightness means "this is the edge you are on". */
+.run{border-radius:3px; padding:1px 0; background:var(--wash,transparent);
+     box-shadow:inset 0 -1px 0 0 var(--hair,transparent);
+     transition:background-color .09s linear}
+.run.bare{color:#a7abb1; background:none; box-shadow:none}   /* in no region: whitespace, markers */
+.run.lit{background:var(--tint,#eceef7); box-shadow:inset 0 -2px 0 0 var(--edge,#999)}
+/* two regions claim this text — in `item1`, the `variable` line both the definition and the theorem
+   need. Hatched always, since it is a fact about the regions and not about the hover. */
+.run.multi{background-image:repeating-linear-gradient(45deg,
+           rgba(0,0,0,.03) 0 4px,transparent 4px 8px)}
+.run.multi.lit{background-image:repeating-linear-gradient(45deg,
+               rgba(0,0,0,.055) 0 4px,transparent 4px 8px)}
+/* LaTeX source shown as itself, because the span cut into the formula. No underline: `e_s` must stay
+   legible, and an underscore sitting on a border is exactly the character you cannot afford to lose. */
+.rawmath{font-family:var(--mono); font-size:.92em; background:rgba(60,64,72,.06);
+         border-radius:2px; padding:0 1px}
+.katex{font-size:1.02em}
+
+/* ------------------------------------------------------------------ gutter */
+.gutter{position:relative; background:
+        linear-gradient(90deg,#fff 0 6px,#fbfaf7 6px calc(100% - 6px),#fff calc(100% - 6px) 100%)}
+.gutter svg{position:absolute; inset:0; width:100%; height:100%; overflow:visible}
+.gutter path{fill:none; stroke-linecap:round}
+.gutter text{font-family:var(--mono); font-size:11px; dominant-baseline:middle;
+             text-anchor:middle}
+
+/* ------------------------------------------------------------------ the one edge
+   What used to be here: a six-column table of every edge of the unit, region text and reasons in
+   full, thirteen rows at the root. It was the annotation dumped on screen, and it competed with the
+   two targets it was supposed to be explaining.
+
+   Now it is the live edge only — its formal side, its NL side, its verdict and its reason — and
+   `j`/`k` walk the rest. Both rows are full width and never truncated, which is affordable precisely
+   because there is one of them. */
+#edgebody{padding:8px 12px 10px}
+.nothing{color:#a7abb1; font-size:12px; font-style:italic; padding:2px 0}
+.card{border-left:3px solid var(--edge,var(--line)); padding:1px 0 1px 10px;
+      display:flex; flex-direction:column; gap:3px}
+.card.pinned{background:#f7f6f1}
+.erow{display:flex; gap:9px; align-items:baseline}
+.erow .tag{flex:none; min-width:2.6em; color:var(--dim)}
+.eloc{font-family:var(--mono); font-size:10.5px; color:var(--dim); flex:none; min-width:4em}
+.etext{flex:1; min-width:0; font-size:13px; line-height:1.55; white-space:pre-wrap;
+       max-height:5.2em; overflow:auto}
+.etext.mono{font-family:var(--mono); font-size:12px; line-height:1.5}
+.etext.isbot{color:var(--bot); font-style:italic}
+/* the card's `C_N` row: the same citation lines as the rail, at the same size as the prose above
+   them, because they are read together with it */
+.etext.cites{max-height:5.6em; font-size:12.5px}
+.etext.cites .cite-at{min-width:3.6em}
+.erow.ctl{padding-top:2px; border-top:1px dotted #eae7df; margin-top:1px}
+/* a static mark, not a button: refining is the `deeper` button acting on the pinned edge */
+.refmark{font-family:var(--mono); font-size:10.5px; color:#8a8f98; cursor:help; flex:none;
+         align-self:center}
+.vsel{font-family:var(--mono); font-size:11.5px; border:1px solid var(--line); border-radius:4px;
+      background:#fff; padding:1px 3px}
+.vsel.v1{color:var(--ok); border-color:#bfdcc9} .vsel.v0{color:var(--bad); border-color:#e6c3bf}
+.vsel.vn{color:var(--open); border-color:#e4d7ac}
+.why{flex:1; min-width:0; border:1px solid transparent; border-radius:4px; background:transparent;
+     font:inherit; font-size:12.5px; color:var(--ink); padding:2px 4px; resize:vertical;
+     min-height:1.7em}
+.why:hover{border-color:var(--line)} .why:focus{border-color:#5566aa; background:#fff; outline:none}
+
+#toast{position:fixed; right:14px; bottom:14px; background:#1d1f21; color:#fff; font-size:12px;
+       padding:7px 11px; border-radius:6px; opacity:0; transition:opacity .2s; pointer-events:none;
+       max-width:46ch; z-index:9}
+#toast.on{opacity:.95}

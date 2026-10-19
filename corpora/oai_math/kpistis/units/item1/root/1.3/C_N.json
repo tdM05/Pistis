@@ -1,0 +1,46 @@
+[
+  [],
+  [],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "What $D_\\tau$ is — the previous sentence. Two characters of prose stand for a matrix defined one line up, and `Dτ.mulVec x` is only recognisable as them given that definition."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          399,
+          417
+        ]
+      ],
+      "why": "The equality holds only because $Dx=0$, and $x\\in\\ker D$ is the lemma's binder. This is the step's whole content and the paper states it by writing '=': `hDτx`'s `sorry` body is where Lean would have to do the cancellation the paper skips."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          461,
+          473
+        ]
+      ],
+      "why": "$e_s$ again, with $s$ from the lemma's last binder and no definition anywhere. `Pi.single s 1` is the formalization supplying it."
+    },
+    {
+      "spans": [
+        [
+          399,
+          417
+        ]
+      ],
+      "why": "$x_j$ — the $j$-th coordinate of the lemma's kernel vector. The subscript is the lemma's $j$, not a new name, and nothing in this display says so."
+    }
+  ]
+]

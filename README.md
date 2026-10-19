@@ -31,7 +31,8 @@ corpora/<corpus>/
   Pistis.lean  Pistis/Segment.lean      the pistis_* tactics, for THIS toolchain
   items/item<N>/
     meta.json                           name, source, index (the locator prefix)
-    data/nl.json                        nl_statement + nl_proof — the text that must be tiled
+    data/nl_statement.txt               the NL statement — verbatim bytes, the intro's tiling target
+    data/nl_proof.txt                   the NL proof — verbatim bytes, the text that must be tiled
     data/statement.lean                 the frozen formal statement (signature; body `sorry`)
     split.json                          stage 1 output: ordered atomic segments
     Main.lean                           stage 2 output: one Lean claim per segment
@@ -101,24 +102,37 @@ the point of measuring whether the NL argument itself formalizes.
   gate). The map stage's hard gate cannot pass as written until these land. They are shared code.
 - The skills still document the pre-restructure invocation (`proofnet_verified/item8`, scripts at
   `scripts/...`); they need updating to the cwd + `items/item<N>` convention above.
-- `corpora/oai_math/items/item1` has its inputs (`meta.json`, `data/nl.json`, `data/statement.lean`,
+- `corpora/oai_math/items/item1` has its inputs (`meta.json`, `data/nl_statement.txt`,
+  `data/nl_proof.txt`, `data/statement.lean`,
   `data/source.tex`) but no `split.json` / `Main.lean` / `step<K>.lean` yet — the three stages have
   not been run on it.
 
-## Extracting `nl.json` from LaTeX
+## The NL source format
 
-ProofNet ships `nl.json` ready-made; openai/math ships prose as `.tex`, so the statement and proof
+Each item stores its two NL texts as **plain UTF-8 files whose bytes are the text**:
+`data/nl_statement.txt` and `data/nl_proof.txt`. No JSON escaping, no trailing newline, nothing
+normalized. Every gate here compares these texts byte-for-byte, so the storage format is the bytes
+themselves — which is also what makes them searchable: you can `grep -F -f data/nl_proof.txt
+<paper>.tex`, or Ctrl-F a line of the file in the paper, and get a hit. (These were previously one
+`nl.json` per item with `nl_statement`/`nl_proof` string fields. JSON must escape a newline as the
+two characters `\` `n` and double every LaTeX backslash, so the bytes on disk were not the bytes of
+the text and searching for what you saw in the file found nothing. `scripts/convert_nl_to_txt.py`
+performed the migration and can re-verify it against git history.)
+
+## Extracting the NL text from LaTeX
+
+ProofNet ships its NL text ready-made; openai/math ships prose as `.tex`, so the statement and proof
 must be located in the paper. `scripts/extract_tex.py` cuts them as **verbatim contiguous
 substrings** — literal `src[a:b]` at offsets found by unique anchor strings:
 
 ```sh
 cd corpora/oai_math
-python3 ../../scripts/extract_tex.py --tex <paper>/02-pruning.tex --out items/item1/data/nl.json \
+python3 ../../scripts/extract_tex.py --tex <paper>/02-pruning.tex --out items/item1/data \
     --stmt-from 'For finite index sets' --stmt-to 'one has $x_jy_s=0$.' \
     --proof-from 'Suppose instead that' --proof-to 'a contradiction.'
 ```
 
-Nothing is unwrapped, reflowed or macro-expanded: the author's hard line wraps stay as `\n`
+Nothing is unwrapped, reflowed or macro-expanded: the author's hard line wraps stay where they are
 mid-sentence, two spaces after a period stay two spaces, `\[ ... \]` keeps its newlines and indent,
 and `\R`/`\im`/`\rank` stay unexpanded (`meta.json` records what they mean). Whitespace and LaTeX
 *are* the text — the split stage is gated on tiling these bytes exactly, so tidying them here would

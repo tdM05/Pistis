@@ -1,0 +1,30 @@
+{
+  "id": "item1/1.7",
+  "loc": "1.7",
+  "title": "step 1.7 — e_s ∉ im D",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 10,
+    "n": 8
+  },
+  "F_locs": [
+    "scaffold",
+    "annih",
+    "and",
+    "ys",
+    "so",
+    "notin"
+  ],
+  "N_locs": [
+    "onother",
+    "annih",
+    "and",
+    "ys",
+    "so",
+    "notin"
+  ],
+  "done": true
+}

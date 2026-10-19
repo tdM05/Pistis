@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Prove that if $x^{2}=1$ for all $x \\in G$ then $G$ is abelian.",
-  "nl_proof": "Solution: Note that since $x^2=1$ for all $x \\in G$, we have $x^{-1}=x$. Now let $a, b \\in G$. We have\n$$\na b=(a b)^{-1}=b^{-1} a^{-1}=b a .\n$$\nThus $G$ is abelian."
-}

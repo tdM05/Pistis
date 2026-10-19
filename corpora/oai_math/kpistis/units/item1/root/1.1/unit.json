@@ -1,0 +1,24 @@
+{
+  "id": "item1/1.1",
+  "loc": "1.1",
+  "title": "step 1.1 — open the reductio",
+  "category": "proof step",
+  "child_category": "atomic",
+  "provenance": {
+    "kind": "span",
+    "parent": "root",
+    "f": 4,
+    "n": 2
+  },
+  "F_locs": [
+    "refine",
+    "prop",
+    "name",
+    "hole"
+  ],
+  "N_locs": [
+    "suppose",
+    "ne"
+  ],
+  "done": true
+}

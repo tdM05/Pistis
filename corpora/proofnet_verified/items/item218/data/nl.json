@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Prove that if $\\Omega=\\{1,2,3, \\ldots\\}$ then $S_{\\Omega}$ is an infinite group",
-  "nl_proof": "Recall that the codomain of an injective function must be at least as large (in cardinality) as the domain of the function. With that in mind, define the function\n$$\n\\begin{gathered}\nf: \\mathbb{N} \\rightarrow S_{\\mathbb{N}} \\\\\nf(n)=(1 n)\n\\end{gathered}\n$$\nwhere $(1 n)$ is the cycle decomposition of an element of $S_{\\mathbb{N}}$ (specifically it's the function given by $g(1)=n, g(2)=2, g(3)=3, \\ldots)$. The function $f$ maps every natural number to a distinct one of these functions. Hence $f$ is injective. Hence $\\infty=|\\mathbb{N}| \\leq\\left|S_{\\mathbb{N}}\\right|$."
-}

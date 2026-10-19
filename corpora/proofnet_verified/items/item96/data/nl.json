@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Define $\\wedge(n)=\\log p$ if $n$ is a power of $p$ and zero otherwise. Prove that $\\sum_{A \\mid n} \\mu(n / d) \\log d$ $=\\wedge(n)$.",
-  "nl_proof": "$$\n\\left\\{\n\\begin{array}{cccl}\n    \\land(n)& =  & \\log p & \\mathrm{if}\\  n =p^\\alpha,\\ \\alpha \\in \\mathbb{N}^*  \\\\\n  &  = &   0 & \\mathrm{otherwise }.\n\\end{array}\n\\right.\n$$\nLet $n = p_1^{\\alpha_1}\\cdots p_t^{\\alpha_t}$ the decomposition of $n$ in prime factors. As $\\land(d) = 0$ for all divisors of $n$, except for $d = p_j^i, i>0, j=1,\\ldots t$,\n\\begin{align*}\n\\sum_{d \\mid n} \\land(d)&= \\sum_{i=1}^{\\alpha_1} \\land(p_1^{i}) + \\cdots+ \\sum_{i=1}^{\\alpha_t} \\land(p_t^{i})\\\\ \n&= \\alpha_1 \\log p_1+\\cdots + \\alpha_t \\log p_t\\\\\n&= \\log n\n\\end{align*}\nBy Mobius Inversion Theorem,\n$$\\land(n) = \\sum_{d \\mid n} \\mu\\left (\\frac{n}{d}\\right ) \\log d.$$"
-}

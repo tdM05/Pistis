@@ -1,0 +1,45 @@
+[
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "`obtain ⟨τ, hτ⟩ :` destructures the witness and names it, `have hsupp :` names the claim, and `:= by sorry` is where the proof goes. Bookkeeping: the prose fixes a τ without naming a hypothesis about it, and states its claim by writing a clause."
+  },
+  {
+    "f": 1,
+    "n": 0,
+    "v": 1,
+    "why": "`∃ τ : ℝ, τ ≠ 0` is the clause: `τ : ℝ` is 'a real $\\tau$' and `τ ≠ 0` is 'nonzero'. The proof fixes one such τ and never reads its value, so this is as general as the prose's indefinite 'a'."
+  },
+  {
+    "f": 2,
+    "n": null,
+    "v": 1,
+    "why": "`⟨1, one_ne_zero⟩` is why such a τ EXISTS — take 1. The prose asserts existence without exhibiting a witness, and a justification is not part of what is said."
+  },
+  {
+    "f": 3,
+    "n": 1,
+    "v": 1,
+    "why": "`set Dτ : Matrix I J ℝ :=` is the prose's 'the matrix $D_\\tau=`: `Matrix I J ℝ` is 'the matrix', the name is `Dτ`, and `:=` carries the `=` that defines it."
+  },
+  {
+    "f": 4,
+    "n": 2,
+    "v": 1,
+    "why": "**The edge this prototype was built for.** `Matrix.single s j 1` is the matrix whose only nonzero entry is a 1 in position $(s,j)$, i.e. $e_s e_j^{\\mathsf T}$; the scalar multiple and the sum with `D` are the prose's own. In `Main.lean` the right-hand side of the prose's `=` has nothing in the target to link to, because a `pistis_segment`'s target is its claim (`SupportedOn T Dτ`) and the defining `set` is formal context — so the edge lands on a quoted clause with a line citation instead of on a span. Here the `set` is simply part of the step, and the correspondence is span to span.",
+    "child": "formula"
+  },
+  {
+    "f": 5,
+    "n": null,
+    "v": 1,
+    "why": "`with hDτ` names the defining equation so later tactics can rewrite with it. The prose names no equation."
+  },
+  {
+    "f": 6,
+    "n": 3,
+    "v": 1,
+    "why": "The same predicate as the statement's `SupportedOn T D`, re-applied rather than re-defined — which is precisely what 'still supported on $T$' says: the property is the old one, the matrix is new."
+  }
+]

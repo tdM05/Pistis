@@ -1,0 +1,1 @@
+Since $E$ is nonempty, there exists $x \in E$. Then by definition of lower and upper bounds we have $\alpha \leq x \leq \beta$, and hence by property $i i$ in the definition of an ordering, we have $\alpha<\beta$ unless $\alpha=x=\beta$.

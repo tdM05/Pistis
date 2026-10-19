@@ -1,0 +1,1 @@
+Since $a$ and $b$ commute, for any $g, h\in H$ we can write $g=a^ib^j$ and $h = a^kb^l$. Then $gh = a^ib^ja^kb^l = a^kb^la^ib^j = hg$. Thus $H$ is abelian.

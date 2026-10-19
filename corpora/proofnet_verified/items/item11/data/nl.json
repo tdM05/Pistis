@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Prove that $x^3 + 6x + 12$ is irreducible in $\\mathbb{Q}$.",
-  "nl_proof": "Apply Eisenstein's criterion with $p=3$."
-}

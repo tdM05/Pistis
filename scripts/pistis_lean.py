@@ -8,7 +8,7 @@ Recovers, in source order, the segments a scaffolded/mapped Main.lean records:
 
 The `text` stored in Main is a Lean string literal produced by scaffold_main._lean_str (which escaped
 `\\` -> `\\\\` and `"` -> `\\"`); `read_string_literal` decodes it back to the original source text so it
-can be compared byte-for-byte against nl.json. Used by check_main.py and check_steps.py.
+can be compared byte-for-byte against the NL `.txt` files. Used by check_main.py and check_steps.py.
 """
 from __future__ import annotations
 

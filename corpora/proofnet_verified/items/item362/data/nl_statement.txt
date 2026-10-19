@@ -1,0 +1,1 @@
+Prove that the power series $\sum z^n/n$ converges at every point of the unit circle except $z = 1$.

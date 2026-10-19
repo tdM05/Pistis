@@ -1,0 +1,1 @@
+have hrank : Dτ.rank > D.rank := by sorry

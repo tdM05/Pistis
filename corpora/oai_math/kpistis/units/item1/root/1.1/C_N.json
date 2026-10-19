@@ -1,0 +1,33 @@
+[
+  [
+    {
+      "spans": [
+        [
+          389,
+          494
+        ]
+      ],
+      "why": "The conclusion this negates. 'Suppose instead' is a pure back-reference: without 'one has $x_jy_s=0$' sitting in the lemma, the word 'instead' names nothing and the two words cannot be read at all. Eight lines and a paragraph break away, so no widening of `T_N` short of the whole document reaches it — the case `C_F` could not have, and `C_N` must."
+    },
+    {
+      "spans": [
+        [
+          947,
+          963
+        ]
+      ],
+      "why": "Where the reductio opened here is discharged, nine sentences later. Cited because the scope of 'Suppose instead' is the rest of the proof, and scope is not visible in two words."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          389,
+          494
+        ]
+      ],
+      "why": "Where $x$, $y$, $s$ and $j$ are bound. The formula `x j * y s ≠ 0` has four free names in it and this sentence introduces none of them; without the lemma's quantifiers, '$x_jy_s$' does not even typecheck as a reading."
+    }
+  ]
+]

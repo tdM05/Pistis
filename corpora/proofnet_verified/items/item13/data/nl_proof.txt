@@ -1,0 +1,1 @@
+Straightforward application of Eisenstein's criterion with $p$.

@@ -1,0 +1,71 @@
+[
+  [],
+  [
+    {
+      "spans": [
+        [
+          419,
+          449
+        ]
+      ],
+      "why": "What $y$ is. 'annihilates $\\im D$' is $D^{\\mathsf T}y=0$ restated in a form the lemma never uses — `∀ v ∈ range D.mulVecLin, y ⬝ᵥ v = 0` is that restatement made explicit — and this binder is the only thing licensing it."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          419,
+          449
+        ],
+        [
+          517,
+          529
+        ]
+      ],
+      "why": "A conjunction of two facts that come from opposite ends of the document: one is the lemma's binder, the other the reductio supposition. The `∧` is the only Lean this word gets, and what it joins is both times something cited rather than said here."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          517,
+          529
+        ]
+      ],
+      "why": "Why $y_s\\ne0$. The sentence asserts it as if given, but it is half of the reductio supposition — the only place in the proof where it is established, five sentences back."
+    },
+    {
+      "spans": [
+        [
+          461,
+          473
+        ]
+      ],
+      "why": "And where the subscript $s$ comes from: the lemma's binder, not this sentence."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          667,
+          691
+        ]
+      ],
+      "why": "The 'so' is an inference whose unstated premise is that $e_s$ is a basis vector, so that $y\\cdot e_s=y_s$. That identification is nowhere in the paper; the nearest the document comes to committing to it is this sentence's $e_s$."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "What $\\im D$ is, i.e. what $D$ is. This conclusion is about the ORIGINAL matrix, which is the whole point of it, and $D$ is named fifteen lines up."
+    }
+  ]
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "f": 0,
+    "n": null,
+    "v": 1,
+    "why": "`have hes :` names the claim and `:= by sorry` is where its proof goes. How a claim is stated and discharged in Lean; the prose states its claim by writing a sentence and proves it elsewhere or not at all. Neither half has anything to correspond to."
+  },
+  {
+    "f": 1,
+    "n": 1,
+    "v": 1,
+    "why": "The same $e_s$ as in 1.3, written the same way."
+  },
+  {
+    "f": 2,
+    "n": 2,
+    "v": 1,
+    "why": "Membership, on both sides."
+  },
+  {
+    "f": 3,
+    "n": 3,
+    "v": 1,
+    "why": "$\\im D_\\tau$ is the image of the linear map $D_\\tau$, and `LinearMap.range Dτ.mulVecLin` is the range of that map — `mulVecLin` is the matrix read as a linear map, which is what the paper means when it writes $D:\\R^J\\to\\R^I$ for a matrix."
+  },
+  {
+    "f": null,
+    "n": 0,
+    "v": 1,
+    "why": "'Thus' marks an inference: this follows from 1.3. Lean's `have` asserts without marking where the assertion comes from — the justification is the (here `sorry`-ed) proof, not a token in the claim. The `$` is a math delimiter."
+  },
+  {
+    "f": null,
+    "n": 4,
+    "v": 1,
+    "why": "Closing math delimiter and full stop."
+  }
+]

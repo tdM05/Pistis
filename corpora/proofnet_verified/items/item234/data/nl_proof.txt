@@ -1,0 +1,1 @@
+We prove that $H$ is invariant under every inner automorphism of $G$. Consider a inner automorphism $\phi_g$ of $G$. Now, $\left.\phi_g\right|_K$ is a automorphism of $K$ because $K$ is normal in $G$. But $H$ is a characteristic subgroup of $K$, so $\left.\phi_g\right|_K(H) \subset H$, so in general $\phi_g(H) \subset H$. Hence $H$ is characteristic in $G$.

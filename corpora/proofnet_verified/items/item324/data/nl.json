@@ -1,4 +1,0 @@
-{
-  "nl_statement": "Prove that $\\sum 1/k(\\log(k))^p$ converges when $p > 1$.",
-  "nl_proof": "Using the integral test, for a set $a$, we see\n$$\n\\lim _{b \\rightarrow \\infty} \\int_a^b \\frac{1}{x \\log (x)^c} d x=\\lim _{b \\rightarrow \\infty}\\left(\\frac{\\log (b)^{1-c}}{1-c}-\\frac{\\log (a)^{1-c}}{1-c}\\right)\n$$\nwhich goes to infinity if $c \\leq 1$ and converges if $c>1$. Thus,\n$$\n\\sum_{n=2}^{\\infty} \\frac{1}{n \\log (n)^c}\n$$\nconverges if and only if $c>1$."
-}

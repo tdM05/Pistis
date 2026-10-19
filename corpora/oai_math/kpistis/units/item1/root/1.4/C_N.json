@@ -1,0 +1,41 @@
+[
+  [],
+  [
+    {
+      "spans": [
+        [
+          461,
+          473
+        ]
+      ],
+      "why": "$s$ comes from the lemma's last binder, and $e_s$ is undefined in the paper — the third region in this annotation to depend on a convention the document never states."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          637,
+          666
+        ],
+        [
+          517,
+          529
+        ]
+      ],
+      "why": "Everything behind the word 'in'. The display exhibits $e_s$ as $(\\tau x_j)^{-1}$ times $D_\\tau x$, and dividing needs $\\tau x_j\\ne0$, which comes from τ being nonzero and from the reductio supposition. Two citations for one membership symbol, because `hes`'s `sorry` body is exactly the work the paper compresses into 'Thus'."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "What $D_\\tau$ is, and 'im' — which the paper never defines either; `LinearMap.range Dτ.mulVecLin` is the formalization choosing column space over anything else."
+    }
+  ],
+  []
+]
