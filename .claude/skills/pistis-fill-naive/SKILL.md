@@ -20,7 +20,7 @@ Fill every `:= by sorry` in `<corpus>/item<N>/Main.lean` so the file builds with
 Anything the source proof cites, cite in Lean too (import the Mathlib lemma or a prior item's theorem).
 
 ## REQUIRED STRUCTURE (this is CHECKED — do NOT prove any segment inline)
-For each `pistis_segment "…" "…" (stepK : CLAIM) := by sorry` in `Main.lean`:
+For each `pistis_segment "…" r"…" (stepK : CLAIM) := by sorry` in `Main.lean`:
 
 1. **Create a new file `<corpus>/item<N>/stepK.lean`** holding ONE lemma that proves that step,
    taking whatever facts it needs as hypotheses:
@@ -50,7 +50,7 @@ For each `pistis_segment "…" "…" (stepK : CLAIM) := by sorry` in `Main.lean`
    Schematic — in `Main.lean`:
    ```
    -- @pistis_assumption ("the cited NL fact", TYPE1)
-   pistis_segment "…" "…"
+   pistis_segment "…" r"…"
      (stepK : CLAIM) := by
        exact helper_<itemname>_stepK o1 o2
          (by pistis_assumption "the cited NL fact" (show TYPE1; assumption))

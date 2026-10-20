@@ -23,15 +23,22 @@ stage).
 python3 scripts/scaffold_main.py <corpus>/item<N>
 ```
 This writes `Main.lean` reusing the item's `data/statement.lean` header + theorem signature VERBATIM,
-then one `pistis_segment "<loc>" "<text>" (stepN : True) := by sorry` per reasoning segment, the
+then one `pistis_segment "<loc>" r"<text>" (stepN : True) := by sorry` per reasoning segment, the
 `pistis_intro`/`pistis_conclude` structural markers, `-- @pistis_assumption ("substring", TODO)` lines
 (seeded from each segment's `assumptions` set), and a marked trailing `sorry -- @pistis_closer`. **The
 TEXT is copied from `split.json`, so tiling is already byte-perfect — you must NEVER edit the segment
 text, locators, or ordering.** Your whole job is to replace each `True` with a real claim, each
 `@pistis_assumption` `TODO` with a real type, and the `@pistis_closer` line with the real closing.
 
+⛔ **The NL is a Lean RAW literal — `r"…"` (or `r#"…"#`). Leave the `r` and the delimiters alone.**
+A raw literal has no escapes, so the file's bytes are the paper's bytes and `grep`/Ctrl-F for a
+sentence of the proof finds it. Rewriting it as an ordinary `"…"` forces you to double every LaTeX
+backslash (`\in` -> `\\in`); the decoded VALUE would still be right, so the coverage check would still
+report "reproduces source exactly" while the file says something the paper never did. `check_main.py`
+check 5 compares the BYTES and will fail you for it. Do not "fix" the quoting.
+
 **Structural markers are ALREADY STAMPED for you** — you fill, you don't build the frame:
-- A **`wts`** segment ("We claim / it suffices to show …") comes out as `pistis_wts "<loc>" "<text>"` —
+- A **`wts`** segment ("We claim / it suffices to show …") comes out as `pistis_wts "<loc>" r"<text>"` —
   no `True` slot, nothing to fill.
 - A **reductio** (split's `reductio_open` / `contradiction` / `reductio_close` frames) comes out as a
   nested `have habsurd<k> : ¬(sorry) := by / intro hsuppose<k> / … / exact <False-step>` block, already
@@ -99,12 +106,12 @@ what is asserted after a sub-argument closes.
 - **Case-split** — `rcases`/`by_cases`/`wlog`, one branch per case; a symmetric case via `wlog` or a
   mirrored structure. Add it around the relevant segments.
 - **Mid-proof "we claim / it suffices to show …"** — the goal-announcement segment is already stamped
-  `pistis_wts "loc" "text"` (structural, no claim, no node, legal mid-proof). It ANNOUNCES the goal; it is
+  `pistis_wts "loc" r"text"` (structural, no claim, no node, legal mid-proof). It ANNOUNCES the goal; it is
   not an assertion that the goal is already proven. The goal is established by the segments that FOLLOW it
   and assembled by the closing. ⛔ Do NOT re-map a `wts` as a `pistis_segment` carrying the goal body.
 
 ## Closing the goal — the ONLY places a `sorry` may appear
-A `sorry` is allowed in EXACTLY two slots: a `pistis_segment "…" "…" (stepN : …) := by sorry` body, or a
+A `sorry` is allowed in EXACTLY two slots: a `pistis_segment "…" r"…" (stepN : …) := by sorry` body, or a
 `have <n> : <claim> := by sorry`. **A `sorry` ANYWHERE ELSE is a STRAY sorry and is a hard error** — in
 particular the scaffold's trailing `sorry -- @pistis_closer` line is a PLACEHOLDER you MUST replace: a
 finished map has NO stray sorry.
@@ -167,7 +174,8 @@ A discrepancy while mapping is one of two things:
   □ Claims are written in the formal statement's Mathlib idiom (same types/notation).
   □ **NO stray sorry** — the `@pistis_closer` line is replaced; every remaining `sorry` sits in a
     `pistis_segment` body or a `have := by sorry`; none in a tail `exact`/term.
-  □ You did NOT edit any segment's text / locator / ordering (Step-0 scaffold owns tiling).
+  □ You did NOT edit any segment's text / locator / ordering (Step-0 scaffold owns tiling), and every
+    NL literal is still a RAW `r"…"` / `r#"…"#` (never re-quoted as `"…"` with doubled backslashes).
   □ You did NOT touch the theorem signature (it must still equal `data/statement.lean`).
   □ You did NOT read the ground-truth / baseline proof.
 

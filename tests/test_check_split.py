@@ -95,11 +95,12 @@ def test_boundary_bare_newline_is_a_legal_cut():
     # as the gap. Hard-wrapped LaTeX (openai/math at 72 cols) puts a bare \n at many sentence
     # boundaries; under the old one-space-join rule these two assertions had to be merged.
     stmt = "S."
-    proof = "Thus $e_s\\in\\im D$.\nOn the other hand, $y_s\\ne0$."
+    proof = r"""Thus $e_s\in\im D$.
+On the other hand, $y_s\ne0$."""
     segs = [
         seg("intro", stmt),
-        seg("deduction", "Thus $e_s\\in\\im D$."),
-        seg("deduction", "On the other hand, $y_s\\ne0$."),
+        seg("deduction", r"Thus $e_s\in\im D$."),
+        seg("deduction", r"On the other hand, $y_s\ne0$."),
     ]
     ok, lines = check_tiling(segs, stmt, proof)
     assert ok, lines
@@ -109,10 +110,17 @@ def test_display_math_block_as_its_own_gap_boundary():
     # A `\]` followed by a bare newline then prose: both cuts legal, display math stays intact in its
     # own slice.
     stmt = "S."
-    proof = "and\n\\[\n Dx=0.\n\\]\nThus $x=0$."
+    proof = r"""and
+\[
+ Dx=0.
+\]
+Thus $x=0$."""
     segs = [
         seg("intro", stmt),
-        seg("deduction", "and\n\\[\n Dx=0.\n\\]"),
+        seg("deduction", r"""and
+\[
+ Dx=0.
+\]"""),
         seg("deduction", "Thus $x=0$."),
     ]
     ok, lines = check_tiling(segs, stmt, proof)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The authored align-then-label annotation of item1, as a re-runnable script.
+r"""The authored align-then-label annotation of item1, as a re-runnable script.
 
 `gen_datapoints.py` derives the two targets and seeds the obvious spans; everything else — which
 region of the Lean claim corresponds to which fragment of the prose, and whether it holds — is a
@@ -32,24 +32,24 @@ Conventions used throughout, so the per-edge reasons can stay specific:
     a separate "Combined formal endpoints" bucket, unviewable and uneditable). With every verdict 1
     it buys nothing either: two edges into the same NL span say the same thing, each with its own
     reason. So no edge here uses one.
-  * A type ascription is linked to prose only where the prose STATES that type — "$T\\subseteq
-    I\\times J$" for `{T : Set (I × J)}`, "$D:\\R^J\\to\\R^I$" for `{D : Matrix I J ℝ}`, "For finite
+  * A type ascription is linked to prose only where the prose STATES that type — "$T\subseteq
+    I\times J$" for `{T : Set (I × J)}`, "$D:\R^J\to\R^I$" for `{D : Matrix I J ℝ}`, "For finite
     index sets $I,J$" for the `variable` line. A binder whose whole content is typing Lean needs goes
-    to ⊥: "every $(s,j)\\in T$" says the pair is in `T` and says nothing about where `s` lives, so
+    to ⊥: "every $(s,j)\in T$" says the pair is in `T` and says nothing about where `s` lives, so
     `{s : I}` is not what that clause says.
   * A discourse marker ("and", "Thus", "Moreover,", "so", "Therefore", "On the other hand,") is
     linked to ⊥. It signals that an inference is being made; WHETHER the inference goes through is the
     step's backing, not this claim's content.
-  * LaTeX display delimiters (`\\[`, `\\]`) and sentence punctuation are linked to ⊥ as presentation.
+  * LaTeX display delimiters (`\[`, `\]`) and sentence punctuation are linked to ⊥ as presentation.
   * There are no ⊥ `C_F` edges, and that is structural rather than lucky: `C_F` holds only what the
     sentence itself introduces, so every item has prose that introduces it. All four in the item are
     here — "Suppose instead that" ↔ the `have habsurd1` and its `intro`; "For a nonzero real
-    $\\tau$" ↔ the `obtain`; "$D+\\tau e_s e_j^{\\mathsf T}$" ↔ the `set`. Seven of the nine segments
+    $\tau$" ↔ the `obtain`; "$D+\tau e_s e_j^{\mathsf T}$" ↔ the `set`. Seven of the nine segments
     have no context at all.
     The rule it replaced was "whatever the claim needs in order to be read", which has no floor —
     `x : J → ℝ` needs `ℝ`, which needs the field axioms, and stopping at the names that happen to be
     written in `Main.lean` is an artefact of which file the seeder reads, not a principle. Writing a
-    name is also not saying what its binder says: "$x_jy_s\\ne0$" writes `x` and `j` and says nothing
+    name is also not saying what its binder says: "$x_jy_s\ne0$" writes `x` and `j` and says nothing
     about where they live. The theorem's binders therefore belong to the `statement` unit, which
     judges each against the prose that introduces it — once, instead of nine times over against
     prose that merely uses the name.
@@ -210,7 +210,7 @@ u.ok(idx, u.N("where $I$ and $J$ are finite."),
 # the definition sentence
 u.ok(u.F("def SupportedOn"), u.N("supported on"),
      "Names the predicate the prose is defining; `SupportedOn` is the prose's 'supported on'.")
-u.ok(u.F("(T : Set (I × J))"), u.N("$T\\subseteq I\\times J$"),
+u.ok(u.F("(T : Set (I × J))"), u.N(r"$T\subseteq I\times J$"),
      "`Set (I × J)` is exactly a subset of the index product, so `T` ranges over the prose's `T`.")
 mat = u.F("(D : Matrix I J ℝ)")
 u.ok(mat, u.N("a matrix"), "The object being defined: an `I × J` matrix.")
@@ -218,7 +218,8 @@ u.ok(mat, u.N("a real matrix"), "`Matrix I J ℝ` has real entries — the prose
 u.ok(u.F(": Prop :="), u.N("means"),
      "The prose's 'means' is a definition, which is what `:=` on a `Prop` declares.")
 supp = u.F("∀ s j, (s, j) ∉ T → D s j = 0")
-u.ok(supp, u.N("whose entries outside $T$ are\nzero;"),
+u.ok(supp, u.N("""whose entries outside $T$ are
+zero;"""),
      "`(s, j) ∉ T → D s j = 0` for all indices is 'every entry outside T is zero', verbatim.")
 u.ok(supp, u.N("entries in $T$ are allowed to vanish."),
      "The definition is a one-way implication: for `(s, j) ∈ T` it constrains `D s j` not at all, "
@@ -226,11 +227,11 @@ u.ok(supp, u.N("entries in $T$ are allowed to vanish."),
 
 # the lemma
 u.ok(u.F("theorem kernel_support"),
-     u.N("\\begin{lemma}[Kernels at maximum support rank]\\label{lem:kernel-support}"),
+     u.N(r"\begin{lemma}[Kernels at maximum support rank]\label{lem:kernel-support}"),
      "The lemma's header; `kernel_support` is its label `lem:kernel-support`.")
-u.ok(u.F("{T : Set (I × J)}"), u.N("Let $T\\subseteq I\\times J$,"),
+u.ok(u.F("{T : Set (I × J)}"), u.N(r"Let $T\subseteq I\times J$,"),
      "The same subset-of-the-product reading as in the definition, now as a theorem binder.")
-u.ok(u.F("{D : Matrix I J ℝ}"), u.N("$D:\\R^J\\to\\R^I$"),
+u.ok(u.F("{D : Matrix I J ℝ}"), u.N(r"$D:\R^J\to\R^I$"),
      "A linear map ℝ^J → ℝ^I given by a matrix; `Matrix I J ℝ` acts that way through `mulVec`, "
      "and the hypotheses below use it only so.")
 maxrank = u.N("has maximum rank among all real matrices supported on $T$.")
@@ -246,22 +247,23 @@ u.ok(u.F("(hmax : ∀ A : Matrix I J ℝ, SupportedOn T A → A.rank ≤ D.rank)
      "And `hmax` is the other.")
 goal = u.F(": x j * y s = 0")
 u.ok(goal, u.N("Then,"), "'Then' marks the conclusion: in a signature, whatever follows the last `:`.")
-u.ok(u.F("(hx : x ∈ LinearMap.ker D.mulVecLin)"), u.N("for every $x\\in\\ker D$,"),
+u.ok(u.F("(hx : x ∈ LinearMap.ker D.mulVecLin)"), u.N(r"for every $x\in\ker D$,"),
      "What the prose says about `x`: that it lies in `ker D`. `LinearMap.ker D.mulVecLin` is the "
      "kernel of `D`'s action, and the quantification is the hypothesis being a theorem binder.")
-u.ok(u.F("(hy : y ∈ LinearMap.ker Dᵀ.mulVecLin)"), u.N("every $y\\in\\ker D^{\\mathsf T}$,"),
+u.ok(u.F("(hy : y ∈ LinearMap.ker Dᵀ.mulVecLin)"), u.N(r"every $y\in\ker D^{\mathsf T}$,"),
      "Likewise for `y`: membership in the kernel of the transpose's action.")
-u.ok(u.F("(hsj : (s, j) ∈ T)"), u.N("and every\n$(s,j)\\in T$,"),
+u.ok(u.F("(hsj : (s, j) ∈ T)"), u.N(r"""and every
+$(s,j)\in T$,"""),
      "What the prose says about `s` and `j`: that the pair lies in `T`.")
 # The four type ascriptions are NOT what those clauses say — see the convention in the docstring.
 u.ok(u.F("{x : J → ℝ}"), BOT,
      "The prose never ascribes a type to `x`; it says only `x ∈ ker D`. Lean has to name the ambient "
-     "space before it can state that membership, and ℝ^J is forced by `D:\\R^J\\to\\R^I` — so this "
+     r"space before it can state that membership, and ℝ^J is forced by `D:\R^J\to\R^I` — so this "
      "binder is typing the formalization needs, with nothing in the sentence asserting it.")
-u.ok(u.F("{y : I → ℝ}"), BOT, "The same for `y`, whose ℝ^I is forced by `D^{\\mathsf T}`'s shape.")
+u.ok(u.F("{y : I → ℝ}"), BOT, r"The same for `y`, whose ℝ^I is forced by `D^{\mathsf T}`'s shape.")
 u.ok(u.F("{s : I}"), BOT,
      "The prose does not say `s ∈ I`. It introduces `s` only as the first component of a pair in "
-     "`T`, and `T\\subseteq I\\times J` is what makes that component an `I`.")
+     r"`T`, and `T\subseteq I\times J` is what makes that component an `I`.")
 u.ok(u.F("{j : J}"), BOT, "The same for `j` as the second component.")
 u.ok(goal, u.N("one has $x_jy_s=0$."),
      "`x j * y s = 0` is `x_j y_s = 0`; the universal quantification is carried by the binders.")
@@ -273,7 +275,7 @@ u.ok(u.F(":= by sorry"), BOT,
 # ==========================================================================
 u = unit("seg-1.1")
 
-sup = u.N("$x_jy_s\\ne0$.")
+sup = u.N(r"$x_jy_s\ne0$.")
 u.ok(u.F("x j * y s ≠ 0"), sup,
      "`x j * y s ≠ 0` is `x_j y_s ≠ 0`, the proposition this sentence supposes.")
 instead = u.N("Suppose instead that")
@@ -296,15 +298,16 @@ u.ok(u.F("SupportedOn"), still,
      "The same predicate as in the statement, re-applied rather than re-defined — which is what "
      "'still supported on' says: the property is the old one, the matrix is new.")
 u.ok(u.F("T"), u.N("$T$,"), "The support set the prose writes `T`, the theorem's own `T`.")
-named = u.N("the matrix\n$D_\\tau=")
+named = u.N(r"""the matrix
+$D_\tau=""")
 u.ok(u.F("Dτ"), named, "The subject of the clause, under the prose's own name for it, `D_τ`.")
-nonzero = u.N("For a nonzero real $\\tau$,")
+nonzero = u.N(r"For a nonzero real $\tau$,")
 u.ok(u.C("obtain"), nonzero,
      "`obtain ⟨τ, hτ⟩ : ∃ τ : ℝ, τ ≠ 0` is this whole clause: `τ : ℝ` is 'a real τ' and `τ ≠ 0` is "
      "'nonzero'. It fixes one such τ and never looks at its value, so it is as general as the "
      "prose's 'a'. The claim does not mention `τ`, so the clause is answered by the context the "
      "claim is stated in.")
-pert = u.N("D+\\tau e_s e_j^{\\mathsf T}$")
+pert = u.N(r"D+\tau e_s e_j^{\mathsf T}$")
 u.ok(u.C("set Dτ"), pert,
      "The prose DEFINES `D_τ` here, and the `set` is that definition — `:=` carries the prose's `=`, "
      "and `Matrix.single s j 1` is the matrix with a single 1 at `(s, j)`, i.e. `e_s e_jᵀ`. `with "
@@ -318,12 +321,12 @@ u = unit("seg-1.3")
 u.ok(BOT, u.N("and"),
      "A discourse marker: this fact is conjoined to the previous sentence's. It asserts nothing of "
      "its own, and the conjunction is carried by the two steps both being established.")
-u.ok(BOT, u.N("\\[", "\\]", "."),
+u.ok(BOT, u.N(r"\[", r"\]", "."),
      "LaTeX display delimiters and the sentence period. Presentation, not content.")
-lhs = u.N("D_\\tau x=")
+lhs = u.N(r"D_\tau x=")
 u.ok(u.F("Dτ.mulVec x ="), lhs,
      "`mulVec` is the matrix acting on a vector, so `Dτ.mulVec x` is the prose's `D_τ x`.")
-u.ok(u.F("(τ * x j) •"), u.N("\\tau x_j"),
+u.ok(u.F("(τ * x j) •"), u.N(r"\tau x_j"),
      "The scalar `τ x_j`, scaling by `•`, exactly as the prose multiplies.")
 es = u.N("e_s")
 u.ok(u.F("(Pi.single s (1 : ℝ) : I → ℝ)"), es,
@@ -340,8 +343,8 @@ u.ok(BOT, u.N("Thus"),
      "step's backing; the sentence's CONTENT is the membership alone.")
 es = u.N("$e_s")
 u.ok(u.F("(Pi.single s (1 : ℝ) : I → ℝ)"), es, "`Pi.single s 1` is the standard basis vector `e_s`.")
-u.ok(u.F("∈"), u.N("\\in"), "Membership, both sides.")
-im = u.N("\\im D_\\tau$.")
+u.ok(u.F("∈"), u.N(r"\in"), "Membership, both sides.")
+im = u.N(r"\im D_\tau$.")
 u.ok(u.F("LinearMap.range Dτ.mulVecLin"), im,
      "The image of `D_τ` is the range of the linear map it induces, which is what `mulVecLin` names.")
 
@@ -352,13 +355,13 @@ u = unit("seg-1.5")
 
 u.ok(BOT, u.N("Moreover,"),
      "A discourse marker introducing a further fact; it asserts nothing of its own.")
-u.ok(BOT, u.N("\\[", "\\]"), "LaTeX display delimiters. Presentation, not content.")
-every = u.N("for every $w\\in\\R^J$,")
+u.ok(BOT, u.N(r"\[", r"\]"), "LaTeX display delimiters. Presentation, not content.")
+every = u.N(r"for every $w\in\R^J$,")
 u.ok(u.F("∀ w : J → ℝ,"), every, "`J → ℝ` is ℝ^J, and `∀` is the prose's 'for every'.")
-chain = u.N("Dw=D_\\tau w-\\tau w_j e_s")
+chain = u.N(r"Dw=D_\tau w-\tau w_j e_s")
 u.ok(u.F("(D.mulVec w = Dτ.mulVec w - (τ * w j) • (Pi.single s (1 : ℝ) : I → ℝ))"), chain,
      "The displayed identity term for term: `mulVec` is the action, `Pi.single s 1` is `e_s`.")
-u.ok(u.F("∧ D.mulVec w ∈ LinearMap.range Dτ.mulVecLin"), u.N("\\in\\im D_\\tau,"),
+u.ok(u.F("∧ D.mulVec w ∈ LinearMap.range Dτ.mulVecLin"), u.N(r"\in\im D_\tau,"),
      "The prose writes a CHAIN, `Dw = … ∈ im D_τ`, which asserts a second fact about the same "
      "quantity; the second conjunct states it of `Dw`, which the first conjunct equates to that "
      "quantity. Two assertions in the sentence, two conjuncts in the claim.")
@@ -371,13 +374,13 @@ u = unit("seg-1.6")
 u.ok(BOT, u.N("so"),
      "An inference marker: the containment is drawn from the previous sentence. The content is the "
      "containment.")
-old = u.N("the entire old image $\\im D$")
+old = u.N(r"the entire old image $\im D$")
 u.ok(u.F("LinearMap.range D.mulVecLin"), old,
      "The image of `D` as the range of its induced map. 'entire' is the whole range, which is what "
      "the unqualified `LinearMap.range` is.")
 u.ok(u.F("≤"), u.N("is contained in"),
      "`≤` on submodules IS inclusion, so this is the prose's containment and not a rank comparison.")
-new = u.N("$\\im D_\\tau$.")
+new = u.N(r"$\im D_\tau$.")
 u.ok(u.F("LinearMap.range Dτ.mulVecLin"), new, "The image of `D_τ`, the same way.")
 
 # ==========================================================================
@@ -387,18 +390,18 @@ u = unit("seg-1.7")
 
 u.ok(BOT, u.N("On the other hand,"),
      "A discourse marker contrasting this line of argument with the preceding one.")
-ann = u.N("$y$ annihilates $\\im D$")
+ann = u.N(r"$y$ annihilates $\im D$")
 u.ok(u.F("(∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0)"), ann,
      "'y annihilates im D' is that `y` pairs to zero with every element of the image, which is this "
      "universally quantified dot product.")
 u.ok(u.F(("∧", 1)), u.N(("and", 2)), "The prose's 'and' between the two facts it states.")
-ys = u.N("$y_s\\ne0$")
+ys = u.N(r"$y_s\ne0$")
 u.ok(u.F("y s ≠ 0"), ys, "`y s ≠ 0` is `y_s ≠ 0`.")
 u.ok(BOT, u.N(", so"),
      "An inference marker: the prose DERIVES the third clause from the first two. Which clause "
      "follows from which is this step's backing, not its content.")
 u.ok(u.F("∧ (Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin"),
-     u.N("$e_s\\notin\\im D$."),
+     u.N(r"$e_s\notin\im D$."),
      "`Pi.single s 1` is `e_s` and `LinearMap.range D.mulVecLin` is `im D`, so this is the prose's "
      "non-membership. It is a THIRD conjunct because the sentence asserts the two premises as well "
      "as the conclusion: a claim carrying only `e_s ∉ im D` would leave 'y annihilates im D' and "
@@ -412,10 +415,10 @@ u = unit("seg-1.8")
 u.ok(BOT, u.N("Therefore"),
      "An inference marker: the rank strictly grows because the image did. The content is the "
      "inequality.")
-rt = u.N("$\\rank D_\\tau")
-u.ok(u.F("Dτ.rank"), rt, "`Matrix.rank` over ℝ is the prose's `\\rank`, applied to `D_τ`.")
+rt = u.N(r"$\rank D_\tau")
+u.ok(u.F("Dτ.rank"), rt, r"`Matrix.rank` over ℝ is the prose's `\rank`, applied to `D_τ`.")
 u.ok(u.F(">"), u.N(">"), "A strict inequality, both sides.")
-rd = u.N("\\rank D$,")
+rd = u.N(r"\rank D$,")
 u.ok(u.F("D.rank"), rd, "The same rank, applied to `D`.")
 
 # ==========================================================================

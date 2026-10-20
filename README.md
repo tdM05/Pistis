@@ -119,6 +119,45 @@ two characters `\` `n` and double every LaTeX backslash, so the bytes on disk we
 the text and searching for what you saw in the file found nothing. `scripts/convert_nl_to_txt.py`
 performed the migration and can re-verify it against git history.)
 
+### Everything else is derived from those two files
+
+The `.txt` files are the source. Every other representation of the NL is **derived**, and the point
+of listing the generator next to each one is that you never have to take anyone's word for an
+artifact: re-run the script and diff. Each of these is idempotent — a re-run reproduces the existing
+bytes exactly, so a diff is the whole audit.
+
+| artifact | generator | input |
+| --- | --- | --- |
+| `data/nl_{statement,proof}.txt` (oai_math) | `scripts/extract_tex.py` | the paper's `.tex` + the anchors in `meta.json` → `nl_source.slice` |
+| `data/nl_{statement,proof}.txt` (proofnet) | `corpora/proofnet_verified/items/_source/extract_nl.py` | `_source/proofnet-verified.jsonl` |
+| `split.json` | **authored** (the `pistis-split` skill) | gated by `scripts/check_split.py` to tile the `.txt` byte-for-byte |
+| `Main.lean` NL literals | `scripts/scaffold_main.py` | `split.json` (claims are then filled by the map stage) |
+| `align/*/artifacts/` | `faithfulness/gen_datapoints.py`, then `faithfulness/annotate_item1.py` | `Main.lean` + the `.txt` |
+| `kpistis/units/` | `kpistis/build.py`, then `kpistis/annotate_item1.py` | `Proof.lean` + the `.txt` |
+
+Only `split.json` is authored rather than computed — where one segment ends and the next begins is a
+judgment. It is not trusted either: `check_split.py` holds its segments to tiling the `.txt` exactly,
+and `check_main.py` holds `Main.lean` to the same bytes independently.
+
+A derived format may have to escape (JSON must, and `split.json` does). That is fine where the format
+demands it, but **not** where the format offers a verbatim option. Lean has raw literals (`r"…"`, or
+`r#"…"#` when the text contains a quote), Python has raw strings, Markdown has code fences — so NL in
+`Main.lean`, in the `annotate_item1.py` generators and in a ` ```lean ` fence is stored verbatim, and
+the file's bytes are the paper's bytes. JSON has no verbatim option and is the one exemption.
+
+Two gates hold this, because checks on string *values* cannot see the difference — an escaped
+`"…\\subseteq…"` decodes correctly, so coverage reported "reproduces source exactly" while the file
+said something the paper never did and Ctrl-F found nothing:
+
+```sh
+python3 ../../scripts/check_main.py items/item1   # check 5: each segment's NL text, verbatim in Main.lean
+python3 scripts/check_nl_verbatim.py              # repo-wide: no file holds an NL line escaped
+```
+
+The second is Ctrl-F with nothing in between: for every line of every `data/nl_*.txt`, no file may
+contain that line with its backslashes doubled unless it also contains the line itself. A value check
+and a byte check are different checks; this repo needs both, and only had the first.
+
 ## Extracting the NL text from LaTeX
 
 ProofNet ships its NL text ready-made; openai/math ships prose as `.tex`, so the statement and proof

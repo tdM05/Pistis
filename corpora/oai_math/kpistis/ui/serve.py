@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""One viewer for every level of the tree.
+r"""One viewer for every level of the tree.
 
 The point of the K-Pistis model is that a proof step and an atomic label are the SAME object, so
 there is one page and it renders a unit — whichever unit. The root shows `Proof.lean` against the
 whole lemma, with the proof steps as regions; click into a step and the identical widget shows that
 step's Lean against that step's prose, with the atomic pieces as regions; click again and you are
-looking at `D + τ • Matrix.single s j 1` against `D+\\tau e_s e_j^{\\mathsf T}`. The breadcrumb is the
+looking at `D + τ • Matrix.single s j 1` against `D+\tau e_s e_j^{\mathsf T}`. The breadcrumb is the
 only thing that changes.
 
 Read-write for the two things a human is here to decide — an edge's verdict and its reason, and

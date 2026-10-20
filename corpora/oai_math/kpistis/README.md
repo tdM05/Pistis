@@ -20,14 +20,16 @@ The two prototypes answer different questions and are worth keeping side by side
 
 ## Why
 
-From `items/item1/Main.lean`:
+From `items/item1/Main.lean` (lines 46-51, verbatim — the NL is a raw literal, so this block is
+`grep -F`-able against the file):
 
 ```lean
-  obtain ⟨τ, hτ⟩ : ∃ τ : ℝ, τ ≠ 0 := ⟨1, one_ne_zero⟩
-  set Dτ : Matrix I J ℝ := D + τ • Matrix.single s j (1 : ℝ) with hDτ
-  pistis_segment "1.2"
-    "For a nonzero real $\\tau$, the matrix
-$D_\\tau=D+\\tau e_s e_j^{\\mathsf T}$ is still supported on $T$,"
+    obtain ⟨τ, hτ⟩ : ∃ τ : ℝ, τ ≠ 0 := ⟨1, one_ne_zero⟩
+    set Dτ : Matrix I J ℝ := D + τ • Matrix.single s j (1 : ℝ) with hDτ
+    pistis_segment "1.2"
+      r"For a nonzero real $\tau$, the matrix
+$D_\tau=D+\tau e_s e_j^{\mathsf T}$ is still supported on $T$,"
+      (step2 : SupportedOn T Dτ) := by sorry
 ```
 
 A `pistis_segment`'s target is its **claim** — here `SupportedOn T Dτ`. The `set` line above it, the

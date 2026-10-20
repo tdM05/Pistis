@@ -33,13 +33,22 @@ from typing import List
 
 
 def _lean_str(s: str) -> str:
-    """Escape a source substring for emission inside a Lean "..." string literal.
+    """`s` as a complete Lean RAW string literal: `r"…"`, or `r#"…"#` if the text contains a quote.
 
-    A lone backslash (LaTeX artifacts like \\in, \\mathbb) is an invalid Lean escape, and a raw " would
-    close the string. The faithfulness text-checker decodes these back before comparing to the source,
-    so the stored text stays byte-exact.
+    Raw, because an ordinary `"…"` literal has to escape every LaTeX backslash (`\\in` -> `\\\\in`) and
+    then the bytes in Main.lean are not the bytes of the paper: searching the file for a sentence of
+    the proof finds nothing. The value would still be right, so every gate comparing string VALUES
+    passes — which is exactly how escaped NL survived here unnoticed. A raw literal has no escapes,
+    so the NL text IS the file's text, and `check_main.py` gates that byte-for-byte.
+
+    The `#` count is the smallest one the body cannot be mistaken for the closing delimiter with:
+    `r"…"` unless the text contains `"`, then `r#"…"#` unless it contains `"#`, and so on.
     """
-    return s.replace("\\", "\\\\").replace('"', '\\"')
+    n = 0
+    while '"' + "#" * n in s:
+        n += 1
+    h = "#" * n
+    return f'r{h}"{s}"{h}'
 
 
 def _split_signature(statement_text: str) -> str:
@@ -71,7 +80,7 @@ def build_body(segments: List[dict], index: int) -> List[str]:
 
     # intro (structural — records the statement text, no `have`)
     body.append(f'{sp()}pistis_intro "{index}.0"')
-    body.append(f'{sp(1)}"{_lean_str(intro["text"])}"')
+    body.append(f'{sp(1)}{_lean_str(intro["text"])}')
     body.append("")
 
     habsurd = 0
@@ -83,7 +92,7 @@ def build_body(segments: List[dict], index: int) -> List[str]:
 
         if role == "wts":
             body.append(f'{sp()}pistis_wts "{index}.{pos}"')
-            body.append(f'{sp(1)}"{_lean_str(e["text"])}"')
+            body.append(f'{sp(1)}{_lean_str(e["text"])}')
             body.append("")
             continue
 
@@ -107,7 +116,7 @@ def build_body(segments: List[dict], index: int) -> List[str]:
         for a in e.get("assumptions", []):
             body.append(f'{sp()}-- @pistis_assumption ("{a}", TODO)')
         body.append(f'{sp()}pistis_segment "{index}.{pos}"')
-        body.append(f'{sp(1)}"{_lean_str(e["text"])}"')
+        body.append(f'{sp(1)}{_lean_str(e["text"])}')
         body.append(f"{sp(1)}({name} : {claim}) := by sorry")
         body.append("")
 
@@ -122,7 +131,7 @@ def build_body(segments: List[dict], index: int) -> List[str]:
     if conclusion is not None:
         cpos = segments.index(conclusion)
         body.append(f'  pistis_conclude "{index}.{cpos}"')
-        body.append(f'    "{_lean_str(conclusion["text"])}"')
+        body.append(f'    {_lean_str(conclusion["text"])}')
         body.append("")
 
     # Close the goal. With `True` placeholder claims we cannot `exact` a step yet, so the template ends

@@ -6,24 +6,79 @@ Recovers, in source order, the segments a scaffolded/mapped Main.lean records:
   - pistis_conclude "loc" "text"
   - pistis_segment "loc" "text" (name : claim) := by <body>
 
-The `text` stored in Main is a Lean string literal produced by scaffold_main._lean_str (which escaped
-`\\` -> `\\\\` and `"` -> `\\"`); `read_string_literal` decodes it back to the original source text so it
-can be compared byte-for-byte against the NL `.txt` files. Used by check_main.py and check_steps.py.
+The `text` stored in Main is a Lean RAW string literal produced by scaffold_main._lean_str (`r"…"`,
+or `r#"…"#` when the text itself contains a quote). A raw literal has no escapes, so the NL text in a
+Main.lean is the paper's bytes: `grep` and editor Ctrl-F find a sentence of the proof in the file.
+An ordinary `"…"` literal would have to double every LaTeX backslash (`\\in` -> `\\\\in`), and then the
+file says something the paper does not — which is how escaped NL went unnoticed here for so long,
+since decoding made every VALUE-level gate pass. `check_main.py` now also gates the bytes.
+
+`read_string_literal` reads either form, so a hand-written or pre-raw Main.lean keeps parsing, and
+returns the text so it can be compared byte-for-byte against the NL `.txt` files. Used by
+check_main.py and check_steps.py.
 """
 from __future__ import annotations
 
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 _TAC = re.compile(r"\bpistis_(intro|wts|conclude|segment)\b")
 
+# A Lean raw string literal opener: `r"`, `r#"`, `r##"`, … The closing delimiter is `"` followed by
+# the SAME number of `#`, so the body can contain anything shorter than that.
+_RAW_OPEN = re.compile(r'r(#*)"')
+
+
+def _raw_open_at(src: str, j: int) -> Optional[re.Match]:
+    """If the `"` at `src[j]` is the quote of a raw opener, the match covering `r#*"`; else None.
+
+    Called when a scanner has already walked to the `"` (it cannot know the `r#*` prefix was a
+    prefix), so the prefix is recovered by stepping back over the `#`s and the `r`.
+    """
+    if j >= len(src) or src[j] != '"':
+        return None
+    k = j
+    while k > 0 and src[k - 1] == "#":
+        k -= 1
+    if k == 0 or src[k - 1] != "r":
+        return None
+    # The `r` must be its own token: in `var"x"` the `r` is the tail of an identifier, not a prefix.
+    if k - 2 >= 0 and (src[k - 2].isalnum() or src[k - 2] in "_'!?"):
+        return None
+    return _RAW_OPEN.match(src, k - 1)
+
+
+def raw_open(src: str, i: int) -> Optional[re.Match]:
+    """The `r#*"` opener starting AT `src[i]`, if there is one; else None.
+
+    For scanners that walk left-to-right and want to skip a raw literal whole. The closing delimiter
+    is `'"' + m.group(1)` — a quote plus the same number of `#`.
+    """
+    m = _RAW_OPEN.match(src, i)
+    if not m:
+        return None
+    if i > 0 and (src[i - 1].isalnum() or src[i - 1] in "_'!?"):
+        return None                                 # the `r` is the tail of an identifier
+    return m
+
 
 def read_string_literal(src: str, i: int) -> Tuple[str, int]:
-    """`src[i]` must be an opening `"`. Return (decoded text, index just past the closing `"`).
+    """Read the Lean string literal at `src[i]`. Return (text, index just past it).
 
-    Decodes the two escapes scaffold_main emits (`\\\\`->`\\`, `\\"`->`"`); other backslash sequences are
-    left verbatim. Raw newlines inside the literal are preserved (Lean allows them).
+    `i` may sit on the opening `"`, or on the `r`/`#` prefix of a raw literal.
+
+    A RAW literal's body has no escapes, so the text is the file's bytes verbatim — that is the point
+    of using one for NL. An ordinary literal is decoded for the two escapes scaffold_main used to
+    emit (`\\\\`->`\\`, `\\"`->`"`); other backslash sequences are left verbatim. Raw newlines inside
+    either form are preserved (Lean allows them).
     """
+    m = _RAW_OPEN.match(src, i) or _raw_open_at(src, i)
+    if m:
+        close = '"' + m.group(1)
+        j = src.find(close, m.end())
+        if j < 0:
+            raise ValueError("unterminated raw string literal")
+        return src[m.end():j], j + len(close)
     if src[i] != '"':
         raise ValueError(f"expected string literal at index {i}")
     i += 1
@@ -63,8 +118,10 @@ def _balanced_type(src: str, start: int) -> Tuple[str, int]:
 
 
 def _next_quote(src: str, i: int) -> int:
+    """Index where the next string literal STARTS — its `r#*` prefix included, when it is raw."""
     j = src.index('"', i)
-    return j
+    m = _raw_open_at(src, j)
+    return m.start() if m else j
 
 
 def _skip_trivia(src: str, i: int) -> int:

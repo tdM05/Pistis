@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""item1's K-Pistis annotation, authored and re-runnable.
+r"""item1's K-Pistis annotation, authored and re-runnable.
 
 Every region is NAMED BY THE TEXT IT COVERS and the UTF-16 offsets are computed from that text, so
 re-indenting `Proof.lean` or re-wrapping the `.tex` makes this fail loudly (`needle not found`)
@@ -24,8 +24,8 @@ written the same way as a region, by the text it covers — each with a reason. 
 by unit: an edge names a region, so the context lands on the thing being judged, and the root (whose
 own target is the whole paper and so can have no context) is no longer a special case. Those
 citations are the places where the paper leaves work to the reader: that 'supported on $T$' was
-defined in another paragraph (1.2), that $y_s\\ne0$ comes from the reductio and not from anything
-nearby (1.7), that 'Therefore' performs three inferences at once (1.8), that `\\rank` is never defined
+defined in another paragraph (1.2), that $y_s\ne0$ comes from the reductio and not from anything
+nearby (1.7), that 'Therefore' performs three inferences at once (1.8), that `\rank` is never defined
 and is written exactly once, in the proof's last line (the root's `thm`), and that $e_s$ is never
 defined in the paper at all (1.2, `formula`).
 
@@ -52,15 +52,16 @@ DERIVED: dict[str, dict] = {}      # skeletons cut this run for units that do no
 # Sentences of the paper that several steps must be read against, named once. These are NEEDLES, not
 # stored text: `Unit.c` searches for them and keeps the offsets, so if the `.tex` is re-wrapped this
 # file fails with `needle not found` instead of citing the wrong characters.
-DEFN = ("a matrix supported on\n$T\\subseteq I\\times J$ means a real matrix whose entries outside "
-        "$T$ are\nzero; entries in $T$ are allowed to vanish.")
-MAXRANK = ("Suppose that\n$D:\\R^J\\to\\R^I$ has maximum rank among all real matrices supported on "
-           "$T$.")
-CONCL = ("Then, for every $x\\in\\ker D$, every $y\\in\\ker D^{\\mathsf T}$, and every\n"
-         "$(s,j)\\in T$, one has $x_jy_s=0$.")
-INDICES = "$(s,j)\\in T$"
-DEF_DTAU = "$D_\\tau=D+\\tau e_s e_j^{\\mathsf T}$"
-SUPPOSE = "$x_jy_s\\ne0$"
+DEFN = (r"""a matrix supported on
+$T\subseteq I\times J$ means a real matrix whose entries outside $T$ are
+zero; entries in $T$ are allowed to vanish.""")
+MAXRANK = (r"""Suppose that
+$D:\R^J\to\R^I$ has maximum rank among all real matrices supported on $T$.""")
+CONCL = (r"""Then, for every $x\in\ker D$, every $y\in\ker D^{\mathsf T}$, and every
+$(s,j)\in T$, one has $x_jy_s=0$.""")
+INDICES = r"$(s,j)\in T$"
+DEF_DTAU = r"$D_\tau=D+\tau e_s e_j^{\mathsf T}$"
+SUPPOSE = r"$x_jy_s\ne0$"
 
 
 def paper() -> str:
@@ -184,14 +185,14 @@ def root() -> Unit:
             u.F[m["loc"]] = [m["span"]]
 
     nl = json.loads((model.CORPUS / "items" / ITEM / "split.json").read_text(encoding="utf-8"))
-    u.n("defn", "For finite index sets $I,J$, a matrix supported on\n"
-                "$T\\subseteq I\\times J$ means a real matrix whose entries outside $T$ are\n"
-                "zero; entries in $T$ are allowed to vanish.")
-    u.n("thm", "\\begin{lemma}[Kernels at maximum support rank]\\label{lem:kernel-support}\n"
-               "Let $T\\subseteq I\\times J$, where $I$ and $J$ are finite.  Suppose that\n"
-               "$D:\\R^J\\to\\R^I$ has maximum rank among all real matrices supported on $T$.\n"
-               "Then, for every $x\\in\\ker D$, every $y\\in\\ker D^{\\mathsf T}$, and every\n"
-               "$(s,j)\\in T$, one has $x_jy_s=0$.")
+    u.n("defn", r"""For finite index sets $I,J$, a matrix supported on
+$T\subseteq I\times J$ means a real matrix whose entries outside $T$ are
+zero; entries in $T$ are allowed to vanish.""")
+    u.n("thm", r"""\begin{lemma}[Kernels at maximum support rank]\label{lem:kernel-support}
+Let $T\subseteq I\times J$, where $I$ and $J$ are finite.  Suppose that
+$D:\R^J\to\R^I$ has maximum rank among all real matrices supported on $T$.
+Then, for every $x\in\ker D$, every $y\in\ker D^{\mathsf T}$, and every
+$(s,j)\in T$, one has $x_jy_s=0$.""")
     for k, entry in enumerate(nl):
         if k:
             u.n(f"1.{k}", entry["text"])
@@ -200,16 +201,16 @@ def root() -> Unit:
     # them cites what it has to be read against. This is the level where per-unit `C_N` had nothing
     # to say — the root's target is the paper, so the root has no context — and where the reader most
     # needs it: these are the thirteen edges you see first.
-    u.c("defn", "Let $T\\subseteq I\\times J$, where $I$ and $J$ are finite.", why="""
+    u.c("defn", r"Let $T\subseteq I\times J$, where $I$ and $J$ are finite.", why="""
         The finiteness of $I$ and $J$ is asserted HERE as well, inside the lemma, and Lean asserts it
         once — `variable {I J : Type*} [Fintype I] [Fintype J]`. So the `variable` line is in this
         region and in `thm`, and a reader checking either against Lean has to know the other exists
         or the sharing looks like double-counting. The paper saying something twice is what forces
         two formal regions to overlap; this citation is where that is written down.""")
-    u.c("thm", "$\\rank D_\\tau>\\rank D$", why="""
+    u.c("thm", r"$\rank D_\tau>\rank D$", why=r"""
         'has maximum rank among all real matrices supported on $T$' is the hypothesis `hmax : ∀ A,
         SupportedOn T A → A.rank ≤ D.rank`, i.e. a ≤ over a set — but the paper never defines `rank`
-        and writes `$\\rank$` for the first and only time in the proof's last line. The reading that
+        and writes `$\rank$` for the first and only time in the proof's last line. The reading that
         makes `hmax` the right formalization is anchored thirteen lines FORWARD, not backward.""")
     u.c("thm", DEFN, why="""
         'supported on $T$' twice in one lemma, defined in the paragraph above. `hD` and `hmax` both
@@ -232,50 +233,55 @@ def root() -> Unit:
         business with. The formal side needs no such citation — `SupportedOn` is a `def` that the
         region could simply have included — which is exactly the asymmetry: the Lean file can be
         arranged so a definition is adjacent, the paper cannot be rearranged at all.""")
-    u.c("1.2", MAXRANK, why="""
+    u.c("1.2", MAXRANK, why=r"""
         What $D$ is. The sentence writes `D` with no introduction; it is the maximum-rank matrix fixed
-        by the lemma's hypothesis, which is also why `D_\\tau` having to stay supported on $T$ is the
+        by the lemma's hypothesis, which is also why `D_\tau` having to stay supported on $T$ is the
         point of the step rather than an aside.""")
-    u.c("1.2", INDICES, why="""
+    u.c("1.2", INDICES, why=r"""
         Where $s$ and $j$ come from — the lemma's last binder. Worth recording for a reason the
-        formal side makes obvious: `Matrix.single s j 1` is `e_s e_j^{\\mathsf T}`, and $e_s$,
-        $e_j^{\\mathsf T}$ are never defined anywhere in the paper. This is the nearest the document
+        formal side makes obvious: `Matrix.single s j 1` is `e_s e_j^{\mathsf T}`, and $e_s$,
+        $e_j^{\mathsf T}$ are never defined anywhere in the paper. This is the nearest the document
         comes, so the alignment rests on a convention the reader supplies.""")
-    u.c("1.3", DEF_DTAU, why="""
-        What $D_\\tau$ is, from the previous sentence. $D_\\tau x=\\tau x_j e_s$ is a one-line
+    u.c("1.3", DEF_DTAU, why=r"""
+        What $D_\tau$ is, from the previous sentence. $D_\tau x=\tau x_j e_s$ is a one-line
         computation FROM that definition, and the Lean region states only the result.""")
-    u.c("1.3", "every $x\\in\\ker D$", why="""
-        That $x$ is in $\\ker D$ — the lemma's binder, which is what makes $Dx=0$ available and the
-        $D$ term of $D_\\tau x$ vanish. The paper never shows the cancellation.""")
-    u.c("1.4", "\\[\n D_\\tau x=\\tau x_j e_s.\n\\]", why="""
-        The equation this concludes from, immediately above. On its own 'Thus $e_s\\in\\im D_\\tau$'
+    u.c("1.3", r"every $x\in\ker D$", why=r"""
+        That $x$ is in $\ker D$ — the lemma's binder, which is what makes $Dx=0$ available and the
+        $D$ term of $D_\tau x$ vanish. The paper never shows the cancellation.""")
+    u.c("1.4", r"""\[
+ D_\tau x=\tau x_j e_s.
+\]""", why=r"""
+        The equation this concludes from, immediately above. On its own 'Thus $e_s\in\im D_\tau$'
         is not checkable.""")
-    u.c("1.4", SUPPOSE, why="""
-        The step needs $x_j\\ne0$ to divide by $\\tau x_j$, and that comes from the reductio
+    u.c("1.4", SUPPOSE, why=r"""
+        The step needs $x_j\ne0$ to divide by $\tau x_j$, and that comes from the reductio
         supposition, not from anywhere near this sentence. It is the load-bearing hypothesis of the
         inference and it is nowhere in the sentence that makes it.""")
-    u.c("1.5", DEF_DTAU, why="""
-        What $D_\\tau$ is. $Dw=D_\\tau w-\\tau w_j e_s$ is that definition rearranged.""")
-    u.c("1.5", "Thus $e_s\\in\\im D_\\tau$.", why="""
-        Why the right-hand side lies in $\\im D_\\tau$: $D_\\tau w$ is there by definition and
-        $e_s$ by the previous sentence. The '$\\in\\im D_\\tau$' clause is an inference, and half its
+    u.c("1.5", DEF_DTAU, why=r"""
+        What $D_\tau$ is. $Dw=D_\tau w-\tau w_j e_s$ is that definition rearranged.""")
+    u.c("1.5", r"Thus $e_s\in\im D_\tau$.", why=r"""
+        Why the right-hand side lies in $\im D_\tau$: $D_\tau w$ is there by definition and
+        $e_s$ by the previous sentence. The '$\in\im D_\tau$' clause is an inference, and half its
         input is the sentence above.""")
-    u.c("1.6", "Moreover, for every $w\\in\\R^J$,\n\\[\n Dw=D_\\tau w-\\tau w_j e_s\\in\\im D_\\tau,\n\\]",
-        why="""
+    u.c("1.6", r"""Moreover, for every $w\in\R^J$,
+\[
+ Dw=D_\tau w-\tau w_j e_s\in\im D_\tau,
+\]""",
+        why=r"""
         The 'so' makes this sentence a conclusion of the previous one, and the previous one is where
-        all the content is: $\\im D\\le\\im D_\\tau$ is just that statement re-quantified. Lean states
+        all the content is: $\im D\le\im D_\tau$ is just that statement re-quantified. Lean states
         the two separately (`hDw`, then `himg`), so the edge joining them is the paper's 'so'.""")
-    u.c("1.7", "every $y\\in\\ker D^{\\mathsf T}$", why="""
-        That $y\\in\\ker D^{\\mathsf T}$ — the lemma's binder, and the reason '$y$ annihilates
-        $\\im D$' is true. In Lean that is `hy` plus the transpose/inner-product unfolding; in the
+    u.c("1.7", r"every $y\in\ker D^{\mathsf T}$", why=r"""
+        That $y\in\ker D^{\mathsf T}$ — the lemma's binder, and the reason '$y$ annihilates
+        $\im D$' is true. In Lean that is `hy` plus the transpose/inner-product unfolding; in the
         paper it is this phrase, eleven lines up.""")
-    u.c("1.7", SUPPOSE, why="""
-        $y_s\\ne0$ is asserted here flatly, but it is not a hypothesis of the lemma — it follows from
-        the reductio supposition $x_jy_s\\ne0$. The sentence gives no hint of that, and a reader
+    u.c("1.7", SUPPOSE, why=r"""
+        $y_s\ne0$ is asserted here flatly, but it is not a hypothesis of the lemma — it follows from
+        the reductio supposition $x_jy_s\ne0$. The sentence gives no hint of that, and a reader
         checking `y s ≠ 0` against it would otherwise have no idea where it comes from.""")
-    u.c("1.8", "so the entire old image $\\im D$ is contained in $\\im D_\\tau$.", why="""
-        One half of 'Therefore': $\\im D\\subseteq\\im D_\\tau$.""")
-    u.c("1.8", "Thus $e_s\\in\\im D_\\tau$.", "$e_s\\notin\\im D$.", why="""
+    u.c("1.8", r"so the entire old image $\im D$ is contained in $\im D_\tau$.", why=r"""
+        One half of 'Therefore': $\im D\subseteq\im D_\tau$.""")
+    u.c("1.8", r"Thus $e_s\in\im D_\tau$.", r"$e_s\notin\im D$.", why="""
         The other half: $e_s$ is in the new image and not in the old, so the inclusion is strict.
         'Therefore' performs three inferences at once — inclusion, strictness, and the jump from
         images to ranks — which is why this one word needs two citations and why its Lean counterpart
@@ -285,8 +291,8 @@ def root() -> Unit:
         contradicts is fifteen lines up, in the lemma's hypothesis, and nothing in this sentence
         points at it. `exact absurd (hmax Dτ hsupp) (not_le.mpr hrank)` names `hmax` explicitly —
         the formal side cannot leave it implicit, and the paper does.""")
-    u.c("1.9", "is still supported on $T$,", why="""
-        Why `hmax` applies to $D_\\tau$ at all: it has to be supported on $T$, which was step 1.2.
+    u.c("1.9", "is still supported on $T$,", why=r"""
+        Why `hmax` applies to $D_\tau$ at all: it has to be supported on $T$, which was step 1.2.
         In Lean this is the `hsupp` argument; in the paper it is nowhere near this sentence.""")
 
     u.link("hdr", BOT, 1, """
@@ -301,10 +307,10 @@ def root() -> Unit:
         them. The region also carries `variable {I J : Type*} [Fintype I] [Fintype J]`, because 'For
         finite index sets $I,J$' is part of this same sentence; it is shared with the `thm` region
         below, which is legal and deliberate (see this file's docstring).""")
-    u.link("thm", "thm", 1, """
+    u.link("thm", "thm", 1, r"""
         The lemma, binder for binder: `hD` and `hmax` are 'has maximum rank among all real matrices
-        supported on $T$', `hx` and `hy` are the two kernels (`Dᵀ.mulVecLin` for $D^{\\mathsf T}$),
-        `hsj` is $(s,j)\\in T$, and the goal is $x_jy_s=0$. 'where $I$ and $J$ are finite' is the
+        supported on $T$', `hx` and `hy` are the two kernels (`Dᵀ.mulVecLin` for $D^{\mathsf T}$),
+        `hsj` is $(s,j)\in T$, and the goal is $x_jy_s=0$. 'where $I$ and $J$ are finite' is the
         lemma re-stating what the ambient `variable` fixes, so this region includes that `variable`
         line too — otherwise the phrase would have to be matched against a formal-context item, which
         is the thing this prototype exists to avoid.""")
@@ -315,11 +321,11 @@ def root() -> Unit:
         correspond to.""")
     u.link("1.1", "1.1", 1, """
         Opens the reductio the whole proof runs inside. Refined below.""", child="1.1")
-    u.link("1.2", "1.2", 1, """
-        Fixes $\\tau$, defines $D_\\tau$ and claims it is still supported on $T$ — the three things
+    u.link("1.2", "1.2", 1, r"""
+        Fixes $\tau$, defines $D_\tau$ and claims it is still supported on $T$ — the three things
         the sentence does, in the order it does them. Refined below; this is the step that motivated
         the prototype.""", child="1.2")
-    u.link("1.3", "1.3", 1, "The displayed identity for $D_\\tau x$. Refined below.", child="1.3")
+    u.link("1.3", "1.3", 1, r"The displayed identity for $D_\tau x$. Refined below.", child="1.3")
     u.link("1.4", "1.4", 1, "The membership the previous identity yields. Refined below.", child="1.4")
     u.link("1.5", "1.5", 1, """
         The universally quantified chain the sentence displays, as one claim. Refined below.""",
@@ -355,7 +361,7 @@ def step_1_1() -> Unit:
     u.f("name", "hne :")
     u.f("hole", "=> ?_")
     u.n("suppose", "Suppose instead that")
-    u.n("ne", "$x_jy_s\\ne0$.")
+    u.n("ne", r"$x_jy_s\ne0$.")
     u.c("suppose", CONCL, why="""
         The conclusion this negates. 'Suppose instead' is a pure back-reference: without 'one has
         $x_jy_s=0$' sitting in the lemma, the word 'instead' names nothing and the two words cannot
@@ -397,25 +403,27 @@ def step_1_2() -> Unit:
     u.f("formula", "D + τ • Matrix.single s j (1 : ℝ)")
     u.f("with", "with hDτ")
     u.f("supported", "SupportedOn T Dτ")
-    u.n("nonzero", "For a nonzero real $\\tau$,")
-    u.n("name", "the matrix\n$D_\\tau=")
-    u.n("rhs", "D+\\tau e_s e_j^{\\mathsf T}$")
+    u.n("nonzero", r"For a nonzero real $\tau$,")
+    u.n("name", r"""the matrix
+$D_\tau=""")
+    u.n("rhs", r"D+\tau e_s e_j^{\mathsf T}$")
     u.n("still", "is still supported on $T$,")
-    u.c("nonzero", "a contradiction.", why="""
+    u.c("nonzero", "a contradiction.", why=r"""
         Why τ may be chosen freely: nothing later in the proof constrains it — the final
         contradiction holds for any nonzero τ — which is what makes Lean's `⟨1, one_ne_zero⟩` an
-        adequate reading of 'For a nonzero real $\\tau$'. That is a fact about the whole proof and
+        adequate reading of 'For a nonzero real $\tau$'. That is a fact about the whole proof and
         this clause cannot show it.""")
-    u.c("name", MAXRANK, why="""
-        What $D$ is, since `D_\\tau` is named in terms of it: the maximum-rank matrix fixed by the
+    u.c("name", MAXRANK, why=r"""
+        What $D$ is, since `D_\tau` is named in terms of it: the maximum-rank matrix fixed by the
         lemma. The clause writes `D` with no introduction.""")
-    u.c("rhs", "the matrix\n$D_\\tau=", why="""
+    u.c("rhs", r"""the matrix
+$D_\tau=""", why="""
         The left-hand side of the equation this is the right-hand side of. It stops exactly where
         this region starts, which is the cleanest demonstration of the no-overlap rule: the two are
         adjacent and `cn_errors` can still prove they do not intersect.""")
-    u.c("rhs", INDICES, why="""
+    u.c("rhs", INDICES, why=r"""
         Where $s$ and $j$ come from — the lemma's last binder, and ALL the paper offers: $e_s$ and
-        $e_j^{\\mathsf T}$ are never defined anywhere in it. The reader is expected to supply
+        $e_j^{\mathsf T}$ are never defined anywhere in it. The reader is expected to supply
         'standard basis vector', and `Matrix.single s j 1` is the formalization committing to that
         reading. The child unit `formula` is where that edge is taken apart.""")
     u.c("still", DEFN, why="""
@@ -431,19 +439,19 @@ def step_1_2() -> Unit:
         `obtain ⟨τ, hτ⟩ :` destructures the witness and names it, `have hsupp :` names the claim, and
         `:= by sorry` is where the proof goes. Bookkeeping: the prose fixes a τ without naming a
         hypothesis about it, and states its claim by writing a clause.""")
-    u.link("exists", "nonzero", 1, """
-        `∃ τ : ℝ, τ ≠ 0` is the clause: `τ : ℝ` is 'a real $\\tau$' and `τ ≠ 0` is 'nonzero'. The
+    u.link("exists", "nonzero", 1, r"""
+        `∃ τ : ℝ, τ ≠ 0` is the clause: `τ : ℝ` is 'a real $\tau$' and `τ ≠ 0` is 'nonzero'. The
         proof fixes one such τ and never reads its value, so this is as general as the prose's
         indefinite 'a'.""")
     u.link("witness", BOT, 1, """
         `⟨1, one_ne_zero⟩` is why such a τ EXISTS — take 1. The prose asserts existence without
         exhibiting a witness, and a justification is not part of what is said.""")
-    u.link("set", "name", 1, """
-        `set Dτ : Matrix I J ℝ :=` is the prose's 'the matrix $D_\\tau=`: `Matrix I J ℝ` is 'the
+    u.link("set", "name", 1, r"""
+        `set Dτ : Matrix I J ℝ :=` is the prose's 'the matrix $D_\tau=`: `Matrix I J ℝ` is 'the
         matrix', the name is `Dτ`, and `:=` carries the `=` that defines it.""")
-    u.link("formula", "rhs", 1, """
+    u.link("formula", "rhs", 1, r"""
         **The edge this prototype was built for.** `Matrix.single s j 1` is the matrix whose only
-        nonzero entry is a 1 in position $(s,j)$, i.e. $e_s e_j^{\\mathsf T}$; the scalar multiple and
+        nonzero entry is a 1 in position $(s,j)$, i.e. $e_s e_j^{\mathsf T}$; the scalar multiple and
         the sum with `D` are the prose's own. In `Main.lean` the right-hand side of the prose's `=` has
         nothing in the target to link to, because a `pistis_segment`'s target is its claim
         (`SupportedOn T Dτ`) and the defining `set` is formal context — so the edge lands on a quoted
@@ -466,37 +474,37 @@ def step_1_3() -> Unit:
     u.f("eq", "=")
     u.f("rhs", "(τ * x j) • (Pi.single s (1 : ℝ) : I → ℝ)")
     u.n("and", "and")
-    u.n("display", "\\[", ".", "\\]")
-    u.n("lhs", "D_\\tau x")
+    u.n("display", r"\[", ".", r"\]")
+    u.n("lhs", r"D_\tau x")
     u.n("eq", "=")
-    u.n("rhs", "\\tau x_j e_s")
-    u.c("lhs", DEF_DTAU, why="""
-        What $D_\\tau$ is — the previous sentence. Two characters of prose stand for a matrix defined
+    u.n("rhs", r"\tau x_j e_s")
+    u.c("lhs", DEF_DTAU, why=r"""
+        What $D_\tau$ is — the previous sentence. Two characters of prose stand for a matrix defined
         one line up, and `Dτ.mulVec x` is only recognisable as them given that definition.""")
-    u.c("eq", "every $x\\in\\ker D$", why="""
-        The equality holds only because $Dx=0$, and $x\\in\\ker D$ is the lemma's binder. This is the
+    u.c("eq", r"every $x\in\ker D$", why=r"""
+        The equality holds only because $Dx=0$, and $x\in\ker D$ is the lemma's binder. This is the
         step's whole content and the paper states it by writing '=': `hDτx`'s `sorry` body is where
         Lean would have to do the cancellation the paper skips.""")
     u.c("rhs", INDICES, why="""
         $e_s$ again, with $s$ from the lemma's last binder and no definition anywhere. `Pi.single s
         1` is the formalization supplying it.""")
-    u.c("rhs", "every $x\\in\\ker D$", why="""
+    u.c("rhs", r"every $x\in\ker D$", why="""
         $x_j$ — the $j$-th coordinate of the lemma's kernel vector. The subscript is the lemma's
         $j$, not a new name, and nothing in this display says so.""")
     u.link("scaffold", BOT, 1, SCAFFOLD.format(name="hDτx"))
-    u.link("lhs", "lhs", 1, """
-        `Dτ.mulVec x` is $D_\\tau x$ — the prose's juxtaposition is matrix-vector application, which
+    u.link("lhs", "lhs", 1, r"""
+        `Dτ.mulVec x` is $D_\tau x$ — the prose's juxtaposition is matrix-vector application, which
         is what `mulVec` is.""")
-    u.link("eq", "eq", 1, "Equality of vectors in $\\R^I$, on both sides.")
-    u.link("rhs", "rhs", 1, """
+    u.link("eq", "eq", 1, r"Equality of vectors in $\R^I$, on both sides.")
+    u.link("rhs", "rhs", 1, r"""
         `Pi.single s 1` is the vector that is 1 at `s` and 0 elsewhere, i.e. $e_s$, and `(τ * x j) •`
-        is the scalar $\\tau x_j$ in front of it. The ascription `: I → ℝ` is Lean fixing which
+        is the scalar $\tau x_j$ in front of it. The ascription `: I → ℝ` is Lean fixing which
         function space the basis vector lives in; `Pi.single` alone does not say.""")
     u.link(BOT, "and", 1, """
         A connective: it joins this claim to 1.2's. Lean's `have` is already in sequence after 1.2, so
         the sequencing is carried by position and there is no token to point at.""")
-    u.link(BOT, "display", 1, """
-        `\\[`, `\\]` and the full stop: how LaTeX presents the equation and how the sentence ends.
+    u.link(BOT, "display", 1, r"""
+        `\[`, `\]` and the full stop: how LaTeX presents the equation and how the sentence ends.
         Presentation, not content — and recorded as a ⊥ edge rather than left uncovered, because
         'these characters say nothing mathematical' is itself the judgment.""")
     return u
@@ -510,27 +518,29 @@ def step_1_4() -> Unit:
     u.f("range", "LinearMap.range Dτ.mulVecLin")
     u.n("thus", "Thus $")
     u.n("es", "e_s")
-    u.n("mem", "\\in")
-    u.n("im", "\\im D_\\tau")
+    u.n("mem", r"\in")
+    u.n("im", r"\im D_\tau")
     u.n("stop", "$.")
     u.c("es", INDICES, why="""
         $s$ comes from the lemma's last binder, and $e_s$ is undefined in the paper — the third
         region in this annotation to depend on a convention the document never states.""")
-    u.c("mem", "\\[\n D_\\tau x=\\tau x_j e_s.\n\\]", "$x_jy_s\\ne0$", why="""
-        Everything behind the word 'in'. The display exhibits $e_s$ as $(\\tau x_j)^{-1}$ times
-        $D_\\tau x$, and dividing needs $\\tau x_j\\ne0$, which comes from τ being nonzero and from
+    u.c("mem", r"""\[
+ D_\tau x=\tau x_j e_s.
+\]""", r"$x_jy_s\ne0$", why=r"""
+        Everything behind the word 'in'. The display exhibits $e_s$ as $(\tau x_j)^{-1}$ times
+        $D_\tau x$, and dividing needs $\tau x_j\ne0$, which comes from τ being nonzero and from
         the reductio supposition. Two citations for one membership symbol, because `hes`'s `sorry`
         body is exactly the work the paper compresses into 'Thus'.""", nth=[0, 0])
-    u.c("im", DEF_DTAU, why="""
-        What $D_\\tau$ is, and 'im' — which the paper never defines either; `LinearMap.range
+    u.c("im", DEF_DTAU, why=r"""
+        What $D_\tau$ is, and 'im' — which the paper never defines either; `LinearMap.range
         Dτ.mulVecLin` is the formalization choosing column space over anything else.""")
     u.link("scaffold", BOT, 1, SCAFFOLD.format(name="hes"))
     u.link("es", "es", 1, "The same $e_s$ as in 1.3, written the same way.")
     u.link("mem", "mem", 1, "Membership, on both sides.")
-    u.link("range", "im", 1, """
-        $\\im D_\\tau$ is the image of the linear map $D_\\tau$, and `LinearMap.range Dτ.mulVecLin` is
+    u.link("range", "im", 1, r"""
+        $\im D_\tau$ is the image of the linear map $D_\tau$, and `LinearMap.range Dτ.mulVecLin` is
         the range of that map — `mulVecLin` is the matrix read as a linear map, which is what the paper
-        means when it writes $D:\\R^J\\to\\R^I$ for a matrix.""")
+        means when it writes $D:\R^J\to\R^I$ for a matrix.""")
     u.link(BOT, "thus", 1, """
         'Thus' marks an inference: this follows from 1.3. Lean's `have` asserts without marking where
         the assertion comes from — the justification is the (here `sorry`-ed) proof, not a token in the
@@ -547,40 +557,41 @@ def step_1_5() -> Unit:
     u.f("conj", "∧")
     u.f("mem", "D.mulVec w ∈ LinearMap.range Dτ.mulVecLin")
     u.n("moreover", "Moreover,")
-    u.n("forall", "for every $w\\in\\R^J$,")
-    u.n("display", "\\[", ",\n\\]")
-    u.n("eqn", "Dw=D_\\tau w-\\tau w_j e_s")
-    u.n("mem", "\\in\\im D_\\tau")
-    u.c("forall", "$D:\\R^J\\to\\R^I$", why="""
-        What $\\R^J$ is here: the domain of $D$, as the lemma fixes it. `∀ w : J → ℝ` reads $\\R^J$ as
+    u.n("forall", r"for every $w\in\R^J$,")
+    u.n("display", r"\[", r""",
+\]""")
+    u.n("eqn", r"Dw=D_\tau w-\tau w_j e_s")
+    u.n("mem", r"\in\im D_\tau")
+    u.c("forall", r"$D:\R^J\to\R^I$", why=r"""
+        What $\R^J$ is here: the domain of $D$, as the lemma fixes it. `∀ w : J → ℝ` reads $\R^J$ as
         the function type, which is right because that is what `mulVec` eats — but the paper writes
-        $\\R^J$ and leaves the identification to the reader.""")
-    u.c("eqn", DEF_DTAU, why="""
+        $\R^J$ and leaves the identification to the reader.""")
+    u.c("eqn", DEF_DTAU, why=r"""
         The identity displayed here is this definition rearranged and applied to $w$. Without it
-        $Dw=D_\\tau w-\\tau w_j e_s$ is an unexplained assertion, and `hDw`'s `sorry` body is where
+        $Dw=D_\tau w-\tau w_j e_s$ is an unexplained assertion, and `hDw`'s `sorry` body is where
         the rearrangement would live.""")
     u.c("eqn", INDICES, why="""
         $w_j$ and $e_s$ use the lemma's $j$ and $s$ — the same two indices, still undefined as basis
         vectors. `(τ * w j) • Pi.single s 1` commits to the reading for the third time.""")
-    u.c("mem", "Thus $e_s\\in\\im D_\\tau$.", why="""
-        What puts the last term inside $\\im D_\\tau$: $D_\\tau w$ is there by definition, and $e_s$
-        is there by the previous sentence. The '$\\in$' at the end of the chain is an inference and
+    u.c("mem", r"Thus $e_s\in\im D_\tau$.", why=r"""
+        What puts the last term inside $\im D_\tau$: $D_\tau w$ is there by definition, and $e_s$
+        is there by the previous sentence. The '$\in$' at the end of the chain is an inference and
         half its input is outside this sentence.""")
     u.link("scaffold", BOT, 1, SCAFFOLD.format(name="hDw"))
-    u.link("forall", "forall", 1, """
-        `∀ w : J → ℝ` is 'for every $w\\in\\R^J$'; the paper's $\\R^J$ is the function type `J → ℝ`,
+    u.link("forall", "forall", 1, r"""
+        `∀ w : J → ℝ` is 'for every $w\in\R^J$'; the paper's $\R^J$ is the function type `J → ℝ`,
         which is how `mulVec` takes its argument.""")
-    u.link("eqn", "eqn", 1, """
+    u.link("eqn", "eqn", 1, r"""
         The identity, term for term: `D.mulVec w` is $Dw$, the subtraction is the prose's minus sign,
-        and `(τ * w j) • Pi.single s 1` is $\\tau w_j e_s$ exactly as in 1.3 with $x$ replaced by
+        and `(τ * w j) • Pi.single s 1` is $\tau w_j e_s$ exactly as in 1.3 with $x$ replaced by
         $w$.""")
-    u.link("mem", "mem", 1, """
-        The second half of the chain. The prose writes $Dw=\\dots\\in\\im D_\\tau$, so the subject
+    u.link("mem", "mem", 1, r"""
+        The second half of the chain. The prose writes $Dw=\dots\in\im D_\tau$, so the subject
         $Dw$ is written once and does duty twice; Lean has to write `D.mulVec w` again, which is why
-        this region repeats it and the NL region is only the `\\in\\im D_\\tau` part.""")
-    u.link("conj", BOT, 1, """
-        The sentence is a CHAIN — $Dw = D_\\tau w - \\tau w_je_s \\in \\im D_\\tau$ — which asserts two
-        things with one `\\in`, and Lean's `∧` is those two things joined. There is no character in the
+        this region repeats it and the NL region is only the `\in\im D_\tau` part.""")
+    u.link("conj", BOT, 1, r"""
+        The sentence is a CHAIN — $Dw = D_\tau w - \tau w_je_s \in \im D_\tau$ — which asserts two
+        things with one `\in`, and Lean's `∧` is those two things joined. There is no character in the
         prose that is the conjunction, so the connective itself goes to ⊥ while both conjuncts are
         linked above. `split.json` makes the same call from the other side: segment 1.5's `assert` is
         the whole chain, because it cannot be cut into contiguous pieces.""")
@@ -598,29 +609,31 @@ def step_1_6() -> Unit:
     u.f("le", "≤")
     u.f("new", "LinearMap.range Dτ.mulVecLin")
     u.n("so", "so ")
-    u.n("old", "the entire old image $\\im D$")
+    u.n("old", r"the entire old image $\im D$")
     u.n("contained", "is contained in")
-    u.n("new", "$\\im D_\\tau$.")
-    u.c("old", MAXRANK, why="""
-        What 'old' means and what $D$ is: the matrix the lemma fixes, before any $\\tau$ perturbs it.
+    u.n("new", r"$\im D_\tau$.")
+    u.c("old", MAXRANK, why=r"""
+        What 'old' means and what $D$ is: the matrix the lemma fixes, before any $\tau$ perturbs it.
         'Old' is doing the work of a name here and the name is fifteen lines up.""")
-    u.c("contained", "Moreover, for every $w\\in\\R^J$,\n\\[\n Dw=D_\\tau w-\\tau w_j e_s\\in"
-                     "\\im D_\\tau,\n\\]", why="""
+    u.c("contained", r"""Moreover, for every $w\in\R^J$,
+\[
+ Dw=D_\tau w-\tau w_j e_s\in\im D_\tau,
+\]""", why="""
         What 'is contained in' is a conclusion of. 'The entire old image' inherits the universal
         quantifier of the previous sentence — this sentence has none of its own, so read alone it
         says neither why the containment holds nor what makes it 'entire'. `≤` between submodules is
         the formalization supplying the quantifier.""")
-    u.c("new", DEF_DTAU, why="""
-        What $D_\\tau$ is, four sentences back. $\\im D_\\tau$ is the only term here that mentions
+    u.c("new", DEF_DTAU, why=r"""
+        What $D_\tau$ is, four sentences back. $\im D_\tau$ is the only term here that mentions
         the perturbed matrix, and nothing nearby says what it is.""")
     u.link("scaffold", BOT, 1, SCAFFOLD.format(name="himg"))
-    u.link("old", "old", 1, """
-        $\\im D$, the image of the original matrix. 'the entire old image' is emphasis on the
+    u.link("old", "old", 1, r"""
+        $\im D$, the image of the original matrix. 'the entire old image' is emphasis on the
         quantifier, which `≤` between submodules already carries.""")
     u.link("le", "contained", 1, """
         `≤` on `Submodule`s IS containment, and it is the containment of the whole subspace, which is
         what 'the entire old image is contained in' asserts.""")
-    u.link("new", "new", 1, "$\\im D_\\tau$, as in 1.4 and 1.5.")
+    u.link("new", "new", 1, r"$\im D_\tau$, as in 1.4 and 1.5.")
     u.link(BOT, "so", 1, """
         'so' marks the inference from 1.5. As in 1.4, Lean's `have` states the conclusion and leaves
         the inference to the proof, so there is no token here to align it with.""")
@@ -636,40 +649,40 @@ def step_1_7() -> Unit:
     u.f("so", "∧", nth=[1])
     u.f("notin", "(Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin")
     u.n("onother", "On the other hand,")
-    u.n("annih", "$y$ annihilates $\\im D$")
+    u.n("annih", r"$y$ annihilates $\im D$")
     u.n("and", " and ")
-    u.n("ys", "$y_s\\ne0$,")
+    u.n("ys", r"$y_s\ne0$,")
     u.n("so", "so\n")
-    u.n("notin", "$e_s\\notin\\im D$.")
-    u.c("annih", "every $y\\in\\ker D^{\\mathsf T}$", why="""
-        What $y$ is. 'annihilates $\\im D$' is $D^{\\mathsf T}y=0$ restated in a form the lemma never
+    u.n("notin", r"$e_s\notin\im D$.")
+    u.c("annih", r"every $y\in\ker D^{\mathsf T}$", why=r"""
+        What $y$ is. 'annihilates $\im D$' is $D^{\mathsf T}y=0$ restated in a form the lemma never
         uses — `∀ v ∈ range D.mulVecLin, y ⬝ᵥ v = 0` is that restatement made explicit — and this
         binder is the only thing licensing it.""")
-    u.c("and", "every $y\\in\\ker D^{\\mathsf T}$", "$x_jy_s\\ne0$", why="""
+    u.c("and", r"every $y\in\ker D^{\mathsf T}$", r"$x_jy_s\ne0$", why="""
         A conjunction of two facts that come from opposite ends of the document: one is the lemma's
         binder, the other the reductio supposition. The `∧` is the only Lean this word gets, and what
         it joins is both times something cited rather than said here.""", nth=[0, 0])
-    u.c("ys", SUPPOSE, why="""
-        Why $y_s\\ne0$. The sentence asserts it as if given, but it is half of the reductio
+    u.c("ys", SUPPOSE, why=r"""
+        Why $y_s\ne0$. The sentence asserts it as if given, but it is half of the reductio
         supposition — the only place in the proof where it is established, five sentences back.""")
     u.c("ys", INDICES, why="""
         And where the subscript $s$ comes from: the lemma's binder, not this sentence.""")
-    u.c("so", "Thus $e_s\\in\\im D_\\tau$.", why="""
+    u.c("so", r"Thus $e_s\in\im D_\tau$.", why=r"""
         The 'so' is an inference whose unstated premise is that $e_s$ is a basis vector, so that
-        $y\\cdot e_s=y_s$. That identification is nowhere in the paper; the nearest the document
+        $y\cdot e_s=y_s$. That identification is nowhere in the paper; the nearest the document
         comes to committing to it is this sentence's $e_s$.""")
-    u.c("notin", MAXRANK, why="""
-        What $\\im D$ is, i.e. what $D$ is. This conclusion is about the ORIGINAL matrix, which is
+    u.c("notin", MAXRANK, why=r"""
+        What $\im D$ is, i.e. what $D$ is. This conclusion is about the ORIGINAL matrix, which is
         the whole point of it, and $D$ is named fifteen lines up.""")
     u.link("scaffold", BOT, 1, SCAFFOLD.format(name="hker"))
-    u.link("annih", "annih", 1, """
-        'annihilates' spelled out: every $v$ in $\\im D$ has $y\\cdot v=0$. That `y` is in $\\ker
-        D^{\\mathsf T}$ is the theorem's hypothesis `hy`; this clause is the consequence the sentence
+    u.link("annih", "annih", 1, r"""
+        'annihilates' spelled out: every $v$ in $\im D$ has $y\cdot v=0$. That `y` is in $\ker
+        D^{\mathsf T}$ is the theorem's hypothesis `hy`; this clause is the consequence the sentence
         states, and it states it, so it is claimed here rather than assumed.""")
     u.link("and", "and", 1, "Conjunction, on both sides.")
-    u.link("ys", "ys", 1, "$y_s\\ne0$, written as `y s ≠ 0`.")
-    u.link("notin", "notin", 1, """
-        $e_s\\notin\\im D$, with $e_s$ the same `Pi.single s 1` as in 1.4 and $\\im D$ the same range
+    u.link("ys", "ys", 1, r"$y_s\ne0$, written as `y s ≠ 0`.")
+    u.link("notin", "notin", 1, r"""
+        $e_s\notin\im D$, with $e_s$ the same `Pi.single s 1` as in 1.4 and $\im D$ the same range
         as in 1.6.""")
     u.link("so", "so", 1, """
         A judgment worth being explicit about. The prose's 'so' is an INFERENCE — the third clause is
@@ -678,9 +691,9 @@ def step_1_7() -> Unit:
         as `assumptions` and the third as the `assert`), and the formalization asserts all three. What
         is not captured is the direction of the reasoning, and no Pistis level claims to capture it:
         the `sorry` under this `have` is where that would be checked.""")
-    u.link(BOT, "onother", 1, """
-        'On the other hand' signals a turn in the argument — the preceding steps grew $\\im D_\\tau$,
-        this one bounds $\\im D$. Rhetorical structure, with nothing in the claim to carry it.""")
+    u.link(BOT, "onother", 1, r"""
+        'On the other hand' signals a turn in the argument — the preceding steps grew $\im D_\tau$,
+        this one bounds $\im D$. Rhetorical structure, with nothing in the claim to carry it.""")
     return u
 
 
@@ -691,32 +704,32 @@ def step_1_8() -> Unit:
     u.f("gt", ">")
     u.f("rhs", "D.rank")
     u.n("therefore", "Therefore $")
-    u.n("lhs", "\\rank D_\\tau")
+    u.n("lhs", r"\rank D_\tau")
     u.n("gt", ">")
-    u.n("rhs", "\\rank D", nth=[1])
+    u.n("rhs", r"\rank D", nth=[1])
     u.n("comma", "$,")
-    u.c("lhs", DEF_DTAU, why="""
-        What $D_\\tau$ is. And $\\rank$: the paper writes it here for the first time, having said
+    u.c("lhs", DEF_DTAU, why=r"""
+        What $D_\tau$ is. And $\rank$: the paper writes it here for the first time, having said
         'maximum rank' in words in the lemma and never defined either. `Matrix.rank` is the
         formalization choosing a definition the document does not give.""")
-    u.c("gt", "so the entire old image $\\im D$ is contained in $\\im D_\\tau$.", why="""
+    u.c("gt", r"so the entire old image $\im D$ is contained in $\im D_\tau$.", why=r"""
         Half of the strict inequality: the containment, which gives
-        $\\rank D_\\tau\\ge\\rank D$.""")
-    u.c("gt", "Thus $e_s\\in\\im D_\\tau$.", "$e_s\\notin\\im D$.", why="""
+        $\rank D_\tau\ge\rank D$.""")
+    u.c("gt", r"Thus $e_s\in\im D_\tau$.", r"$e_s\notin\im D$.", why="""
         The other half, which makes it STRICT: $e_s$ is in the new image and not in the old, so the
         containment is proper. A single `>` whose justification is three sentences in three different
         places — the largest gap in this annotation between what a region says and what it uses, and
         the reason `T_F` here is a bare `Dτ.rank > D.rank` with a `sorry` under it.""", nth=[0, 0])
-    u.c("rhs", MAXRANK, why="""
-        What $D$ is, and that 'maximum rank' was a claim about this same $\\rank$. Without that the
+    u.c("rhs", MAXRANK, why=r"""
+        What $D$ is, and that 'maximum rank' was a claim about this same $\rank$. Without that the
         inequality is a fact about two matrices rather than the contradiction it is about to become.""")
     u.link("scaffold", BOT, 1, SCAFFOLD.format(name="hrank"))
-    u.link("lhs", "lhs", 1, "$\\rank D_\\tau$ as `Matrix.rank`, the rank of the perturbed matrix.")
+    u.link("lhs", "lhs", 1, r"$\rank D_\tau$ as `Matrix.rank`, the rank of the perturbed matrix.")
     u.link("gt", "gt", 1, "Strict inequality, on both sides.")
-    u.link("rhs", "rhs", 1, "$\\rank D$, the rank of the original.")
-    u.link(BOT, "therefore", 1, """
-        'Therefore' marks the inference from 1.4, 1.6 and 1.7 — $\\im D_\\tau$ contains $\\im D$ and
-        also $e_s$, which $\\im D$ omits. The `have` states the conclusion only. Trailing `$` is a
+    u.link("rhs", "rhs", 1, r"$\rank D$, the rank of the original.")
+    u.link(BOT, "therefore", 1, r"""
+        'Therefore' marks the inference from 1.4, 1.6 and 1.7 — $\im D_\tau$ contains $\im D$ and
+        also $e_s$, which $\im D$ omits. The `have` states the conclusion only. Trailing `$` is a
         delimiter.""")
     u.link(BOT, "comma", 1, "Closing math delimiter and the comma before the final clause.")
     return u
@@ -733,8 +746,8 @@ def step_1_9() -> Unit:
         'this contradicts the hypothesis that $D$ has maximum rank among matrices supported on $T$' —
         the extreme case for `C_N`, since `T_N` here is 'a contradiction.' and the formal side is
         `absurd (hmax Dτ hsupp) (not_le.mpr hrank)`, which names both halves explicitly.""")
-    u.c("contra", "is still supported on $T$,", why="""
-        And why $D_\\tau$ is even a candidate for the maximum: maximality is only over matrices
+    u.c("contra", "is still supported on $T$,", why=r"""
+        And why $D_\tau$ is even a candidate for the maximum: maximality is only over matrices
         supported on $T$, so 1.2's claim is what makes the contradiction land. `hsupp` is that claim,
         passed to `hmax` on the formal side.""")
     u.c("contra", "Suppose instead that", why="""
@@ -770,15 +783,16 @@ def deep_formula() -> Unit:
     u.f("single", "Matrix.single s j (1 : ℝ)")
     u.n("D", "D")
     u.n("plus", "+")
-    u.n("scalar", "\\tau")
-    u.n("outer", "e_s e_j^{\\mathsf T}")
+    u.n("scalar", r"\tau")
+    u.n("outer", r"e_s e_j^{\mathsf T}")
     u.n("delim", "$")
-    u.c("D", "the matrix\n$D_\\tau=", why="""
+    u.c("D", r"""the matrix
+$D_\tau=""", why="""
         The left-hand side of the equation this is the right-hand side of. It stops exactly where this
         target starts, which is the point: `C_N` cites the paper, so 'the rest of my own sentence' is
         expressible as a citation and `cn_errors` can still prove the two do not overlap.""")
-    u.c("D", MAXRANK, why="""
-        And what this $D$ is. The paper introduces it as a map $\\R^J\\to\\R^I$; the Lean side is a
+    u.c("D", MAXRANK, why=r"""
+        And what this $D$ is. The paper introduces it as a map $\R^J\to\R^I$; the Lean side is a
         `Matrix I J ℝ`. Two levels up that identification is invisible — here it is the edge.""")
     u.c("plus", "is still supported on $T$,", why="""
         What the sum has to satisfy, which is the only reason this is a sum at all: the second summand
@@ -787,21 +801,21 @@ def deep_formula() -> Unit:
     u.c("plus", DEFN, why="""
         And the definition that makes 'still supported on $T$' a checkable statement about the sum
         rather than a word about it. It is eight sentences back, in the paragraph before the lemma.""")
-    u.c("scalar", "For a nonzero real $\\tau$,", why="""
-        The only place $\\tau$ is ever quantified, and the only place its nonzeroness is stated. This
+    u.c("scalar", r"For a nonzero real $\tau$,", why=r"""
+        The only place $\tau$ is ever quantified, and the only place its nonzeroness is stated. This
         formula uses the symbol as if it were already in scope; the binder is in the clause before.""")
-    u.c("outer", INDICES, why="""
-        The only introduction $s$ and $j$ ever get. $e_s$ and $e_j^{\\mathsf T}$ are not defined
+    u.c("outer", INDICES, why=r"""
+        The only introduction $s$ and $j$ ever get. $e_s$ and $e_j^{\mathsf T}$ are not defined
         anywhere in the paper — the notation is assumed — so the edge from `Matrix.single s j 1` to
-        $e_s e_j^{\\mathsf T}$ is judged against a convention rather than a definition. That is a fact
+        $e_s e_j^{\mathsf T}$ is judged against a convention rather than a definition. That is a fact
         about the paper worth recording, and a citation with a reason is where it can be recorded.""")
     u.link("D", "D", 1, "The matrix the statement fixes, unchanged.")
     u.link("plus", "plus", 1, "Addition of matrices, on both sides.")
-    u.link("scalar", "scalar", 1, """
-        The scalar $\\tau$ times the matrix. `•` is `SMul`, which for `Matrix I J ℝ` is the entrywise
+    u.link("scalar", "scalar", 1, r"""
+        The scalar $\tau$ times the matrix. `•` is `SMul`, which for `Matrix I J ℝ` is the entrywise
         scalar multiple the paper means.""")
-    u.link("single", "outer", 1, """
-        $e_s e_j^{\\mathsf T}$ is the outer product of two standard basis vectors: the matrix with a
+    u.link("single", "outer", 1, r"""
+        $e_s e_j^{\mathsf T}$ is the outer product of two standard basis vectors: the matrix with a
         single 1 in position $(s,j)$ and zeros elsewhere. That matrix is `Matrix.single s j 1`. The
         paper names it by a construction and Mathlib by what it is, so this edge is the one place in
         the step where the two notations genuinely differ — which is why it is worth its own level.""")

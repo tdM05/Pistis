@@ -11,7 +11,11 @@ FAITHFUL by the paper's conditions that survive into Main:
      something);
   3. no stray sorry — every `sorry` sits in a `pistis_segment := by sorry` body or a `have … := by
      sorry`; in particular the scaffold's `@pistis_closer` placeholder line must be GONE;
-  4. no unfilled assumption — no `@pistis_assumption (..., TODO)` remains.
+  4. no unfilled assumption — no `@pistis_assumption (..., TODO)` remains;
+  5. verbatim bytes — each segment's NL text occurs in `Main.lean` AS ITSELF, i.e. it is stored in a
+     raw literal `r"…"`. Check 1 only compares decoded VALUES, so an escaped `"…\\\\subseteq…"` passes
+     it while the file says something the paper does not and Ctrl-F finds nothing; 5 is the check on
+     the bytes, which nothing here had before.
 
 `lake env lean Main.lean` (that it ELABORATES) is a SEPARATE gate the map skill runs; this script is the
 build-free faithfulness half.
@@ -32,12 +36,17 @@ from typing import List, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from check_split import _compare, load_nl, tile  # the exact same tiling gate + loader as the split stage
-from pistis_lean import parse_main, parse_assumptions
+from pistis_lean import parse_main, parse_assumptions, raw_open
 
 
 def _strip_comments_and_strings(src: str) -> str:
-    """Blank `--` line comments, `/- -/` block comments, and `"..."` string literals (keep newlines) so
-    a `sorry` scan sees only real code — never a `sorry` inside a segment's TEXT or a comment."""
+    """Blank `--` line comments, `/- -/` block comments, and string literals (keep newlines) so a
+    `sorry` scan sees only real code — never a `sorry` inside a segment's TEXT or a comment.
+
+    Raw literals (`r"…"`, `r#"…"#`) are blanked as a unit. They have to be: NL text is stored raw, a
+    LaTeX `\\"` in it does NOT escape the quote the way it would in an ordinary literal, so scanning
+    one with the ordinary rules can run off the end of the string and blank real code after it.
+    """
     out, i, n, depth = [], 0, len(src), 0
     while i < n:
         two = src[i:i + 2]
@@ -45,6 +54,15 @@ def _strip_comments_and_strings(src: str) -> str:
             while i < n and src[i] != "\n":
                 out.append(" "); i += 1
             continue
+        if depth == 0 and src[i] == "r":
+            m = raw_open(src, i)
+            if m:
+                close = '"' + m.group(1)
+                j = src.find(close, m.end())
+                j = n if j < 0 else j + len(close)
+                out.append("".join("\n" if c == "\n" else " " for c in src[i:j]))
+                i = j
+                continue
         if two == "/-":
             depth += 1; out.append("  "); i += 2; continue
         if two == "-/" and depth > 0:
@@ -111,6 +129,22 @@ def check_main(main_src: str, nl_statement: str, nl_proof: str) -> Tuple[bool, L
         lines.append("unfilled @pistis_assumption TODO:")
         for a in todos:
             lines.append(f"  line {a['line']}: (\"{a['text']}\", TODO)")
+
+    # (5) VERBATIM BYTES: each segment's NL text must occur in Main.lean as itself.
+    #
+    # Check (1) compares string VALUES, which an ordinary `"…"` literal satisfies while the file on
+    # disk reads `$T\\subseteq I\\times J$` — the value is right, the bytes are not, and `grep` or an
+    # editor's Ctrl-F for a sentence of the paper finds nothing. Every value-level gate here passed on
+    # exactly that, for every segment, which is why it went unnoticed: no check looked at the bytes.
+    # Storing the NL in a raw literal (`r"…"`) makes the file's text the paper's text; this is the
+    # check that keeps it so, and it is deliberately the dumbest possible one — `in`, on the raw file.
+    not_verbatim = [s for s in segs if s["text"] not in main_src]
+    if not_verbatim:
+        ok = False
+        lines.append(f'NL text not verbatim in the file ({len(not_verbatim)} segment(s)) — store it in '
+                     f'a RAW literal r"…" so the bytes are the paper\'s, not an escaped "…\\\\…":')
+        for s in not_verbatim:
+            lines.append(f"  line {s['line']}: loc {s['loc']} (pistis_{s['kind']})")
 
     if ok:
         n_seg = sum(1 for s in segs if s["kind"] == "segment")

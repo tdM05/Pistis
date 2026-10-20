@@ -1,4 +1,4 @@
-"""K-Pistis: ONE alignment primitive, applied at every level.
+r"""K-Pistis: ONE alignment primitive, applied at every level.
 
 `doc/K_pistis.md` asks for a tree of segmentations — `C_1 = proof step`, `C_2 = faithalign label` —
 and observes that there is no good reason for the number of levels to be two. This module is the
@@ -46,7 +46,7 @@ target span cannot be any of those things: it is an offset into the text it is a
 **But there IS natural-language context (`C_N`), and every region an edge judges has some.** The
 symmetry does not hold, and pretending it did was the mistake. On the formal side you can always rewrite
 `Proof.lean` so the clause you need is adjacent and then widen the target to include it — the file is
-yours. The paper is not. "For a nonzero real τ, the matrix $D_\\tau=\\dots$ is still supported on $T$"
+yours. The paper is not. "For a nonzero real τ, the matrix $D_\tau=\dots$ is still supported on $T$"
 cannot be read without the definition of *supported on $T$*, which is thirteen lines earlier in a
 different paragraph; widening `T_N` until it reaches that far would make the target the whole
 document, which is the root, which is where we started. So `C_N` exists.
@@ -338,11 +338,11 @@ def cn_text(root_tn: str, item: dict) -> str:
 
 
 def judged_n(unit: dict) -> set[int]:
-    """NL regions that some edge claims a formal counterpart for.
+    r"""NL regions that some edge claims a formal counterpart for.
 
     These are the ones that need context: an edge says "this prose and that Lean say the same thing",
     and you cannot check that without whatever the prose depends on. A region only ever on the ⊥ side
-    ("Moreover,", the `\\[…\\]` delimiters) is being claimed to mean nothing formal, so there is
+    ("Moreover,", the `\[…\]` delimiters) is being claimed to mean nothing formal, so there is
     nothing to read it against.
     """
     return {e["n"] for e in unit.get("edges", [])

@@ -30,8 +30,8 @@ numbers stay pinned.
 
 | clickable region | opens |
 | --- | --- |
-| `pistis_intro "1.0" "…"` | the `statement` unit |
-| `pistis_segment "1.k" "…"` (keyword, loc and NL literal) | that segment's unit |
+| `pistis_intro "1.0" r"…"` | the `statement` unit |
+| `pistis_segment "1.k" r"…"` (keyword, loc and NL literal) | that segment's unit |
 
 It also works the other way. A `C_F` item cites the line it was read off
 (`items/item1/Main.lean:46`), and that citation is a **clickable chip** on the card: it jumps the
