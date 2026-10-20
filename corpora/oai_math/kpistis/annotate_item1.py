@@ -646,7 +646,7 @@ def step_1_7() -> Unit:
     u.f("annih", "(∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0)")
     u.f("and", "∧", nth=[0])
     u.f("ys", "y s ≠ 0")
-    u.f("so", "∧", nth=[1])
+    u.f("conj2", "∧", nth=[1])
     u.f("notin", "(Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin")
     u.n("onother", "On the other hand,")
     u.n("annih", r"$y$ annihilates $\im D$")
@@ -684,13 +684,23 @@ def step_1_7() -> Unit:
     u.link("notin", "notin", 1, r"""
         $e_s\notin\im D$, with $e_s$ the same `Pi.single s 1` as in 1.4 and $\im D$ the same range
         as in 1.6.""")
-    u.link("so", "so", 1, """
-        A judgment worth being explicit about. The prose's 'so' is an INFERENCE — the third clause is
-        drawn from the first two — and Lean's second `∧` only asserts the three side by side. The
-        edge is still 1: the sentence ASSERTS all three (which is why `split.json` lists the first two
-        as `assumptions` and the third as the `assert`), and the formalization asserts all three. What
-        is not captured is the direction of the reasoning, and no Pistis level claims to capture it:
-        the `sorry` under this `have` is where that would be checked.""")
+    u.link("conj2", BOT, 1, """
+        The `∧` that lets one `have` hold three facts. The prose has no conjunction here — it has
+        'so' — so this connective is Lean's bookkeeping and nothing in the sentence says it.""")
+    u.link(BOT, "so", 1, """
+        'so' marks the inference: the third clause is DRAWN FROM the first two. As in 1.4 and 1.6,
+        the `have` states its clauses and leaves the inference to the proof, so there is no token
+        here to align it with — the `sorry` under this `have` is where it would be checked.
+
+        An earlier version linked 'so' to the second `∧` with verdict 1, reasoning that the sentence
+        asserts all three clauses and so does the formalization. That conflates CONJUNCTION with
+        INFERENCE: `∧` puts the three side by side, which is the one thing 'so' does not say, and
+        `split.json` listing the first two as `assumptions` and the third as the `assert` is evidence
+        against that edge rather than for it. Compare `items/item1/Main.lean`, which has an
+        assumption slot this prototype deliberately does not: there segment 1.7's claim is `e_s ∉ im
+        D` alone and the two premises are `@pistis_assumption` lines. Here they stay in the target,
+        because K-Pistis has nowhere else to put them (README, *No formal context*); what cannot
+        follow is calling the connective that joins them a rendering of 'so'.""")
     u.link(BOT, "onother", 1, r"""
         'On the other hand' signals a turn in the argument — the preceding steps grew $\im D_\tau$,
         this one bounds $\im D$. Rhetorical structure, with nothing in the claim to carry it.""")

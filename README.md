@@ -88,7 +88,9 @@ and fill stages build after every segment, so budget accordingly.
 1. **`/pistis-split`** — text only. Partition `nl_proof` into atomic segments, each with an
    `assumptions` set and a single `assert`. Gated on byte-exact tiling of the source.
 2. **`/pistis-map`** — translation, not proving. One Lean claim type per segment; every body stays
-   `:= by sorry`. Gated on tiling, no vacuous claim, no stray `sorry`, unchanged signature.
+   `:= by sorry`. Gated on tiling, no vacuous claim, no stray `sorry`, unchanged signature, and each
+   segment's `assumptions` still wired as `@pistis_assumption` markers rather than folded into the
+   claim (**Atomicity**: one assertion per segment).
 3. **`/pistis-fill-naive`** — proving. Each segment gets its own `step<K>.lean` backing lemma; `Main`
    delegates and supplies every hypothesis through `pistis_assumption`. Gated on zero `sorry`.
 
@@ -102,10 +104,11 @@ the point of measuring whether the NL argument itself formalizes.
   gate). The map stage's hard gate cannot pass as written until these land. They are shared code.
 - The skills still document the pre-restructure invocation (`proofnet_verified/item8`, scripts at
   `scripts/...`); they need updating to the cwd + `items/item<N>` convention above.
-- `corpora/oai_math/items/item1` has its inputs (`meta.json`, `data/nl_statement.txt`,
-  `data/nl_proof.txt`, `data/statement.lean`,
-  `data/source.tex`) but no `split.json` / `Main.lean` / `step<K>.lean` yet — the three stages have
-  not been run on it.
+- `corpora/oai_math/items/item1` has been split and mapped (`split.json`, `Main.lean`) but not
+  filled: every claim is still `:= by sorry` and there are no `step<K>.lean` backing lemmas, so the
+  Soundness condition is untested on it. The assumption phase has not run either — segment 1.7's two
+  `@pistis_assumption` types are stated and gated against `split.json`, but nothing has yet tried to
+  close them as `have`s, so its assumption gaps are unmeasured.
 
 ## The NL source format
 
@@ -132,7 +135,7 @@ bytes exactly, so a diff is the whole audit.
 | `data/nl_{statement,proof}.txt` (proofnet) | `corpora/proofnet_verified/items/_source/extract_nl.py` | `_source/proofnet-verified.jsonl` |
 | `split.json` | **authored** (the `pistis-split` skill) | gated by `scripts/check_split.py` to tile the `.txt` byte-for-byte |
 | `Main.lean` NL literals | `scripts/scaffold_main.py` | `split.json` (claims are then filled by the map stage) |
-| `align/*/artifacts/` | `faithfulness/gen_datapoints.py`, then `faithfulness/annotate_item1.py` | `Main.lean` + the `.txt` |
+| `align/*/artifacts/` | `faithfulness/gen_datapoints.py`, then `faithfulness/annotate_item1.py` | `Main.lean` + `split.json` + the `.txt` (a segment's NL target is its sentence minus the `assumptions`, so the split is an input too) |
 | `kpistis/units/` | `kpistis/build.py`, then `kpistis/annotate_item1.py` | `Proof.lean` + the `.txt` |
 
 Only `split.json` is authored rather than computed — where one segment ends and the next begins is a
@@ -153,6 +156,12 @@ said something the paper never did and Ctrl-F found nothing:
 python3 ../../scripts/check_main.py items/item1   # check 5: each segment's NL text, verbatim in Main.lean
 python3 scripts/check_nl_verbatim.py              # repo-wide: no file holds an NL line escaped
 ```
+
+`check_main.py` carries one more check of the same kind — a rule the skills state, that nothing
+enforced. Check 6 holds each segment's `@pistis_assumption` markers to `split.json`'s `assumptions`.
+Check 4 rejects a marker left as `TODO`, so the one way to break **Atomicity** that no gate could see
+was to DELETE the marker and fold its premise into the claim as an extra conjunct — which
+`items/item1` segment 1.7 did, past all five other checks.
 
 The second is Ctrl-F with nothing in between: for every line of every `data/nl_*.txt`, no file may
 contain that line with its backslashes doubled unless it also contains the line itself. A value check

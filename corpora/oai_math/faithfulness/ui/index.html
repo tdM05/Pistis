@@ -103,7 +103,11 @@
   .lsrc.lit { background:#fff6d6; box-shadow:inset 2px 0 0 0 #e0a800; }
   .lnum.lit { background:#fdf0c4; color:#8a6d00; font-weight:600; }
 
-  /* The only clickable things are a pistis tactic's head: keyword + loc + NL literal.
+  /* The clickable things are a pistis tactic's head (keyword + loc + NL literal) and a
+     `-- @pistis_assumption ("clause", TYPE)` marker. The marker is a unit like any other — its
+     clause is an NL target and its type that clause's formalization — so it opens its own
+     align-then-label view; it is tinted differently because it is a CONSUMED premise rather than
+     something the segment asserts, and it reads as a comment in the source.
      `.hov` rather than `:hover`, because a region that spans lines is
      several <a>s and all of them should light up together (proof_pane.js sets it); `:hover` stays as
      the fallback if that listener never runs. */
@@ -113,6 +117,7 @@
                                  filter:saturate(1.25) brightness(.97); }
   a.anchor.k-statement  { background:#fff4e0; }
   a.anchor.k-segment    { background:#e4edfd; }
+  a.anchor.k-assumption { background:#e8f3e6; }
   a.anchor.nodp { background:repeating-linear-gradient(45deg,#fff4e5,#fff4e5 6px,#ffe9c9 6px,#ffe9c9 12px); }
   /* the unit the right panel is showing */
   a.anchor.cur { box-shadow:inset 0 0 0 2px #111; }

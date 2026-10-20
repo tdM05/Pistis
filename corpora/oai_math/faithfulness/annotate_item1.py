@@ -40,6 +40,20 @@ Conventions used throughout, so the per-edge reasons can stay specific:
   * A discourse marker ("and", "Thus", "Moreover,", "so", "Therefore", "On the other hand,") is
     linked to ⊥. It signals that an inference is being made; WHETHER the inference goes through is the
     step's backing, not this claim's content.
+  * A clause the segment CONSUMES is not in the segment's unit at all. A segment's `T_F` is its
+    single assertion (Atomicity) and its `T_N` is the sentence MINUS the substrings `split.json`
+    lists under `assumptions` — the paper's `assert(s_i)` — so a premise has neither a region of the
+    claim to answer it nor a region of the prose to sit in. It gets a unit of its own, `asm-<loc>-<k>`,
+    whose `T_N` is the clause and whose `T_F` is the type on its `-- @pistis_assumption ("clause",
+    TYPE)` marker. That pair is what the paper's Atomic Faithfulness condition quantifies over.
+    Only seg-1.7 has any, and the two below are the first assumptions in this corpus to be judged.
+    Where a premise was lifted out, a single `…` is left, and it takes a ⊥ edge naming the unit that
+    holds it: the segment's claim really does say nothing there, and a reader should be able to see
+    where the sentence's premises went rather than find them silently deleted.
+    Two earlier shapes are gone. First, the premises were conjuncts of the claim, so that they had
+    `S_F` regions to align against — which breaks Atomicity and is what `check_main.py` check 6 now
+    rejects. Then they were ⊥-linked fragments of a `T_N` that was still the whole sentence, which
+    reads as "the formalization does not say this" about a clause the marker does formalize.
   * LaTeX display delimiters (`\[`, `\]`) and sentence punctuation are linked to ⊥ as presentation.
   * There are no ⊥ `C_F` edges, and that is structural rather than lucky: `C_F` holds only what the
     sentence itself introduces, so every item has prose that introduces it. All four in the item are
@@ -68,6 +82,7 @@ sys.path.insert(0, str(HERE))
 from alignment_data import _utf16_len, load_bundle                      # noqa: E402
 from check_coverage import check_bundle                                 # noqa: E402
 from check_targets import check_item                                    # noqa: E402
+from pistis_proof import GAP                                            # noqa: E402
 
 BOT = "⊥"
 ITEM = REPO / "items" / "item1"
@@ -386,26 +401,62 @@ u.ok(u.F("LinearMap.range Dτ.mulVecLin"), new, "The image of `D_τ`, the same w
 # ==========================================================================
 # seg-1.7 — "On the other hand, y annihilates im D and y_s ≠ 0, so e_s ∉ im D."
 # ==========================================================================
+# The two assumptions FIRST — they are written above the tactic, and the segment's target is what
+# is left of the sentence once they are taken out.
+u = unit("asm-1.7-0")
+
+u.ok(u.F("∀ v ∈ LinearMap.range D.mulVecLin"), u.N(r"$\im D$"),
+     r"`LinearMap.range D.mulVecLin` is the image of the map $v\mapsto Dv$, which is the prose's "
+     r"`\im D`, and 'annihilates' a whole subspace is a claim about every element of it — so the "
+     "quantifier and the range together are what this one symbol denotes.")
+u.ok(u.F(","), BOT,
+     "Lean's separator between a binder and its body. The prose has no token here.")
+u.ok(u.F("y"), u.N("$y$"),
+     "The same vector, under the same name; `y : I → ℝ` is a theorem binder, judged in the "
+     "`statement` unit.")
+u.ok(u.F("⬝ᵥ v = 0"), u.N("annihilates"),
+     r"`y ⬝ᵥ v = 0` for every `v` in the image IS annihilation of that image: the dot product "
+     "vanishing is exactly what it means for `y` to kill a vector. The direction is right too — "
+     "the prose says `y` annihilates the image, not the image `y`.")
+
+u = unit("asm-1.7-1")
+
+u.ok(u.F("y s"), u.N("$y_s"),
+     r"`y : I → ℝ`, so `y s` is its value at the index `s` — the prose's subscript $y_s$. `s` is "
+     "the index fixed by the statement's binders, not a new one.")
+u.ok(u.F("≠"), u.N(r"\ne"), r"`≠` is `\ne`.")
+u.ok(u.F("0"), u.N("0$"), "The same zero, in ℝ.")
+
+# ==========================================================================
+# seg-1.7 — the sentence MINUS those two premises: "On the other hand, … and …, so e_s ∉ im D."
+# ==========================================================================
 u = unit("seg-1.7")
 
 u.ok(BOT, u.N("On the other hand,"),
      "A discourse marker contrasting this line of argument with the preceding one.")
-ann = u.N(r"$y$ annihilates $\im D$")
-u.ok(u.F("(∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0)"), ann,
-     "'y annihilates im D' is that `y` pairs to zero with every element of the image, which is this "
-     "universally quantified dot product.")
-u.ok(u.F(("∧", 1)), u.N(("and", 2)), "The prose's 'and' between the two facts it states.")
-ys = u.N(r"$y_s\ne0$")
-u.ok(u.F("y s ≠ 0"), ys, "`y s ≠ 0` is `y_s ≠ 0`.")
+u.ok(BOT, u.N(GAP),
+     r"Where `$y$ annihilates $\im D$` stood. `split.json` lists it under `assumptions`, so it is "
+     "an INPUT to this step and not part of what the step asserts; its formalization is the type on "
+     "this segment's first `@pistis_assumption` marker and it is judged in the `asm-1.7-0` unit. "
+     "The claim says nothing here, which is the correct reading of this gap and not a defect.")
+u.ok(BOT, u.N(("and", 2)),
+     "The prose's 'and' joins the two premises that have just been lifted out. The claim has no "
+     "connective to carry it — and a discourse marker goes to ⊥ in any case.")
+u.ok(BOT, u.N((GAP, 2)),
+     r"Where `$y_s\ne0$` stood — judged in `asm-1.7-1`. The sentence states it as if given; it is "
+     "established only by the reductio supposition five sentences back, which is what makes it an "
+     "assumption of this step rather than a claim of it.")
 u.ok(BOT, u.N(", so"),
-     "An inference marker: the prose DERIVES the third clause from the first two. Which clause "
-     "follows from which is this step's backing, not its content.")
-u.ok(u.F("∧ (Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin"),
+     "An inference marker: the prose DERIVES the claim from the two premises. Which clause follows "
+     "from which is this step's backing, not its content.")
+u.ok(u.F("(Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin"),
      u.N(r"$e_s\notin\im D$."),
      "`Pi.single s 1` is `e_s` and `LinearMap.range D.mulVecLin` is `im D`, so this is the prose's "
-     "non-membership. It is a THIRD conjunct because the sentence asserts the two premises as well "
-     "as the conclusion: a claim carrying only `e_s ∉ im D` would leave 'y annihilates im D' and "
-     "'y_s ≠ 0' with nothing to align against.")
+     "non-membership — and it is the WHOLE claim, because it is the whole of what this sentence "
+     "asserts once its two premises are set aside. An earlier version made it the third conjunct of "
+     r"`(∀ v ∈ …, y ⬝ᵥ v = 0) ∧ y s ≠ 0 ∧ …` so that the premises had an `S_F` region to align "
+     "against. That buys alignment by breaking Atomicity — one assertion per segment — and it is "
+     "not needed: an assumption's formalization has a unit of its own.")
 
 # ==========================================================================
 # seg-1.8 — "Therefore rank D_τ > rank D,"

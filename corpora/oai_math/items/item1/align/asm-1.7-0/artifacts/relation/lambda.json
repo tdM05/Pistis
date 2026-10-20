@@ -1,0 +1,63 @@
+[
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "`LinearMap.range D.mulVecLin` is the image of the map $v\\mapsto Dv$, which is the prose's `\\im D`, and 'annihilates' a whole subspace is a claim about every element of it — so the quantifier and the range together are what this one symbol denotes."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      "⊥"
+    ],
+    [
+      1,
+      "Lean's separator between a binder and its body. The prose has no token here."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "The same vector, under the same name; `y : I → ℝ` is a theorem binder, judged in the `statement` unit."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        3
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "`y ⬝ᵥ v = 0` for every `v` in the image IS annihilation of that image: the dot product vanishing is exactly what it means for `y` to kill a vector. The direction is right too — the prose says `y` annihilates the image, not the image `y`."
+    ]
+  ]
+]

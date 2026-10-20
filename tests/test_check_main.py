@@ -166,6 +166,86 @@ def test_raw_literal_hides_sorry_and_trailing_backslash_from_the_code_scan():
     assert not any("stray sorry" in l for l in lines), lines
 
 
+# --------------------------------------------------------------------------- assumptions wired
+#
+# ATOMICITY: a segment has a SINGLE assertion, its premises are `assumps`. `split.json` draws that
+# line; `Main.lean` must keep it. The way to break it that NO check could see was to delete a
+# `@pistis_assumption` marker and fold its content into the claim as an extra conjunct — check 4
+# only rejects a marker left as `TODO`, and a deleted one leaves nothing to reject.
+
+SPLIT = [
+    {"role": "intro", "text": "Prove $P$."},
+    {"text": "Since $a=b$, we get $x=y$.", "assumptions": ["$a=b$"], "assert": "we get $x=y$"},
+    {"role": "conclusion", "text": "Thus $P$."},
+]
+
+
+def test_assumptions_wired_passes():
+    ok, lines = check_main(_main(_good_body()), STMT, PROOF, SPLIT)
+    assert ok, lines
+    assert any("assumptions wired: 1" in l for l in lines)
+
+
+def test_deleted_assumption_marker_fails_while_every_other_check_passes():
+    """The regression this check exists for, in the shape it actually occurred.
+
+    `oai_math/items/item1` segment 1.7 dropped both markers and made the two premises conjuncts of
+    the claim. Asserting that coverage still PASSES is the load-bearing part: it pins down that the
+    other five checks cannot see this, so check 6 is doing work nothing else does.
+    """
+    body = _good_body().replace('  -- @pistis_assumption ("$a=b$", a = b)\n', "")
+    body = body.replace("(step1 : x = y)", "(step1 : a = b ∧ x = y)")
+    assert "@pistis_assumption" not in body
+
+    ok, lines = check_main(_main(body), STMT, PROOF, SPLIT)
+    assert not ok
+    assert any("reproduces source exactly" in l for l in lines)        # coverage is happy
+    assert not any("vacuous" in l or "TODO" in l or "not verbatim" in l or "stray" in l
+                   for l in lines)                                     # so is everything else
+    assert any("MISSING" in l and "$a=b$" in l for l in lines)
+
+    # and with no split.json supplied, nothing catches it — which was the state of the repo
+    assert check_main(_main(body), STMT, PROOF)[0]
+
+
+def test_extra_named_assumption_fails():
+    body = _good_body().replace('("$a=b$", a = b)',
+                                '("$a=b$", a = b)\n  -- @pistis_assumption ("we get $x=y$", x = y)')
+    ok, lines = check_main(_main(body), STMT, PROOF, SPLIT)
+    assert not ok
+    assert any("EXTRA" in l and "we get $x=y$" in l for l in lines)
+
+
+def test_unattributed_empty_assumption_is_allowed():
+    """`pistis_assumption ""` is the documented marker for an input the prose does not state, so
+    `split.json` has no entry to match it against and it is not an extra."""
+    body = _good_body().replace('("$a=b$", a = b)',
+                                '("$a=b$", a = b)\n  -- @pistis_assumption ("", Nontrivial G)')
+    ok, lines = check_main(_main(body), STMT, PROOF, SPLIT)
+    assert ok, lines
+    assert any('1 unattributed ("")' in l for l in lines)
+
+
+def test_assumption_order_must_match_split():
+    split = [dict(SPLIT[0]),
+             {**SPLIT[1], "assumptions": ["Since $a=b$", "we get $x=y$"]},
+             dict(SPLIT[2])]
+    body = _good_body().replace(
+        '  -- @pistis_assumption ("$a=b$", a = b)\n',
+        '  -- @pistis_assumption ("we get $x=y$", x = y)\n'
+        '  -- @pistis_assumption ("Since $a=b$", a = b)\n')
+    ok, lines = check_main(_main(body), STMT, PROOF, split)
+    assert not ok
+    assert any("wrong order" in l for l in lines)
+
+
+def test_marker_below_every_segment_is_an_orphan():
+    body = _good_body(closer='  -- @pistis_assumption ("$a=b$", a = b)\n  exact step2')
+    ok, lines = check_main(_main(body), STMT, PROOF, SPLIT)
+    assert not ok
+    assert any("marks no segment" in l for l in lines)
+
+
 def test_lean_str_round_trips_and_keeps_text_verbatim():
     for s in (STMT_TEX,
               r"a\b",

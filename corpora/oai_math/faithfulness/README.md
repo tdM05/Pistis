@@ -32,6 +32,12 @@ numbers stay pinned.
 | --- | --- |
 | `pistis_intro "1.0" r"…"` | the `statement` unit |
 | `pistis_segment "1.k" r"…"` (keyword, loc and NL literal) | that segment's unit |
+| `-- @pistis_assumption ("clause", TYPE)` (the whole marker) | that assumption's unit |
+
+The marker is clickable for the same reason the tactic head is: it is where both of a unit's targets
+are written. The quoted clause is NL the prose states and the `TYPE` beside it is that clause's
+formalization, so the pair has a leaf matching of its own — which is the only place the paper's
+*Atomic Faithfulness* condition (`∀ a ∈ assumps(sᵢ), formal(a) is faithful`) can be checked.
 
 It also works the other way. A `C_F` item cites the line it was read off
 (`items/item1/Main.lean:46`), and that citation is a **clickable chip** on the card: it jumps the
@@ -117,16 +123,42 @@ The faithfulness-dataset model is per-statement: one datapoint is one `(T_F, T_N
 item is a whole proof, so `pistis_proof.proof_outline` cuts it into units — one per alignment the
 formalization asserts:
 
-| unit id     | `T_N`                       | `T_F`                                      | coverage |
-| ----------- | --------------------------- | ------------------------------------------ | -------- |
-| `statement` | the item's `nl_statement`   | header + theorem signature                 | complete |
-| `seg-<loc>` | one `pistis_segment`'s text | its claim — the type inside `(stepK : …)`  | complete |
+| unit id         | `T_N`                              | `T_F`                                      | coverage |
+| --------------- | ---------------------------------- | ------------------------------------------ | -------- |
+| `statement`     | the item's `nl_statement`          | header + theorem signature                 | complete |
+| `seg-<loc>`     | the segment MINUS its assumptions  | its claim — the type inside `(stepK : …)`  | complete |
+| `asm-<loc>-<k>` | one of the segment's `assumptions` | the `TYPE` on that `@pistis_assumption`    | complete |
 
 Units are **derived, never hand-maintained** — they come out of `Main.lean`, `split.json`,
 `meta.json` and `data/nl_{statement,proof}.txt` on every request, so editing the proof moves them with it. They land
 on disk as `items/item<N>/align/<unit>/artifacts/`, which is what `find_datapoints()` discovers.
 
-Two deliberate choices:
+Three deliberate choices:
+
+* **A segment's `T_N` is the sentence minus its assumptions, not the sentence.** The paper gives
+  each segment an `assumps(sᵢ)` (a set of substrings) and an `assert(sᵢ)` (what is left), and it is
+  `formal(assert(sᵢ))` that the claim has to be. So the prose the claim is judged against is the
+  segment with each `assumptions` substring cut out and a single `…` left in its place
+  (`pistis_proof.segment_nl_target`).
+
+  Using the whole sentence put the premises inside the target of the claim that *consumes* them.
+  Nothing in the claim can answer them — the claim is the `assert` — so they could only take ⊥
+  edges, and a ⊥ edge asserts that the formalization does not say this. It does say it, on the
+  marker. The real cost was the pressure that created: the way to give a premise something to align
+  against is to widen the claim into a conjunction, which is exactly the Atomicity break
+  `check_main.py` check 6 exists to stop, and `items/item1` segment 1.7 shipped that way.
+
+  The `…` is kept rather than closed up, and takes a span and a ⊥ edge like any other character, so
+  a reader can see where a premise was lifted out and follow it to the unit that holds it.
+  `check_targets.py` re-derives the subtraction from `split.json` and compares it character for
+  character; `check_verbatim.py` holds each piece around a `…` to being verbatim in the NL source,
+  in order and separated, so a gap cannot be invented or closed.
+
+* **An `asm-*` unit is the assumption's own alignment** — its clause against the Lean type that
+  formalizes it. Nothing on disk could express that before, which made *Atomic Faithfulness* the one
+  condition in Table 1 with nothing to check. These units carry no `C_F`: a marker consumes, it
+  introduces nothing. They are not in `_code_lines` either (a marker is a comment), so
+  `check_verbatim.py` quotes their `T_F` from the marker lines of the raw file and only those.
 
 * **A segment's `T_F` is its claim and *only* its claim** — the type inside `(stepK : …)`, with the
   binder name dropped and whitespace collapsed. Not the tactic around it, not the `:= by` body, not a
@@ -161,10 +193,11 @@ Two deliberate choices:
 
 `gen_datapoints.py` seeds only what is already **derived** from text the Pistis gates hold verbatim:
 
-* both targets (`T_N` is byte-identical to its slice of `data/nl_{statement,proof}.txt`; `T_F` is the Lean claim,
-  gated by `check_targets.py`);
+* both targets (a segment's `T_N` is its slice of `data/nl_{statement,proof}.txt` with the
+  `assumptions` substrings cut out; an `asm-*` unit's is one of those substrings, verbatim; `T_F` is
+  the Lean claim or the marker's type — all four gated by `check_targets.py`);
 * `S_N[0]`, the unit's focus substring — `split.json`'s `assert`, already gated as an exact
-  substring of the segment's text;
+  substring of the segment's text (for an `asm-*` unit, the whole clause);
 * `S_F[0]`, one region over the whole target;
 * `C_F.items`, whatever this segment itself introduces — each one the clause verbatim, with the
   `Main.lean:LINE` it is written on.
@@ -201,9 +234,9 @@ as drift; `--force` would lose them, which is recoverable, where silent disagree
 | `pistis_proof.py`   | the proof → units decomposition, plus `source_anchors` (where each unit is written in `Main.lean`). Single source of truth for both panels and the datapoints, so they cannot drift. Has a CLI: `python3 faithfulness/pistis_proof.py items/item1`. |
 | `gen_datapoints.py` | units → `artifacts/` trees. `--all`, `--force`. |
 | `annotate_item1.py` | item1's authored annotation (spans, edges, verdicts and their reasons), re-runnable. `--check`. Refuses to run on a target `check_targets.py` rejects. |
-| `check_targets.py`  | new gate: every stored `T_F` is exactly the claim inside `(stepK : …)` (or, for `statement`, the theorem signature). Re-reads `Main.lean` itself. |
+| `check_targets.py`  | new gate: every stored `T_F` is exactly the claim inside `(stepK : …)` (or the theorem signature, or an `@pistis_assumption`'s TYPE), and every segment's `T_N` is exactly its sentence minus `split.json`'s `assumptions`. Re-reads `Main.lean` and `split.json` itself. |
 | `check_citations.py`| new gate: every `C_F` item's `Main.lean:LINE` citation points at line(s) that are not a comment, do say the stored text, and are where `_ambient` reads that clause off. |
-| `check_verbatim.py` | new gate: every string the right panel shows is a contiguous substring of the source it cites — no stitching, no framing, no declared derivations. Reads the file with `splitlines()`, never through `_ambient`. |
+| `check_verbatim.py` | new gate: every string the right panel shows is a contiguous substring of the source it cites — no stitching, no framing, no declared derivations. A gapped `T_N` is the same claim piecewise (every piece in one file, in order, separated); an `asm-*` `T_F` is quoted from the marker lines, since its type lives in a comment. Reads the file with `splitlines()`, never through `_ambient`. |
 | `alignment_data.py` | **vendored.** Dataset IO + UTF-16 region validation. |
 | `check_coverage.py` | **vendored, verbatim.** The finishing gate. |
 | `tf_norm.py`        | **vendored, verbatim.** Flattens `T_F` to one line per declaration. |

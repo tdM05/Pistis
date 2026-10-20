@@ -183,7 +183,14 @@ _ASSUMPTION = re.compile(r'--\s*@pistis_assumption\s*\(\s*"((?:[^"\\]|\\.)*)"\s*
 
 
 def parse_assumptions(src: str) -> List[dict]:
-    """Return every `-- @pistis_assumption ("text", TYPE)` as {text, type, line}."""
+    """Return every `-- @pistis_assumption ("text", TYPE)` as {text, type, line, start, end}.
+
+    `start`/`end` are character offsets of the marker itself, trailing whitespace excluded (the
+    pattern is anchored to end-of-line, so `m.end()` would swallow it). They exist because the
+    marker is a UNIT of the alignment — its text is NL the prose states and its TYPE is that
+    clause's formalization — so the UI has to be able to make the marker clickable where it is
+    written, exactly as it does a `pistis_segment` head.
+    """
     out = []
     for m in _ASSUMPTION.finditer(src):
         text_raw = m.group(1).replace('\\"', '"').replace("\\\\", "\\")
@@ -191,5 +198,7 @@ def parse_assumptions(src: str) -> List[dict]:
             "text": text_raw,
             "type": m.group(2).strip(),
             "line": src.count("\n", 0, m.start()) + 1,
+            "start": m.start(),
+            "end": m.start() + len(m.group(0).rstrip()),
         })
     return out

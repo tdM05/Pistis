@@ -1,2 +1,2 @@
-On the other hand, $y$ annihilates $\im D$ and $y_s\ne0$, so
+On the other hand, … and …, so
 $e_s\notin\im D$.

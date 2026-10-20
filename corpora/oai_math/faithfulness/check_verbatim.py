@@ -13,7 +13,9 @@ Checked, per datapoint:
 | string                  | held to                                                               |
 | ----------------------- | --------------------------------------------------------------------- |
 | `T_N`                   | a byte-for-byte substring of `data/nl_{statement,proof}.txt`          |
+| `T_N` (gapped)          | every piece around a `…` verbatim, in order, in one source file       |
 | `T_F` (segment)         | the claim, verbatim in `Main.lean` up to whitespace                   |
+| `T_F` (assumption)      | the marker's type, verbatim on a `@pistis_assumption` COMMENT line    |
 | `T_F` (statement)       | every line verbatim and in source order; only `sorry` may be inserted |
 | `C_F.items[].signature` | a CONTIGUOUS substring of the line(s) it cites                         |
 | `C_N[].text`            | a substring of the NL source, as its own provenance claims            |
@@ -49,6 +51,22 @@ claim, so a claim written over three indented lines is stored on one. Comments a
 file is read through `_code_lines`, so a target can never be "found" inside a docstring that merely
 discusses it.
 
+Two targets are shaped by the ASSUMPTION model and need their own rule here:
+
+  * A segment's `T_N` is the sentence minus the substrings `split.json` lists under `assumptions`
+    (`pistis_proof.segment_nl_target`), so it is no longer one contiguous slice — there is a `…`
+    where each premise was lifted out. The rule is the same claim made piecewise: every piece must be
+    in ONE source file, verbatim, and the pieces must appear in the order the target puts them, with
+    something between each pair. That last part matters. Without it a `…` could be inserted anywhere,
+    including in the middle of a word, and the pieces would still all be "found". That the excised
+    text is exactly the `assumptions` list is `check_targets.py`'s half, which re-derives the
+    subtraction from `split.json`.
+  * An `asm-*` unit's `T_F` is the TYPE on a `-- @pistis_assumption ("clause", TYPE)` line, which is
+    a COMMENT — the one place in this gate where the blanked file is the wrong source. It is checked
+    against the marker lines of the raw file instead, and only those: a type that happens to appear
+    in a docstring is still not quotable, and one that appears in real code is not where the fill
+    stage will look for it.
+
 Exit status: 0 when everything shown is in the source, 1 otherwise.
 Usage:
     python3 faithfulness/check_verbatim.py                 # every items/item*
@@ -66,7 +84,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent                                  # the corpus root
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "ui"))
-from pistis_proof import _code_lines                # noqa: E402  (a comment scanner, not a reader)
+from pistis_proof import GAP, _code_lines           # noqa: E402  (a comment scanner, not a reader)
 
 # `items/item1/Main.lean:38`, or `…:11-12` when a clause is written across two adjacent lines.
 _CITE = re.compile(r"^(?P<path>\S+\.lean):(?P<lo>\d+)(?:-(?P<hi>\d+))?$")
@@ -101,6 +119,30 @@ def _find_nl(text: str, sources: dict[str, str]) -> str | None:
             if cand in val:
                 return key
     return None
+
+
+def _find_nl_gapped(text: str, sources: dict[str, str]) -> tuple[str | None, str | None]:
+    """A GAPPED `T_N` -> (source key, error). See the module docstring's assumption-model note.
+
+    The pieces around each `…` must all be in one file, in this order, and consecutive pieces must be
+    separated there — a gap that excised nothing would mean the `…` was inserted rather than left
+    behind. Empty pieces are skipped, which is what a target beginning or ending in a gap gives.
+    """
+    pieces = [p for p in text.rstrip("\n").split(GAP) if p]
+    if not pieces:
+        return None, "T_N is nothing but gaps"
+    for key, val in sources.items():
+        at, ok = 0, True
+        for n, piece in enumerate(pieces):
+            i = val.find(piece, at)
+            if i < 0 or (n and i == at):
+                ok = False
+                break
+            at = i + len(piece)
+        if ok:
+            return key, None
+    return None, (f"T_N's pieces around its {text.count(GAP)} gap(s) are not all in one "
+                  f"data/nl_*.txt, in order and separated: {[_collapse(p)[:40] for p in pieces]}")
 
 
 # ---------------------------------------------------------------------------
@@ -167,23 +209,36 @@ def _check_spans(path: Path, target: str) -> list[str]:
 
 
 def check_unit(art: Path, unit: str, blanked: list[str], code: str,
-               nl_sources: dict[str, str]) -> tuple[list[str], list[str], list[str]]:
-    """(errors, notes, verbose lines) for one datapoint's artifacts."""
+               nl_sources: dict[str, str], markers: str = "") -> tuple[list[str], list[str], list[str]]:
+    """(errors, notes, verbose lines) for one datapoint's artifacts.
+
+    `markers` is the `@pistis_assumption` comment lines of the raw file, joined — the only source an
+    `asm-*` unit's `T_F` may be quoted from.
+    """
     errors: list[str] = []
     notes: list[str] = []
     seen: list[str] = []
 
-    # ---- T_N: no liberty at all. It is a slice of the NL source and nothing else.
+    # ---- T_N: no liberty at all. It is a slice of the NL source and nothing else — or, for a
+    # segment whose premises have been subtracted out, the slices around each `…`.
     tn = (art / "nl" / "T_N.txt").read_text(encoding="utf-8")
-    key = _find_nl(tn, nl_sources)
-    if key:
+    if GAP in tn:
+        key, gap_err = _find_nl_gapped(tn, nl_sources)
+        if key:
+            seen.append(f"T_N        quoted   ({key}, {tn.count(GAP)} gap(s), {len(tn)} chars)")
+        else:
+            errors.append(gap_err or "T_N is not in data/nl_*.txt")
+    elif key := _find_nl(tn, nl_sources):
         seen.append(f"T_N        quoted   ({key}, {len(tn)} chars)")
     else:
         errors.append(f"T_N is not a substring of data/nl_*.txt: {_collapse(tn)[:70]!r}…")
 
     # ---- T_F: the claim, up to whitespace. The statement unit is several lines (header + theorem),
-    # each of which must be found, in order; its `sorry` is the one token tf_norm puts in.
+    # each of which must be found, in order; its `sorry` is the one token tf_norm puts in. An
+    # `asm-*` unit's type is written in a COMMENT, so for it the quotable source is the marker lines
+    # of the raw file rather than the blanked one (see the module docstring).
     tf = (art / "formal" / "T_F.lean").read_text(encoding="utf-8")
+    tf_src = markers if unit.startswith("asm-") else code
     lines = [ln for ln in tf.splitlines() if ln.strip()] if unit == "statement" \
         else [_collapse(tf)]
     at = 0
@@ -199,12 +254,14 @@ def check_unit(art: Path, unit: str, blanked: list[str], code: str,
             else:
                 errors.append("T_F's last line is the theorem, whose body must be `sorry`; this one "
                               f"ends {want[-40:]!r}")
-        pos = code.find(want, at)
+        pos = tf_src.find(want, at)
         if pos < 0:
             where = f"T_F line {k + 1}" if len(lines) > 1 else "T_F"
-            errors.append(f"{where} is not in Main.lean: {want[:70]!r}…" if len(want) > 70
-                          else f"{where} is not in Main.lean: {want!r}")
-        elif code.find(want) < at and pos != code.find(want, at):
+            src = ("on any @pistis_assumption marker in Main.lean" if unit.startswith("asm-")
+                   else "in Main.lean")
+            errors.append(f"{where} is not {src}: {want[:70]!r}…" if len(want) > 70
+                          else f"{where} is not {src}: {want!r}")
+        elif tf_src.find(want) < at and pos != tf_src.find(want, at):
             errors.append(f"T_F line {k + 1} is out of source order: {want[:50]!r}…")
         else:
             at = pos + len(want)
@@ -266,6 +323,11 @@ def check_item(item_dir: Path) -> tuple[list[str], list[str], list[str]]:
     # is contiguous here, and nothing can be "found" in a docstring that merely discusses it.
     blanked = _code_lines(src)
     code = _collapse(" ".join(blanked))
+    # An assumption's TYPE is written in a comment, so `blanked` cannot hold it. Its quotable source
+    # is the marker lines themselves, and nothing else in the file — not an ordinary comment, not a
+    # docstring. Each line separately (not joined), so a type cannot be stitched across two markers.
+    markers = "\n".join(ln for ln in src.splitlines() if "@pistis_assumption" in ln)
+    markers = "\n".join(_collapse(ln) for ln in markers.splitlines())
     nl_sources = _nl_sources(item_dir)
     errors: list[str] = []
     notes: list[str] = []
@@ -275,7 +337,7 @@ def check_item(item_dir: Path) -> tuple[list[str], list[str], list[str]]:
         art = d / "artifacts"
         if not (art / "formal" / "T_F.lean").exists():
             continue
-        e, n, s = check_unit(art, d.name, blanked, code, nl_sources)
+        e, n, s = check_unit(art, d.name, blanked, code, nl_sources, markers)
         errors += [f"{d.name}: {x}" for x in e]
         notes += [f"{d.name}: {x}" for x in n]
         seen += [f"{d.name:<10} {x}" for x in s]

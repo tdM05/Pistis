@@ -16,6 +16,9 @@ FAITHFUL by the paper's conditions that survive into Main:
      raw literal `r"…"`. Check 1 only compares decoded VALUES, so an escaped `"…\\\\subseteq…"` passes
      it while the file says something the paper does not and Ctrl-F finds nothing; 5 is the check on
      the bytes, which nothing here had before.
+  6. assumptions wired — every `assumptions` entry a segment has in `split.json` is still a
+     `-- @pistis_assumption ("entry", TYPE)` line on THAT segment, and no segment carries one
+     `split.json` does not list. Needs `split.json`, so it runs in the `<corpus>/item<N>` form only.
 
 `lake env lean Main.lean` (that it ELABORATES) is a SEPARATE gate the map skill runs; this script is the
 build-free faithfulness half.
@@ -29,6 +32,7 @@ Exit 0 = PASS, 1 = FAIL, 2 = usage / file error.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -83,8 +87,96 @@ def _strip_comments_and_strings(src: str) -> str:
     return "".join(out)
 
 
-def check_main(main_src: str, nl_statement: str, nl_proof: str) -> Tuple[bool, List[str]]:
-    """Pure faithfulness check of a mapped Main.lean. Returns (ok, message-lines)."""
+def _check_assumptions(main_src: str, segs: List[dict],
+                       segments: List[dict]) -> Tuple[bool, List[str]]:
+    r"""Check 6: `split.json`'s `assumptions` survive in Main as `@pistis_assumption` lines.
+
+    ATOMICITY is the paper's condition that a segment has a SINGLE assertion, with its premises as
+    `assumps(s_i)` — "since P and Q, therefore R" has `assumps = {P, Q}` and `assert = R`. The split
+    stage draws that line and `check_split.py` gates it; the map stage is then told (pistis-map RULE
+    3) that "a consumed premise is a `@pistis_assumption`, NEVER a conjunct of the claim".
+
+    Nothing checked that it obeyed. Check 4 rejects an UNFILLED marker (`TODO`), so the one way to
+    break Atomicity that no gate could see was to DELETE the marker and fold its content into the
+    claim as an extra conjunct — which is what `oai_math/items/item1` segment 1.7 did:
+
+        (step7 : (∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0) ∧ y s ≠ 0 ∧
+            (Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin)
+
+    Three assertions in one claim where `split.json` says two premises and one assertion, with the
+    two `@pistis_assumption` lines `scaffold_main.py` had seeded gone. Every check above passed: the
+    text still tiles, the claim is not `True`, no `sorry` strays, no `TODO` remains, the bytes are
+    the paper's. A claim that silently absorbs its own premises also cannot be told from one that
+    proves them, and the assumption phase has nothing left to materialize as a `have`.
+
+    A marker belongs to the first `pistis_*` tactic DECLARED BELOW IT, which is where
+    `scaffold_main.py` emits it. Order matters too: the markers on a segment must read in
+    `split.json`'s order, so a diff of the two is a diff of two lists.
+
+    The units paired here are ALL the non-intro segments, not just the reasoning ones. A structural
+    `pistis_conclude` carries no `assumptions` (`check_split.py`'s `_STRUCTURAL_ROLES`), so it
+    contributes an empty list and must still hold no marker — and pairing by `kind == "segment"`
+    instead silently desynchronized the two lists for any item that has a conclusion, which made
+    this whole check bail out on `proofnet_verified/item1`.
+    """
+    rest_main = segs[1:]
+    rest = segments[1:]
+    if len(rest_main) != len(rest):
+        return True, []                    # check 1 already reported the mismatch; don't pile on
+
+    starts = [s["line"] for s in rest_main]
+    marks: List[List[dict]] = [[] for _ in rest_main]
+    errors: List[str] = []
+    for a in parse_assumptions(main_src):
+        nxt = next((i for i, ln in enumerate(starts) if ln > a["line"]), None)
+        if nxt is None:
+            errors.append(f"  line {a['line']}: @pistis_assumption (\"{a['text']}\", …) sits below "
+                          f"every pistis_* tactic, so it marks no segment")
+        else:
+            marks[nxt].append(a)
+
+    n, unattributed = 0, 0
+    for seg, split_seg, got in zip(rest_main, rest, marks):
+        want = list(split_seg.get("assumptions") or [])
+        # An EMPTY text is the documented marker for a consumed input the prose does not state
+        # (pistis-fill-naive: `pistis_assumption "" (show TYPE; assumption)`). `split.json` can only
+        # list assumptions it can quote — `check_split.py` holds every entry to being a substring of
+        # the segment — so an unattributed input has no entry to match and is not an "extra" one.
+        have = [a["text"] for a in got if a["text"]]
+        unattributed += sum(1 for a in got if not a["text"])
+        n += len(want)
+        if have == want:
+            continue
+        errors.append(f"  loc {seg['loc']} ({seg.get('name') or 'pistis_' + seg['kind']}, line "
+                      f"{seg['line']}): @pistis_assumption lines do not match split.json's "
+                      f"`assumptions`")
+        for t in want:
+            if t not in have:
+                errors.append(f"      MISSING  (\"{t}\", TYPE)  — split.json lists it as an "
+                              f"assumption, so it is an INPUT to this step, not part of its claim")
+        for t in have:
+            if t not in want:
+                errors.append(f"      EXTRA    (\"{t}\", …)  — split.json does not list it as an "
+                              f"assumption of this segment (use \"\" if the input is not something "
+                              f"the prose states)")
+        if sorted(have) == sorted(want):
+            errors.append(f"      (same set, wrong order: split.json says {want})")
+
+    if errors:
+        return False, ["@pistis_assumption lines out of step with split.json "
+                       "(ATOMICITY: the claim is the `assert`; each `assumptions` entry is a "
+                       "marker):"] + errors
+    extra = f", {unattributed} unattributed (\"\")" if unattributed else ""
+    return True, [f"assumptions wired: {n} @pistis_assumption line(s) match split.json{extra}"]
+
+
+def check_main(main_src: str, nl_statement: str, nl_proof: str,
+               segments: List[dict] | None = None) -> Tuple[bool, List[str]]:
+    """Pure faithfulness check of a mapped Main.lean. Returns (ok, message-lines).
+
+    `segments` is `split.json`'s array; pass None to skip check 6, which is the only check that
+    needs it.
+    """
     segs = parse_main(main_src)
     if not segs:
         return False, ["no pistis_* segments found in Main.lean"]
@@ -146,15 +238,22 @@ def check_main(main_src: str, nl_statement: str, nl_proof: str) -> Tuple[bool, L
         for s in not_verbatim:
             lines.append(f"  line {s['line']}: loc {s['loc']} (pistis_{s['kind']})")
 
+    # (6) ASSUMPTIONS WIRED: split.json's assert/assumption line, kept in Main. See _check_assumptions.
+    if segments is not None:
+        ok_a, msg_a = _check_assumptions(main_src, segs, segments)
+        ok = ok and ok_a
+        lines += msg_a
+
     if ok:
         n_seg = sum(1 for s in segs if s["kind"] == "segment")
         lines.append(f"faithful: {n_seg} segment claim(s) filled, coverage + no-stray-sorry OK")
     return ok, lines
 
 
-def _resolve(item: str) -> Tuple[str, str]:
+def _resolve(item: str) -> Tuple[str, str, str]:
     item = item.rstrip("/")
-    return os.path.join(item, "Main.lean"), os.path.join(item, "data")
+    return (os.path.join(item, "Main.lean"), os.path.join(item, "data"),
+            os.path.join(item, "split.json"))
 
 
 def main(argv=None) -> int:
@@ -165,9 +264,9 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     if args.main and args.source:
-        main_path, data_dir = args.main, args.source
+        main_path, data_dir, split_path = args.main, args.source, None
     elif args.item:
-        main_path, data_dir = _resolve(args.item)
+        main_path, data_dir, split_path = _resolve(args.item)
     else:
         ap.print_usage(sys.stderr)
         return 2
@@ -183,7 +282,14 @@ def main(argv=None) -> int:
     except FileNotFoundError as e:
         print(str(e), file=sys.stderr)
         return 2
-    ok, lines = check_main(main_src, nl_statement, nl_proof)
+    segments = None
+    if split_path:
+        if not os.path.exists(split_path):
+            print(f"file not found: {split_path}", file=sys.stderr)
+            return 2
+        with open(split_path, encoding="utf-8") as fh:
+            segments = json.load(fh)
+    ok, lines = check_main(main_src, nl_statement, nl_proof, segments)
     print(f"{'PASS' if ok else 'FAIL'} — {main_path}")
     for line in lines:
         print(line)

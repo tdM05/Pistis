@@ -5,7 +5,8 @@ align-then-label. A Pistis item is a whole PROOF, so it decomposes into many suc
 place where the formalization claims to say what the prose says:
 
     statement     the item's `nl_statement.txt`        <-> the Lean theorem statement
-    seg-<loc>     one `pistis_segment`'s text          <-> that segment's Lean claim
+    seg-<loc>     one `pistis_segment`'s ASSERT         <-> that segment's Lean claim
+    asm-<loc>-<k> one of its `assumptions`             <-> that `@pistis_assumption`'s TYPE
 
 Every unit is derived, never hand-maintained: edit `Main.lean` or `split.json` and the units move with
 it. `gen_datapoints.py` turns units into `artifacts/` skeletons; `ui/proof_pane.js` renders them in
@@ -23,6 +24,34 @@ the binder name dropped and whitespace collapsed. Not the surrounding tactic, no
 not the lines above it, and not a synthetic `theorem` with the binders re-stated. By definition the
 segment ASSERTS its claim and only its claim, so that proposition is the whole of what the sentence is
 being judged against; `check_targets.py` fails if a stored `T_F` is anything else.
+
+A segment's NL target is the OTHER HALF of that rule, and it is not the whole sentence
+--------------------------------------------------------------------------------------
+The paper gives each segment `s_i` two mappings: `assumps(s_i)`, a set of substrings, and
+`assert(s_i)`, what is left — the thing the sentence puts forward on its own authority. Atomicity is
+that there is ONE of the latter; `formal(assert(s_i))` is the claim, and each assumption gets a `ϕ_k`
+of its own. So the prose a segment's claim is judged against is the segment MINUS its assumptions,
+and `segment_nl_target` computes exactly that: each `assumptions` substring is cut out and a single
+`…` (`GAP`) left where it stood.
+
+T_N was the whole sentence before this, which quietly put the premises inside the target of the
+claim that consumes them. Nothing in the claim can answer them — the claim is the `assert` — so they
+could only take ⊥ edges, and a ⊥ edge says "the formalization does not say this". That is false
+twice over: the premise IS formalized, in the marker's TYPE, and *this* unit was never the place
+that formalization was supposed to appear. Worse, the pressure it creates is to widen the claim into
+a conjunction so the premises have something to align against, which is precisely the Atomicity
+break `check_main.py` check 6 now exists to stop (`items/item1` segment 1.7 shipped that way).
+
+The `GAP` is kept rather than closed up, and it carries a span and a ⊥ edge like any other
+character: a reader of the segment's unit should see WHERE a premise was lifted out, and follow it to
+the `asm-*` unit that holds it. Dropping it silently would make the sentence read as though the prose
+never stated the premise at all.
+
+`asm-*` is that unit: `T_N` is the assumption clause, verbatim as `split.json` quotes it out of the
+segment, and `T_F` is the Lean type on its `-- @pistis_assumption ("…", TYPE)` marker. This is the
+pair the paper's Atomic Faithfulness condition quantifies over (`∀ a ∈ assumps(s_i), formal(a) is
+faithful`), and until these units existed it was the one condition with nothing on disk to check.
+Assumption units carry no `C_F`: a marker introduces nothing, it consumes.
 
 What the sentence INTRODUCES is formal context. "For a nonzero real τ, the matrix D_τ = D + τ e_s e_jᵀ
 is still supported on T" is formalized partly by the `obtain`/`set` lines above the tactic, and a
@@ -82,8 +111,13 @@ if str(PISTIS_SCRIPTS) not in __import__("sys").path:
 # `parse_main` reads, and a second copy of that pattern here could silently drift from the one the
 # checkers use.
 from pistis_lean import (                              # noqa: E402
-    parse_main, read_string_literal, _TAC as _TACTIC_RE,
+    parse_main, parse_assumptions, read_string_literal, _TAC as _TACTIC_RE,
 )
+
+# What a removed assumption leaves behind in a segment's NL target. U+2026, one character, and it
+# occurs in no `data/nl_*.txt` in either corpus — so it cannot be confused with the prose, and
+# `check_verbatim.py` can split a gapped target on it without ambiguity.
+GAP = "…"
 
 # Lines that exist only to make the `pistis_*` tactics elaborate, not part of the formal statement.
 _SCAFFOLD_LINE = re.compile(r"^\s*(import\s+Pistis|set_option\s+linter\.unusedTactic)\b")
@@ -290,6 +324,11 @@ def source_anchors(src: str) -> dict[str, list[int]]:
     A unit's region is its tactic invocation's HEAD — the keyword, the loc, and the NL string literal
     (`pistis_segment "1.3" "and \\[…\\]"`), which is contiguous in the source and is where `T_N` is
     read from. The claim after it is left alone.
+
+    An `asm-*` unit's region is its whole `-- @pistis_assumption ("clause", TYPE)` marker, on the
+    same principle: that marker is where BOTH of its targets are written, the clause being `T_N` and
+    the type `T_F`. A marker is a comment, so this has to run on the RAW source — `_code_lines`
+    blanks it, which is why `C_F` can never see one and why these are units rather than context.
     """
     def u16(i: int) -> int:
         return _utf16_len(src[:i])
@@ -306,7 +345,42 @@ def source_anchors(src: str) -> dict[str, list[int]]:
         elif kind == "segment":
             heads[f"seg-{loc}"] = [u16(m.start()), u16(after_text)]
         # pistis_wts / pistis_conclude carry NL but assert nothing, so they have no datapoint to open.
+    for uid, a in assumption_markers(src).items():
+        heads[uid] = [u16(a["start"]), u16(a["end"])]
     return heads
+
+
+def assumption_markers(src: str) -> dict[str, dict]:
+    """`{asm-<loc>-<k>: marker}` for every `@pistis_assumption` in `Main.lean`, in source order.
+
+    A marker belongs to the first `pistis_*` tactic DECLARED BELOW IT — where `scaffold_main.py`
+    emits it, and the same attribution `check_main.py` check 6 uses to hold the markers to
+    `split.json`. `k` numbers them within their segment, in source order, so the ids line up with
+    that segment's `assumptions` list index for index.
+
+    A marker with an EMPTY text is skipped: `pistis_assumption ""` is the documented form for an
+    input the prose does not state, so there is no NL clause to make a target out of and no unit to
+    open. It still has a type, and the fill stage still has to discharge it; it simply is not an
+    alignment, because alignment needs two sides.
+    """
+    locs: list[tuple[int, str]] = []
+    for pos in (m.start() for m in _TACTIC_RE.finditer(src)):
+        q = src.index('"', pos)
+        loc, _ = read_string_literal(src, q)
+        locs.append((pos, loc))
+
+    out: dict[str, dict] = {}
+    seen: dict[str, int] = {}
+    for a in parse_assumptions(src):
+        if not a["text"]:
+            continue
+        owner = next((loc for pos, loc in locs if pos > a["start"]), None)
+        if owner is None:
+            continue                                # an orphan below every tactic; check 6 reports it
+        k = seen.get(owner, 0)
+        seen[owner] = k + 1
+        out[f"asm-{owner}-{k}"] = a
+    return out
 
 
 def segment_target(seg: dict) -> str:
@@ -317,6 +391,38 @@ def segment_target(seg: dict) -> str:
     Single source of this rule: `check_targets.py` gates stored targets against it.
     """
     return seg["claim"]
+
+
+def segment_nl_target(seg_text: str, assumptions: list[str]) -> str:
+    r"""A segment's NL target: the segment MINUS its assumptions, a `GAP` left where each one was.
+
+    This is the paper's `assert(s_i)` — what the sentence puts forward itself, once the substrings
+    `split.json` lists under `assumptions` are taken out. It is what the claim is judged against, so
+    it is what `T_N` holds; see the module docstring for why the whole sentence was wrong.
+
+    Assumptions are located IN ORDER and non-overlapping, each searched for after the end of the
+    previous one, which is the same reading `check_split.py` gates them under (every entry is a
+    substring of its segment, listed in the order it is said). An entry that cannot be found that way
+    is an error here and not a thing to paper over: it means the marker and the prose have parted
+    company, and a target computed from a mis-located substring would cut the sentence in the wrong
+    place. A segment with no assumptions comes back unchanged, which is eight of item1's nine.
+
+    >>> segment_nl_target("since P and Q, therefore R", ["P", "Q"])
+    'since … and …, therefore R'
+    """
+    out, at = [], 0
+    for a in assumptions:
+        if not a:                                   # an unattributed input ("" marker) quotes nothing
+            continue
+        i = seg_text.find(a, at)
+        if i < 0:
+            raise ValueError(f"assumption {a!r} is not a substring of the segment after offset "
+                             f"{at} — split.json and the segment text disagree:\n{seg_text!r}")
+        out.append(seg_text[at:i])
+        out.append(GAP)
+        at = i + len(a)
+    out.append(seg_text[at:])
+    return "".join(out)
 
 
 def _statement_target(src: str) -> str:
@@ -378,12 +484,44 @@ def proof_outline(item_dir) -> dict:
         "anchor": heads.get("statement"),
     }]
 
+    markers = assumption_markers(src)
+
     for seg in segs:
         if seg["kind"] != "segment":
             continue                        # pistis_intro is the statement unit; wts/conclude carry no claim
         pos = int(seg["loc"].rsplit(".", 1)[-1])
         entry = split[pos] if 0 <= pos < len(split) else {}
         claim = segment_target(seg)
+        assumps = list(entry.get("assumptions") or [])
+
+        # The assumptions come FIRST, both on disk and in the panel, because that is where they are
+        # written: the markers sit above the tactic. Each is its own (clause, TYPE) pair — the paper's
+        # Atomic Faithfulness — and `check_main.py` check 6 is what guarantees the marker for
+        # `assumps[k]` is the one this names `asm-<loc>-<k>`.
+        for k, text in enumerate(assumps):
+            uid = f"asm-{seg['loc']}-{k}"
+            mark = markers.get(uid)
+            if mark is None or mark["text"] != text:
+                raise ValueError(
+                    f"{uid}: split.json's assumption {text!r} has no matching "
+                    f"`-- @pistis_assumption` marker on segment {seg['loc']} in Main.lean "
+                    f"(got {mark and mark['text']!r}). Run `check_main.py` — this is ATOMICITY: the "
+                    f"premise's formalization lives on that marker and nowhere else.")
+            units.append({
+                "id": uid,
+                "kind": "assumption",
+                "loc": seg["loc"],
+                "title": f"{seg['name']} ← assumption {k + 1}",
+                "depth": depth_of(seg["line"]),
+                "nl_text": text,
+                "nl_focus": text,           # the clause IS the target; seed one region over all of it
+                "formal": mark["type"],
+                "context": [],              # a marker consumes; it introduces nothing to be context
+                "coverage": "complete",
+                "frame": None,
+                "anchor": heads.get(uid),
+            })
+
         # What this sentence introduces — the `obtain`/`set`/`have` it is formalized by, and nothing
         # the theorem merely has in scope. Context, not target (see the module docstring).
         prev = max(ln for ln in tactic_lines if ln < seg["line"])
@@ -393,7 +531,8 @@ def proof_outline(item_dir) -> dict:
             "loc": seg["loc"],
             "title": seg["name"],
             "depth": depth_of(seg["line"]),
-            "nl_text": seg["text"],
+            # the segment MINUS its assumptions: the claim answers the `assert`, not the premises
+            "nl_text": segment_nl_target(seg["text"], assumps),
             "nl_focus": entry.get("assert", ""),
             "formal": claim,
             "context": _introduced_by(ambient, prev, seg["line"]),

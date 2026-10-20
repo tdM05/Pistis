@@ -20,10 +20,14 @@ laid out exactly as faithfulness-dataset expects:
 What is SEEDED and what is not
 ------------------------------
 Seeded, because it is DERIVED from files already gated as verbatim:
-  * both targets — `T_N` is the unit's own text from `Main.lean` (byte-identical to the slice of
-    `data/nl_{statement,proof}.txt` that `check_main.py` gates), `T_F` is its Lean claim;
+  * both targets — for a `seg-*` unit `T_N` is its sentence MINUS the substrings `split.json` lists
+    under `assumptions` (a `…` left where each was), because the claim answers the segment's
+    `assert` and not the premises it consumes, and `T_F` is that claim; for an `asm-*` unit the pair
+    is the assumption clause and the Lean type on its `-- @pistis_assumption` marker. Every piece of
+    both is text `check_main.py` already gates verbatim against `data/nl_*.txt` / `Main.lean`;
   * `S_N[0]` — the unit's focus substring: `split.json`'s `assert`, the single thing the segment
-    asserts, already gated as an exact substring of the segment's text by `check_split.py`;
+    asserts, already gated as an exact substring of the segment's text by `check_split.py` (for an
+    `asm-*` unit, the whole clause);
   * `S_F[0]` — the whole formal target, as one region;
   * `C_F.items` — what this sentence introduces, i.e. the `obtain`/`set`/`have` lines between its
     tactic and the previous one, and nothing else (see `pistis_proof`).
@@ -94,8 +98,10 @@ def _unit_files(unit: dict, versions: dict) -> dict[str, object]:
     t_n = stored_target(unit["nl_text"])
     # A segment's formal target is exactly the one proposition it asserts, so a single region over it
     # is the right (and derived) seed. The statement is not atomic — how to cut a theorem into regions
-    # is the labeler's judgment — so it gets no seed on either side.
-    atomic = unit["kind"] == "segment"
+    # is the labeler's judgment — so it gets no seed on either side. An `asm-*` unit is atomic in the
+    # same way and more simply: `T_N` is the one clause `split.json` quotes and `T_F` is the one type
+    # on its marker, so `nl_focus` is the whole target and both seeds cover everything.
+    atomic = unit["kind"] in ("segment", "assumption")
     s_f = _content_span(t_f) if atomic else None
     s_n = _utf16_span(t_n, unit["nl_focus"]) if atomic else None
     # A context item is a QUOTE of the proof and its citation — the clause as written, and the line(s)

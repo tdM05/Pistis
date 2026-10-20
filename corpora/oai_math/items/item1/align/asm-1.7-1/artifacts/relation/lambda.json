@@ -1,0 +1,50 @@
+[
+  [
+    [
+      [
+        "S_F",
+        0
+      ],
+      [
+        "S_N",
+        0
+      ]
+    ],
+    [
+      1,
+      "`y : I → ℝ`, so `y s` is its value at the index `s` — the prose's subscript $y_s$. `s` is the index fixed by the statement's binders, not a new one."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        1
+      ],
+      [
+        "S_N",
+        1
+      ]
+    ],
+    [
+      1,
+      "`≠` is `\\ne`."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        2
+      ],
+      [
+        "S_N",
+        2
+      ]
+    ],
+    [
+      1,
+      "The same zero, in ℝ."
+    ]
+  ]
+]

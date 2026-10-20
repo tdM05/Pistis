@@ -156,7 +156,8 @@ A discrepancy while mapping is one of two things:
      `declaration uses 'sorry'` warnings from the `:= by sorry` bodies remain — and the `@pistis_closer`
      line must be GONE, replaced by the real closing).
    - `python3 scripts/check_main.py <corpus>/item<N>` → **must exit 0** — perfect tiling, **ZERO `True`**,
-     no stray sorry, `@pistis_assumption` types filled (no `TODO`).
+     no stray sorry, `@pistis_assumption` types filled (no `TODO`), and check 6: every `assumptions`
+     entry in `split.json` is still a marker on its segment, none deleted and none invented.
    - `python3 scripts/check_signatures.py <corpus>/item<N>` → **must exit 0** — Main's theorem signature
      still equals the frozen `data/statement.lean` (you did NOT weaken the statement).
 4. Run the SELF-REVIEW (below); fix anything; re-run the gate (still all green).
@@ -171,6 +172,13 @@ A discrepancy while mapping is one of two things:
     `@pistis_assumption`.
   □ Every `@pistis_assumption`: substring is verbatim from the segment, type is a genuine consumed INPUT
     (not a conjunct of this step's own claim); no `TODO` left.
+  □ ⛔ **You DELETED no `@pistis_assumption` marker.** Deleting one and making its premise an extra
+    conjunct of the claim is the one Atomicity break the older checks could not see — the text still
+    tiles, the claim is not `True`, no `TODO` remains — and `oai_math/item1` segment 1.7 shipped that
+    way. "A claim carrying only the conclusion leaves the premises with nothing to align against" is
+    NOT a reason: an assumption's formalization is its marker's TYPE, which is where it gets judged.
+    Check 6 now fails you for it. Delete a marker ONLY if the seeded substring is the segment's
+    ASSERT, and then `split.json` is what is wrong — stop and report it, do not edit around it.
   □ Claims are written in the formal statement's Mathlib idiom (same types/notation).
   □ **NO stray sorry** — the `@pistis_closer` line is replaced; every remaining `sorry` sits in a
     `pistis_segment` body or a `have := by sorry`; none in a tail `exact`/term.

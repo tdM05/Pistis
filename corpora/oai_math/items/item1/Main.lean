@@ -76,14 +76,12 @@ $D_\tau=D+\tau e_s e_j^{\mathsf T}$ is still supported on $T$,"
       r"so the entire old image $\im D$ is contained in $\im D_\tau$."
       (step6 : LinearMap.range D.mulVecLin ≤ LinearMap.range Dτ.mulVecLin) := by sorry
 
+    -- @pistis_assumption ("$y$ annihilates $\im D$", ∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0)
+    -- @pistis_assumption ("$y_s\ne0$", y s ≠ 0)
     pistis_segment "1.7"
       r"On the other hand, $y$ annihilates $\im D$ and $y_s\ne0$, so
 $e_s\notin\im D$."
-      -- The sentence ASSERTS all three: that `y` annihilates `im D`, that `y_s ≠ 0`, and the
-      -- `e_s ∉ im D` it draws from them. A claim carrying only the conclusion leaves the first two
-      -- clauses with nothing to align against, so the claim is the conjunction the sentence makes.
-      (step7 : (∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0) ∧ y s ≠ 0 ∧
-          (Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin) := by sorry
+      (step7 : (Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin) := by sorry
 
     pistis_segment "1.8"
       r"Therefore $\rank D_\tau>\rank D$,"
