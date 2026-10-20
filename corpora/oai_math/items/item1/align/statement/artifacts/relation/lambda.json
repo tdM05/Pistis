@@ -221,22 +221,6 @@
     [
       [
         "S_F",
-        11
-      ],
-      [
-        "S_N",
-        12
-      ]
-    ],
-    [
-      1,
-      "'among all real matrices supported on T' only compares `D` with that class if `D` is in it, which is what `hD` says."
-    ]
-  ],
-  [
-    [
-      [
-        "S_F",
         12
       ],
       [
@@ -247,54 +231,6 @@
     [
       1,
       "'has maximum rank' in that class: every matrix supported on `T` has rank at most `D`'s."
-    ]
-  ],
-  [
-    [
-      [
-        "S_F",
-        11
-      ],
-      [
-        "S_N",
-        13
-      ]
-    ],
-    [
-      1,
-      "'Suppose that' marks what follows as a hypothesis; `hD` is one of the two it introduces."
-    ]
-  ],
-  [
-    [
-      [
-        "S_F",
-        12
-      ],
-      [
-        "S_N",
-        13
-      ]
-    ],
-    [
-      1,
-      "And `hmax` is the other."
-    ]
-  ],
-  [
-    [
-      [
-        "S_F",
-        13
-      ],
-      [
-        "S_N",
-        14
-      ]
-    ],
-    [
-      1,
-      "'Then' marks the conclusion: in a signature, whatever follows the last `:`."
     ]
   ],
   [
@@ -375,32 +311,6 @@
     [
       [
         "S_F",
-        19
-      ],
-      "⊥"
-    ],
-    [
-      1,
-      "The prose does not say `s ∈ I`. It introduces `s` only as the first component of a pair in `T`, and `T\\subseteq I\\times J` is what makes that component an `I`."
-    ]
-  ],
-  [
-    [
-      [
-        "S_F",
-        20
-      ],
-      "⊥"
-    ],
-    [
-      1,
-      "The same for `j` as the second component."
-    ]
-  ],
-  [
-    [
-      [
-        "S_F",
         13
       ],
       [
@@ -424,6 +334,96 @@
     [
       1,
       "The proof body. This unit's target is the STATEMENT; the body is what the segments annotate."
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        11
+      ],
+      [
+        "S_N",
+        19
+      ]
+    ],
+    [
+      1,
+      ""
+    ]
+  ],
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        13
+      ]
+    ],
+    [
+      1,
+      ""
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        11
+      ],
+      [
+        "S_N",
+        12
+      ]
+    ],
+    [
+      1,
+      ""
+    ]
+  ],
+  [
+    [
+      "⊥",
+      [
+        "S_N",
+        14
+      ]
+    ],
+    [
+      1,
+      ""
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        19
+      ],
+      [
+        "S_N",
+        17
+      ]
+    ],
+    [
+      1,
+      ""
+    ]
+  ],
+  [
+    [
+      [
+        "S_F",
+        20
+      ],
+      [
+        "S_N",
+        17
+      ]
+    ],
+    [
+      1,
+      ""
     ]
   ]
 ]

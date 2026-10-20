@@ -6,8 +6,6 @@ open Matrix
 
 variable {I J : Type*} [Fintype I] [Fintype J]
 
-/-- A real matrix *supported on* `T ⊆ I × J`: its entries outside `T` are zero (entries in `T` are
-allowed to vanish). This is the paper's definition, stated in the paragraph preceding Lemma 3.2. -/
 def SupportedOn (T : Set (I × J)) (D : Matrix I J ℝ) : Prop :=
   ∀ s j, (s, j) ∉ T → D s j = 0
 
@@ -19,9 +17,6 @@ theorem kernel_support {T : Set (I × J)} {D : Matrix I J ℝ}
   (hy : y ∈ LinearMap.ker Dᵀ.mulVecLin)
   {s : I} {j : J} (hsj : (s, j) ∈ T) :
   x j * y s = 0 := by
-  -- `Matrix.single` / `Pi.single` need `DecidableEq` on the index types, which the statement does not
-  -- assume. Supplied here rather than in the signature: the statement must stay exactly as frozen in
-  -- `data/statement.lean`, and decidable equality on a `Fintype` is classically free anyway.
   classical
   pistis_intro "1.0"
     r"For finite index sets $I,J$, a matrix supported on
@@ -40,9 +35,6 @@ $(s,j)\in T$, one has $x_jy_s=0$."
       r"Suppose instead that $x_jy_s\ne0$."
       (step1 : x j * y s ≠ 0) := by sorry
 
-    -- Object introduction for segment 1.2 ("For a nonzero real $\tau$, the matrix $D_\tau$…"): the NL
-    -- fixes an arbitrary nonzero τ and names the perturbed matrix. Nothing downstream uses a VALUE of
-    -- τ, only `τ ≠ 0`, so an arbitrary witness keeps the remaining claims as general as the NL's.
     obtain ⟨τ, hτ⟩ : ∃ τ : ℝ, τ ≠ 0 := ⟨1, one_ne_zero⟩
     set Dτ : Matrix I J ℝ := D + τ • Matrix.single s j (1 : ℝ) with hDτ
     pistis_segment "1.2"
@@ -66,8 +58,7 @@ $D_\tau=D+\tau e_s e_j^{\mathsf T}$ is still supported on $T$,"
 \[
  Dw=D_\tau w-\tau w_j e_s\in\im D_\tau,
 \]"
-      -- The NL displays a CHAIN, `Dw = D_τw - τw_j e_s ∈ im D_τ`: two facts that cannot be sliced into
-      -- contiguous segments, so this is one segment whose assert is the whole chain (see split.json).
+
       (step5 : ∀ w : J → ℝ,
           (D.mulVec w = Dτ.mulVec w - (τ * w j) • (Pi.single s (1 : ℝ) : I → ℝ)) ∧
             D.mulVec w ∈ LinearMap.range Dτ.mulVecLin) := by sorry
@@ -92,5 +83,4 @@ $e_s\notin\im D$."
       (step9 : False) := by sorry
     exact step9
 
-  -- The reductio discharges the goal: `habsurd1` rules out `x j * y s ≠ 0`, which IS the goal.
   exact not_not.mp habsurd1
