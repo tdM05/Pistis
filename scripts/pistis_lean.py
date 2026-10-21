@@ -5,6 +5,12 @@ Recovers, in source order, the segments a scaffolded/mapped Main.lean records:
   - pistis_wts "loc" "text"
   - pistis_conclude "loc" "text"
   - pistis_segment "loc" "text" (name : claim) := by <body>
+  - pistis_assumption "loc" "text" (name : type) := by <body>
+
+A `pistis_assumption` is a premise a segment CONSUMES rather than asserts; it has the SAME shape as
+`pistis_segment` (and the same `(name : type) := by <body>` tail) but its `loc` is the loc of the
+`pistis_segment` that consumes it — several assumptions may share one `loc`, ordered by source
+position within it.
 
 The `text` stored in Main is a Lean RAW string literal produced by scaffold_main._lean_str (`r"…"`,
 or `r#"…"#` when the text itself contains a quote). A raw literal has no escapes, so the NL text in a
@@ -22,7 +28,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Tuple
 
-_TAC = re.compile(r"\bpistis_(intro|wts|conclude|segment)\b")
+_TAC = re.compile(r"\bpistis_(intro|wts|conclude|segment|assumption)\b")
 
 # A Lean raw string literal opener: `r"`, `r#"`, `r##"`, … The closing delimiter is `"` followed by
 # the SAME number of `#`, so the body can contain anything shorter than that.
@@ -150,8 +156,11 @@ def _skip_trivia(src: str, i: int) -> int:
 def parse_main(src: str) -> List[dict]:
     """Return the ordered list of pistis segments in `src` (a Main.lean's text).
 
-    Each dict has: kind ('intro'|'wts'|'conclude'|'segment'), loc, text, line. A 'segment' also has
-    name and claim.
+    Each dict has: kind ('intro'|'wts'|'conclude'|'segment'|'assumption'), loc, text, line. A
+    'segment' or 'assumption' also has name and claim — the two share the same
+    `"loc" "text" (name : claim) := by ...` tail, so they are parsed identically; the only
+    difference is the keyword matched. An 'assumption' entry's `loc` is the loc of the
+    `pistis_segment` it is wired to, not a loc of its own.
     """
     segs: List[dict] = []
     for m in _TAC.finditer(src):
@@ -164,7 +173,7 @@ def parse_main(src: str) -> List[dict]:
         q2 = _next_quote(src, after_loc)
         text, after_text = read_string_literal(src, q2)
         entry = {"kind": kind, "loc": loc, "text": text, "line": line}
-        if kind == "segment":
+        if kind in ("segment", "assumption"):
             # A comment may sit between the NL literal and the claim, explaining the formalization
             # choice; `(see split.json)` in one would otherwise be read as the claim's binder.
             popen = _skip_trivia(src, after_text)
@@ -176,29 +185,3 @@ def parse_main(src: str) -> List[dict]:
             entry["claim"] = " ".join(claim.split())
         segs.append(entry)
     return segs
-
-
-# `-- @pistis_assumption ("substring", TYPE)` annotation lines.
-_ASSUMPTION = re.compile(r'--\s*@pistis_assumption\s*\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*(.*?)\)\s*$', re.M)
-
-
-def parse_assumptions(src: str) -> List[dict]:
-    """Return every `-- @pistis_assumption ("text", TYPE)` as {text, type, line, start, end}.
-
-    `start`/`end` are character offsets of the marker itself, trailing whitespace excluded (the
-    pattern is anchored to end-of-line, so `m.end()` would swallow it). They exist because the
-    marker is a UNIT of the alignment — its text is NL the prose states and its TYPE is that
-    clause's formalization — so the UI has to be able to make the marker clickable where it is
-    written, exactly as it does a `pistis_segment` head.
-    """
-    out = []
-    for m in _ASSUMPTION.finditer(src):
-        text_raw = m.group(1).replace('\\"', '"').replace("\\\\", "\\")
-        out.append({
-            "text": text_raw,
-            "type": m.group(2).strip(),
-            "line": src.count("\n", 0, m.start()) + 1,
-            "start": m.start(),
-            "end": m.start() + len(m.group(0).rstrip()),
-        })
-    return out

@@ -8,14 +8,15 @@ asserts its claim and only its claim, so that proposition is the whole of what i
 against; anything else in `T_F` is text the prose was never answering, and padding a target is the one
 way to make an alignment look complete while the sentence is not actually being checked. For the
 `statement` unit it means the item's header plus the theorem signature, as `tf_norm.normalize_tf`
-flattens it. For an `asm-*` unit it means the TYPE on its `-- @pistis_assumption ("clause", TYPE)`
-marker, which is where a consumed premise's formalization lives.
+flattens it. For an `asm-*` unit it means the TYPE on its
+`pistis_assumption "<loc>" "clause" (name : TYPE) := by …` tactic, which is where a consumed
+premise's formalization lives.
 
 NL side, for segments. The target is the segment MINUS the substrings `split.json` lists under
 `assumptions`, one `…` left where each stood — the paper's `assert(s_i)`. This half is checked for
 the same reason the formal half is: a target that quietly keeps the premises in it is a target the
 claim cannot answer, and the way to make it answerable is to widen the claim into a conjunction,
-which breaks Atomicity (`check_main.py` check 6). So the subtraction is re-derived here from
+which breaks Atomicity (`check_main.py` check 5). So the subtraction is re-derived here from
 `Main.lean` + `split.json` and compared character for character.
 
 The check is deliberately INDEPENDENT of `pistis_proof.proof_outline`: the claims are re-read from
@@ -99,7 +100,7 @@ def _expected_nl(item_dir: Path) -> dict[str, str]:
 
 _NOUN = {
     "segment": "the claim inside `(stepK : …)`",
-    "assumption": "the TYPE on its `-- @pistis_assumption (\"clause\", TYPE)` marker",
+    "assumption": "the TYPE on its `pistis_assumption` tactic",
     "statement": "the theorem statement",
 }
 

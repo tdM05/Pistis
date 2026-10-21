@@ -89,7 +89,7 @@ and fill stages build after every segment, so budget accordingly.
    `assumptions` set and a single `assert`. Gated on byte-exact tiling of the source.
 2. **`/pistis-map`** — translation, not proving. One Lean claim type per segment; every body stays
    `:= by sorry`. Gated on tiling, no vacuous claim, no stray `sorry`, unchanged signature, and each
-   segment's `assumptions` still wired as `@pistis_assumption` markers rather than folded into the
+   segment's `assumptions` still wired as `pistis_assumption` tactics rather than folded into the
    claim (**Atomicity**: one assertion per segment).
 3. **`/pistis-fill-naive`** — proving. Each segment gets its own `step<K>.lean` backing lemma; `Main`
    delegates and supplies every hypothesis through `pistis_assumption`. Gated on zero `sorry`.
@@ -107,8 +107,8 @@ the point of measuring whether the NL argument itself formalizes.
 - `corpora/oai_math/items/item1` has been split and mapped (`split.json`, `Main.lean`) but not
   filled: every claim is still `:= by sorry` and there are no `step<K>.lean` backing lemmas, so the
   Soundness condition is untested on it. The assumption phase has not run either — segment 1.7's two
-  `@pistis_assumption` types are stated and gated against `split.json`, but nothing has yet tried to
-  close them as `have`s, so its assumption gaps are unmeasured.
+  `pistis_assumption` tactics have their types stated and gated against `split.json`, but their
+  `:= by sorry` bodies have not been proved, so its assumption gaps are unmeasured.
 
 ## The NL source format
 
@@ -153,15 +153,16 @@ Two gates hold this, because checks on string *values* cannot see the difference
 said something the paper never did and Ctrl-F found nothing:
 
 ```sh
-python3 ../../scripts/check_main.py items/item1   # check 5: each segment's NL text, verbatim in Main.lean
+python3 ../../scripts/check_main.py items/item1   # check 4: each segment's NL text, verbatim in Main.lean
 python3 scripts/check_nl_verbatim.py              # repo-wide: no file holds an NL line escaped
 ```
 
 `check_main.py` carries one more check of the same kind — a rule the skills state, that nothing
-enforced. Check 6 holds each segment's `@pistis_assumption` markers to `split.json`'s `assumptions`.
-Check 4 rejects a marker left as `TODO`, so the one way to break **Atomicity** that no gate could see
-was to DELETE the marker and fold its premise into the claim as an extra conjunct — which
-`items/item1` segment 1.7 did, past all five other checks.
+enforced. Check 5 holds each segment's `pistis_assumption` tactics to `split.json`'s `assumptions`.
+Check 2 rejects an assumption left as `True` (the unfilled-placeholder sentinel, same as a segment's
+own claim), so the one way to break **Atomicity** that no gate could see was to DELETE the
+`pistis_assumption` and fold its premise into the claim as an extra conjunct — which `items/item1`
+segment 1.7 did, past every other check (before `pistis_assumption` was a tactic at all).
 
 The second is Ctrl-F with nothing in between: for every line of every `data/nl_*.txt`, no file may
 contain that line with its backslashes doubled unless it also contains the line itself. A value check

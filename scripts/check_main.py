@@ -6,19 +6,24 @@ FAITHFUL by the paper's conditions that survive into Main:
 
   1. coverage — the `pistis_*` segment texts recovered from Main tile the item's NL source BYTE-FOR-BYTE
      (statement/intro == nl_statement.txt; the joined non-intro segments == nl_proof.txt), and in the SAME order
-     and locators the scaffold stamped (the map agent must never edit text/locator/order);
-  2. no vacuous claim — no `pistis_segment` claim is `True` (RULE 2: every reasoning segment asserts
-     something);
-  3. no stray sorry — every `sorry` sits in a `pistis_segment := by sorry` body or a `have … := by
-     sorry`; in particular the scaffold's `@pistis_closer` placeholder line must be GONE;
-  4. no unfilled assumption — no `@pistis_assumption (..., TODO)` remains;
-  5. verbatim bytes — each segment's NL text occurs in `Main.lean` AS ITSELF, i.e. it is stored in a
-     raw literal `r"…"`. Check 1 only compares decoded VALUES, so an escaped `"…\\\\subseteq…"` passes
-     it while the file says something the paper does not and Ctrl-F finds nothing; 5 is the check on
-     the bytes, which nothing here had before.
-  6. assumptions wired — every `assumptions` entry a segment has in `split.json` is still a
-     `-- @pistis_assumption ("entry", TYPE)` line on THAT segment, and no segment carries one
-     `split.json` does not list. Needs `split.json`, so it runs in the `<corpus>/item<N>` form only.
+     and locators the scaffold stamped (the map agent must never edit text/locator/order). A
+     `pistis_assumption`'s text is EXCLUDED from this tiling — it is a substring of the `pistis_segment`
+     it is wired to (same `loc`), already counted once there, and tiling it a second time would double
+     it.
+  2. no vacuous claim — no `pistis_segment` or `pistis_assumption` claim is `True` (RULE 2: every
+     reasoning segment asserts something, and `True` is the scaffold's unfilled-placeholder sentinel
+     for an assumption's type too);
+  3. no stray sorry — every `sorry` sits in a `pistis_segment`/`pistis_assumption := by sorry` body or
+     a `have … := by sorry`; in particular the scaffold's `@pistis_closer` placeholder line must be
+     GONE;
+  4. verbatim bytes — each segment's and each assumption's NL text occurs in `Main.lean` AS ITSELF,
+     i.e. it is stored in a raw literal `r"…"`. Check 1 only compares decoded VALUES, so an escaped
+     `"…\\\\subseteq…"` passes it while the file says something the paper does not and Ctrl-F finds
+     nothing; this is the check on the bytes, which nothing here had before.
+  5. assumptions wired — every `assumptions` entry a segment has in `split.json` is still a
+     `pistis_assumption "<that segment's loc>" "entry" (name : TYPE) := by …` tactic sharing that
+     segment's `loc`, and no segment has one `split.json` does not list. Needs `split.json`, so it
+     runs in the `<corpus>/item<N>` form only.
 
 `lake env lean Main.lean` (that it ELABORATES) is a SEPARATE gate the map skill runs; this script is the
 build-free faithfulness half.
@@ -40,7 +45,7 @@ from typing import List, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from check_split import _compare, load_nl, tile  # the exact same tiling gate + loader as the split stage
-from pistis_lean import parse_main, parse_assumptions, raw_open
+from pistis_lean import parse_main, raw_open
 
 
 def _strip_comments_and_strings(src: str) -> str:
@@ -87,69 +92,68 @@ def _strip_comments_and_strings(src: str) -> str:
     return "".join(out)
 
 
-def _check_assumptions(main_src: str, segs: List[dict],
-                       segments: List[dict]) -> Tuple[bool, List[str]]:
-    r"""Check 6: `split.json`'s `assumptions` survive in Main as `@pistis_assumption` lines.
+def _check_assumptions(segs: List[dict], segments: List[dict]) -> Tuple[bool, List[str]]:
+    r"""Check 5: `split.json`'s `assumptions` survive in Main as `pistis_assumption` tactics.
 
     ATOMICITY is the paper's condition that a segment has a SINGLE assertion, with its premises as
     `assumps(s_i)` — "since P and Q, therefore R" has `assumps = {P, Q}` and `assert = R`. The split
     stage draws that line and `check_split.py` gates it; the map stage is then told (pistis-map RULE
-    3) that "a consumed premise is a `@pistis_assumption`, NEVER a conjunct of the claim".
+    3) that "a consumed premise is a `pistis_assumption`, NEVER a conjunct of the claim".
 
-    Nothing checked that it obeyed. Check 4 rejects an UNFILLED marker (`TODO`), so the one way to
-    break Atomicity that no gate could see was to DELETE the marker and fold its content into the
-    claim as an extra conjunct — which is what `oai_math/items/item1` segment 1.7 did:
+    Nothing checked that it obeyed. Check 2 rejects an UNFILLED assumption (`True`), so the one way
+    to break Atomicity that no gate could see was to DELETE the assumption and fold its content into
+    the claim as an extra conjunct — which is what `oai_math/items/item1` segment 1.7 did before this
+    tactic existed:
 
         (step7 : (∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0) ∧ y s ≠ 0 ∧
             (Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin)
 
     Three assertions in one claim where `split.json` says two premises and one assertion, with the
-    two `@pistis_assumption` lines `scaffold_main.py` had seeded gone. Every check above passed: the
-    text still tiles, the claim is not `True`, no `sorry` strays, no `TODO` remains, the bytes are
-    the paper's. A claim that silently absorbs its own premises also cannot be told from one that
-    proves them, and the assumption phase has nothing left to materialize as a `have`.
+    two assumptions `scaffold_main.py` had seeded gone. Every check above passed: the text still
+    tiles, the claim is not `True`, no `sorry` strays, the bytes are the paper's. A claim that
+    silently absorbs its own premises also cannot be told from one that proves them, and the
+    assumption phase has nothing left to materialize as a `have`.
 
-    A marker belongs to the first `pistis_*` tactic DECLARED BELOW IT, which is where
-    `scaffold_main.py` emits it. Order matters too: the markers on a segment must read in
-    `split.json`'s order, so a diff of the two is a diff of two lists.
+    A `pistis_assumption` is owned by the `pistis_segment` sharing its `loc` — enforced by Lean
+    itself now (`pistis_assumption`'s elaboration records that `loc`), so attribution is a plain
+    dict lookup rather than "the first tactic declared below it". Order matters too: the assumptions
+    on a segment must read in `split.json`'s order, so a diff of the two is a diff of two lists.
 
-    The units paired here are ALL the non-intro segments, not just the reasoning ones. A structural
-    `pistis_conclude` carries no `assumptions` (`check_split.py`'s `_STRUCTURAL_ROLES`), so it
-    contributes an empty list and must still hold no marker — and pairing by `kind == "segment"`
-    instead silently desynchronized the two lists for any item that has a conclusion, which made
-    this whole check bail out on `proofnet_verified/item1`.
+    The units paired here are ALL the non-intro, non-assumption segments — i.e. every entry
+    `parse_main` returns except `pistis_intro` and `pistis_assumption`. A structural `pistis_conclude`
+    carries no `assumptions` (`check_split.py`'s `_STRUCTURAL_ROLES`), so it contributes an empty list
+    and must still have no assumption wired to its `loc` — and pairing by `kind == "segment"` instead
+    silently desynchronized the two lists for any item that has a conclusion, which made this whole
+    check bail out on `proofnet_verified/item1`.
     """
-    rest_main = segs[1:]
+    rest_main = [s for s in segs[1:] if s["kind"] != "assumption"]
     rest = segments[1:]
     if len(rest_main) != len(rest):
         return True, []                    # check 1 already reported the mismatch; don't pile on
 
-    starts = [s["line"] for s in rest_main]
-    marks: List[List[dict]] = [[] for _ in rest_main]
-    errors: List[str] = []
-    for a in parse_assumptions(main_src):
-        nxt = next((i for i, ln in enumerate(starts) if ln > a["line"]), None)
-        if nxt is None:
-            errors.append(f"  line {a['line']}: @pistis_assumption (\"{a['text']}\", …) sits below "
-                          f"every pistis_* tactic, so it marks no segment")
-        else:
-            marks[nxt].append(a)
+    by_loc: dict[str, List[dict]] = {}
+    for a in segs:
+        if a["kind"] == "assumption":
+            by_loc.setdefault(a["loc"], []).append(a)
 
-    n, unattributed = 0, 0
-    for seg, split_seg, got in zip(rest_main, rest, marks):
+    n, unattributed, errors = 0, 0, []
+    claimed = set()
+    for seg, split_seg in zip(rest_main, rest):
         want = list(split_seg.get("assumptions") or [])
+        got = by_loc.get(seg["loc"], [])
+        claimed.add(seg["loc"])
         # An EMPTY text is the documented marker for a consumed input the prose does not state
-        # (pistis-fill-naive: `pistis_assumption "" (show TYPE; assumption)`). `split.json` can only
-        # list assumptions it can quote — `check_split.py` holds every entry to being a substring of
-        # the segment — so an unattributed input has no entry to match and is not an "extra" one.
+        # (`pistis_assumption "<loc>" "" (… : …) := by …`). `split.json` can only list assumptions it
+        # can quote — `check_split.py` holds every entry to being a substring of the segment — so an
+        # unattributed input has no entry to match and is not an "extra" one.
         have = [a["text"] for a in got if a["text"]]
         unattributed += sum(1 for a in got if not a["text"])
         n += len(want)
         if have == want:
             continue
         errors.append(f"  loc {seg['loc']} ({seg.get('name') or 'pistis_' + seg['kind']}, line "
-                      f"{seg['line']}): @pistis_assumption lines do not match split.json's "
-                      f"`assumptions`")
+                      f"{seg['line']}): pistis_assumption \"{seg['loc']}\" … tactics do not match "
+                      f"split.json's `assumptions`")
         for t in want:
             if t not in have:
                 errors.append(f"      MISSING  (\"{t}\", TYPE)  — split.json lists it as an "
@@ -162,19 +166,24 @@ def _check_assumptions(main_src: str, segs: List[dict],
         if sorted(have) == sorted(want):
             errors.append(f"      (same set, wrong order: split.json says {want})")
 
+    for loc in by_loc:
+        if loc not in claimed:
+            errors.append(f"  loc {loc}: pistis_assumption tactic(s) at this loc have no matching "
+                          f"pistis_segment / structural tactic")
+
     if errors:
-        return False, ["@pistis_assumption lines out of step with split.json "
-                       "(ATOMICITY: the claim is the `assert`; each `assumptions` entry is a "
-                       "marker):"] + errors
+        return False, ["pistis_assumption tactics out of step with split.json "
+                       "(ATOMICITY: the claim is the `assert`; each `assumptions` entry is its own "
+                       "pistis_assumption):"] + errors
     extra = f", {unattributed} unattributed (\"\")" if unattributed else ""
-    return True, [f"assumptions wired: {n} @pistis_assumption line(s) match split.json{extra}"]
+    return True, [f"assumptions wired: {n} pistis_assumption tactic(s) match split.json{extra}"]
 
 
 def check_main(main_src: str, nl_statement: str, nl_proof: str,
                segments: List[dict] | None = None) -> Tuple[bool, List[str]]:
     """Pure faithfulness check of a mapped Main.lean. Returns (ok, message-lines).
 
-    `segments` is `split.json`'s array; pass None to skip check 6, which is the only check that
+    `segments` is `split.json`'s array; pass None to skip check 5, which is the only check that
     needs it.
     """
     segs = parse_main(main_src)
@@ -185,23 +194,28 @@ def check_main(main_src: str, nl_statement: str, nl_proof: str,
     lines: List[str] = []
     ok = True
 
-    # (1) coverage: intro == nl_statement; joined non-intro == nl_proof
+    # (1) coverage: intro == nl_statement; joined non-intro, non-assumption == nl_proof. A
+    # `pistis_assumption`'s text is a substring of the segment it is wired to (same `loc`), already
+    # counted there once — tiling it again would double it.
     if intro["kind"] != "intro":
         ok = False
         lines.append(f"segment 0 must be pistis_intro (the statement); got pistis_{intro['kind']}")
     ok_stmt, msg_stmt = _compare(intro["text"], nl_statement, "statement/intro")
-    rest = segs[1:]
+    rest = [s for s in segs[1:] if s["kind"] != "assumption"]
     ok_proof, msg_proof = tile([s["text"] for s in rest], nl_proof, "proof")
     lines += msg_stmt + msg_proof
     ok = ok and ok_stmt and ok_proof
 
-    # (2) no vacuous claim
-    vacuous = [s for s in segs if s["kind"] == "segment" and s["claim"].strip() == "True"]
+    # (2) no vacuous claim — on a segment OR an assumption. `True` is the scaffold's
+    # unfilled-placeholder sentinel for both: every reasoning segment asserts something (RULE 2), and
+    # every assumption has a real type, even if that type happens to be trivially true in substance
+    # (that is fine; literally `True` is reserved for "not yet filled").
+    vacuous = [s for s in segs if s["kind"] in ("segment", "assumption") and s["claim"].strip() == "True"]
     if vacuous:
         ok = False
         lines.append("vacuous claims (still `True` — RULE 2):")
         for s in vacuous:
-            lines.append(f"  line {s['line']}: {s['name']} : True   (loc {s['loc']})")
+            lines.append(f"  line {s['line']}: {s['name']} : True   (loc {s['loc']}, pistis_{s['kind']})")
 
     # (3) no stray sorry: a `sorry` is only allowed immediately after `:= by`
     code = _strip_comments_and_strings(main_src)
@@ -214,15 +228,8 @@ def check_main(main_src: str, nl_statement: str, nl_proof: str,
             lines.append(f"stray sorry at line {ln}: a sorry is only allowed as a `:= by sorry` body "
                          f"(the @pistis_closer placeholder must be replaced)")
 
-    # (4) no unfilled @pistis_assumption TODO
-    todos = [a for a in parse_assumptions(main_src) if a["type"] == "TODO"]
-    if todos:
-        ok = False
-        lines.append("unfilled @pistis_assumption TODO:")
-        for a in todos:
-            lines.append(f"  line {a['line']}: (\"{a['text']}\", TODO)")
-
-    # (5) VERBATIM BYTES: each segment's NL text must occur in Main.lean as itself.
+    # (4) VERBATIM BYTES: each segment's and each assumption's NL text must occur in Main.lean as
+    # itself.
     #
     # Check (1) compares string VALUES, which an ordinary `"…"` literal satisfies while the file on
     # disk reads `$T\\subseteq I\\times J$` — the value is right, the bytes are not, and `grep` or an
@@ -238,9 +245,9 @@ def check_main(main_src: str, nl_statement: str, nl_proof: str,
         for s in not_verbatim:
             lines.append(f"  line {s['line']}: loc {s['loc']} (pistis_{s['kind']})")
 
-    # (6) ASSUMPTIONS WIRED: split.json's assert/assumption line, kept in Main. See _check_assumptions.
+    # (5) ASSUMPTIONS WIRED: split.json's assert/assumption line, kept in Main. See _check_assumptions.
     if segments is not None:
-        ok_a, msg_a = _check_assumptions(main_src, segs, segments)
+        ok_a, msg_a = _check_assumptions(segs, segments)
         ok = ok and ok_a
         lines += msg_a
 

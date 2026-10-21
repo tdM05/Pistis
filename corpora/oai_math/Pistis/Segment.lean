@@ -43,8 +43,10 @@ structure SegmentEntry where
   mod  : String
   /-- Source line of the annotation (integer). -/
   line : Nat
-  /-- `"logical"` = a real proof step (`pistis_segment`, emits a `have`); `"structural"` =
-  enunciation / "we claim that" / QED boilerplate (`pistis_intro` / `pistis_conclude` /
+  /-- `"logical"` = a real proof step (`pistis_segment`, emits a `have`); `"assumption"` = a
+  premise a segment CONSUMES rather than asserts (`pistis_assumption`, also emits a `have`, with
+  `loc` equal to the consuming segment's — several assumptions may share one `loc`); `"structural"`
+  = enunciation / "we claim that" / QED boilerplate (`pistis_intro` / `pistis_conclude` /
   `pistis_wts`) that contributes its text to the criterion-1 concatenation but is NOT a logical
   step — it emits no `have`. -/
   kind : String
@@ -142,16 +144,33 @@ elab_rules : tactic
   | `(tactic| pistis_conclude $loc:str $txt:str) => recordStructural loc txt
   | `(tactic| pistis_wts $loc:str $txt:str)      => recordStructural loc txt
 
-/-- `pistis_assumption "source text" (tac)` — every wired hypothesis slot, in ONE fixed shape.
+/-- `pistis_assumption "loc" "source text" (name : type) := by tac`
 
-A string (documentary — Lean ignores it; the faithfulness checker reads it to confirm a reasoning
-citation is a substring of its sentence) followed by a single **bracket-delimited** tactic that is
-the actual proof. The brackets bound the proof unambiguously; the text is `"`-free by
-construction. -/
+A premise a segment CONSUMES rather than asserts (the paper's `assumps(sᵢ)`), as opposed to
+`pistis_segment`'s `assert(sᵢ)`. Same shape and elaboration as `pistis_segment` — expands to
+`have name : type := by tac`, so the proof term and local context are unchanged — with two
+differences recorded in the tuple: `kind := "assumption"`, and `loc` is the SAME locator as the
+`pistis_segment` that consumes it (several assumptions may share one `loc`; they are ordered by
+source position within it). Sharing `pistis_segment`'s exact shape — rather than a bare comment —
+is what lets a reader (or the UI) hover/open an assumption exactly like a segment, and what lets the
+map stage's `lake env lean` elaborate its `type` immediately instead of deferring that check. -/
 syntax (name := pistisAssumption)
-  "pistis_assumption" str tactic : tactic
+  "pistis_assumption " str str "(" ident " : " term ")" ":=" "by " tacticSeq : tactic
 
 elab_rules : tactic
-  | `(tactic| pistis_assumption $_:str $t:tactic) => evalTactic t
+  | `(tactic| pistis_assumption $loc:str $txt:str ($nm:ident : $ty:term) := by $tac) => do
+    let (posStr, modName, lineNo) ← refLoc
+    let typeStr := (ty.raw.reprint).getD (toString ty)
+    modifyEnv fun env => segmentExt.addEntry env {
+      loc  := loc.getString
+      text := txt.getString
+      type := typeStr
+      name := nm.getId.toString
+      pos  := posStr
+      mod  := modName
+      line := lineNo
+      kind := "assumption" }
+    -- Emit the real `have`; proof term and local context unchanged.
+    evalTactic (← `(tactic| have $nm:ident : $ty := by $tac))
 
 end Pistis

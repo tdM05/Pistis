@@ -15,7 +15,7 @@ Checked, per datapoint:
 | `T_N`                   | a byte-for-byte substring of `data/nl_{statement,proof}.txt`          |
 | `T_N` (gapped)          | every piece around a `…` verbatim, in order, in one source file       |
 | `T_F` (segment)         | the claim, verbatim in `Main.lean` up to whitespace                   |
-| `T_F` (assumption)      | the marker's type, verbatim on a `@pistis_assumption` COMMENT line    |
+| `T_F` (assumption)      | the `pistis_assumption`'s type, verbatim in `Main.lean` up to whitespace |
 | `T_F` (statement)       | every line verbatim and in source order; only `sorry` may be inserted |
 | `C_F.items[].signature` | a CONTIGUOUS substring of the line(s) it cites                         |
 | `C_N[].text`            | a substring of the NL source, as its own provenance claims            |
@@ -61,11 +61,9 @@ Two targets are shaped by the ASSUMPTION model and need their own rule here:
     including in the middle of a word, and the pieces would still all be "found". That the excised
     text is exactly the `assumptions` list is `check_targets.py`'s half, which re-derives the
     subtraction from `split.json`.
-  * An `asm-*` unit's `T_F` is the TYPE on a `-- @pistis_assumption ("clause", TYPE)` line, which is
-    a COMMENT — the one place in this gate where the blanked file is the wrong source. It is checked
-    against the marker lines of the raw file instead, and only those: a type that happens to appear
-    in a docstring is still not quotable, and one that appears in real code is not where the fill
-    stage will look for it.
+  * An `asm-*` unit's `T_F` is the TYPE on a `pistis_assumption "<loc>" "clause" (name : TYPE) :=
+    by …` tactic — real code now, not a comment, so it is checked against the same comment-blanked
+    `code` a segment's `T_F` is: a type that happens to appear in a docstring is still not quotable.
 
 Exit status: 0 when everything shown is in the source, 1 otherwise.
 Usage:
@@ -209,12 +207,8 @@ def _check_spans(path: Path, target: str) -> list[str]:
 
 
 def check_unit(art: Path, unit: str, blanked: list[str], code: str,
-               nl_sources: dict[str, str], markers: str = "") -> tuple[list[str], list[str], list[str]]:
-    """(errors, notes, verbose lines) for one datapoint's artifacts.
-
-    `markers` is the `@pistis_assumption` comment lines of the raw file, joined — the only source an
-    `asm-*` unit's `T_F` may be quoted from.
-    """
+               nl_sources: dict[str, str]) -> tuple[list[str], list[str], list[str]]:
+    """(errors, notes, verbose lines) for one datapoint's artifacts."""
     errors: list[str] = []
     notes: list[str] = []
     seen: list[str] = []
@@ -235,10 +229,10 @@ def check_unit(art: Path, unit: str, blanked: list[str], code: str,
 
     # ---- T_F: the claim, up to whitespace. The statement unit is several lines (header + theorem),
     # each of which must be found, in order; its `sorry` is the one token tf_norm puts in. An
-    # `asm-*` unit's type is written in a COMMENT, so for it the quotable source is the marker lines
-    # of the raw file rather than the blanked one (see the module docstring).
+    # `asm-*` unit's type is real code now (a `pistis_assumption` binder), so it is quoted from the
+    # same comment-blanked `code` a segment's claim is.
     tf = (art / "formal" / "T_F.lean").read_text(encoding="utf-8")
-    tf_src = markers if unit.startswith("asm-") else code
+    tf_src = code
     lines = [ln for ln in tf.splitlines() if ln.strip()] if unit == "statement" \
         else [_collapse(tf)]
     at = 0
@@ -257,10 +251,8 @@ def check_unit(art: Path, unit: str, blanked: list[str], code: str,
         pos = tf_src.find(want, at)
         if pos < 0:
             where = f"T_F line {k + 1}" if len(lines) > 1 else "T_F"
-            src = ("on any @pistis_assumption marker in Main.lean" if unit.startswith("asm-")
-                   else "in Main.lean")
-            errors.append(f"{where} is not {src}: {want[:70]!r}…" if len(want) > 70
-                          else f"{where} is not {src}: {want!r}")
+            errors.append(f"{where} is not in Main.lean: {want[:70]!r}…" if len(want) > 70
+                          else f"{where} is not in Main.lean: {want!r}")
         elif tf_src.find(want) < at and pos != tf_src.find(want, at):
             errors.append(f"T_F line {k + 1} is out of source order: {want[:50]!r}…")
         else:
@@ -323,11 +315,6 @@ def check_item(item_dir: Path) -> tuple[list[str], list[str], list[str]]:
     # is contiguous here, and nothing can be "found" in a docstring that merely discusses it.
     blanked = _code_lines(src)
     code = _collapse(" ".join(blanked))
-    # An assumption's TYPE is written in a comment, so `blanked` cannot hold it. Its quotable source
-    # is the marker lines themselves, and nothing else in the file — not an ordinary comment, not a
-    # docstring. Each line separately (not joined), so a type cannot be stitched across two markers.
-    markers = "\n".join(ln for ln in src.splitlines() if "@pistis_assumption" in ln)
-    markers = "\n".join(_collapse(ln) for ln in markers.splitlines())
     nl_sources = _nl_sources(item_dir)
     errors: list[str] = []
     notes: list[str] = []
@@ -337,7 +324,7 @@ def check_item(item_dir: Path) -> tuple[list[str], list[str], list[str]]:
         art = d / "artifacts"
         if not (art / "formal" / "T_F.lean").exists():
             continue
-        e, n, s = check_unit(art, d.name, blanked, code, nl_sources, markers)
+        e, n, s = check_unit(art, d.name, blanked, code, nl_sources)
         errors += [f"{d.name}: {x}" for x in e]
         notes += [f"{d.name}: {x}" for x in n]
         seen += [f"{d.name:<10} {x}" for x in s]

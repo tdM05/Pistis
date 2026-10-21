@@ -24,18 +24,20 @@ python3 scripts/scaffold_main.py <corpus>/item<N>
 ```
 This writes `Main.lean` reusing the item's `data/statement.lean` header + theorem signature VERBATIM,
 then one `pistis_segment "<loc>" r"<text>" (stepN : True) := by sorry` per reasoning segment, the
-`pistis_intro`/`pistis_conclude` structural markers, `-- @pistis_assumption ("substring", TODO)` lines
-(seeded from each segment's `assumptions` set), and a marked trailing `sorry -- @pistis_closer`. **The
-TEXT is copied from `split.json`, so tiling is already byte-perfect — you must NEVER edit the segment
-text, locators, or ordering.** Your whole job is to replace each `True` with a real claim, each
-`@pistis_assumption` `TODO` with a real type, and the `@pistis_closer` line with the real closing.
+`pistis_intro`/`pistis_conclude` structural markers, `pistis_assumption "<loc>" r"<substring>" (asmN
+: True) := by sorry` tactics (seeded from each segment's `assumptions` set, sharing that segment's
+`loc`), and a marked trailing `sorry -- @pistis_closer`. **The TEXT is copied from `split.json`, so
+tiling is already byte-perfect — you must NEVER edit the segment text, locators, or ordering.** Your
+whole job is to replace each `True` with a real claim — including each `pistis_assumption`'s own
+`True` placeholder, with the real type of that premise — and the `@pistis_closer` line with the
+real closing.
 
 ⛔ **The NL is a Lean RAW literal — `r"…"` (or `r#"…"#`). Leave the `r` and the delimiters alone.**
 A raw literal has no escapes, so the file's bytes are the paper's bytes and `grep`/Ctrl-F for a
 sentence of the proof finds it. Rewriting it as an ordinary `"…"` forces you to double every LaTeX
 backslash (`\in` -> `\\in`); the decoded VALUE would still be right, so the coverage check would still
 report "reproduces source exactly" while the file says something the paper never did. `check_main.py`
-check 5 compares the BYTES and will fail you for it. Do not "fix" the quoting.
+check 4 compares the BYTES and will fail you for it. Do not "fix" the quoting.
 
 **Structural markers are ALREADY STAMPED for you** — you fill, you don't build the frame:
 - A **`wts`** segment ("We claim / it suffices to show …") comes out as `pistis_wts "<loc>" r"<text>"` —
@@ -55,19 +57,20 @@ produces the claim + dependency mistakes that surface late.
 **RULE 2 — EVERY CLAIM IS NON-VACUOUS AND CONTAINS ONLY WHAT THE SEGMENT ASSERTS.**
 - **No `True` / vacuous claim.** `True`, `x = x`, or any tautology is vacuous. Every reasoning segment
   asserts something — state THAT. (This guards the CLAIM slot `(stepN : …)` only. A trivially-true fact
-  is fine inside a `@pistis_assumption` marker; see that section.)
+  is fine as a `pistis_assumption`'s type — just not literally `True`, the scaffold's unfilled
+  placeholder; see that section.)
 - **⛔ NEVER RESTATE A GIVEN.** If your claim equals one of the theorem's hypotheses, it is VACUOUS: you
   have confused the segment's JUSTIFICATION for its ASSERTION. The claim is the NEW fact the segment
-  states; the consumed given is a `@pistis_assumption`. (This is the #1 real-world failure.)
+  states; the consumed given is a `pistis_assumption`. (This is the #1 real-world failure.)
 - The `assumptions` set and the single `assert` in `split.json` already draw the assertion-vs-assumption
-  line for you — the claim realizes the `assert`; each `assumptions` entry becomes a `@pistis_assumption`.
+  line for you — the claim realizes the `assert`; each `assumptions` entry becomes a `pistis_assumption`.
 
 **RULE 3 — FAITHFULNESS IS THE ONLY PRIORITY; DO NOT OPTIMIZE.**
 - **Never collapse a claim** to a logically-equivalent shorter / cleaner / more-provable form. State
   literally what the segment says, even if redundant or verbose. Do NOT simplify to make proving easier —
   that is the prove stage's problem, not yours.
 - **Assertion vs assumption.** The claim IS the segment's `assert`; a consumed premise is a
-  `@pistis_assumption`, never a conjunct of the claim, and the assertion is never hidden inside an
+  `pistis_assumption`, never a conjunct of the claim, and the assertion is never hidden inside an
   assumption.
 - **Negation placement (De Morgan).** For "X and Y do NOT …", the `∧` stays BETWEEN the parts and each
   `¬` sits on its OWN part — NEVER wrap a single `¬` around the whole conjunction (that flips `∧`→`∨`).
@@ -123,15 +126,19 @@ finished map has NO stray sorry.
 - Every `have … := by sorry` you add for a bridging/side fact is a legal deferred node (proved in the
   prove stage), NOT a stray sorry.
 
-## `@pistis_assumption` (INPUTS-ONLY)
-Each `-- @pistis_assumption ("substring", TODO)` line the scaffold seeded marks a prior fact this segment
-CONSUMES (from split's `assumptions` set). Replace `TODO` with the Lean type of that fact — the exact
-form of the hypothesis it becomes. These types are LOAD-BEARING (a later assumption phase materializes
-each as a `have` and a checker HARD-FAILS if one is dropped or retyped), so get the type right.
-- **INPUTS-ONLY:** a `@pistis_assumption` is a fact the step consumes — NOT a conjunct of the step's own
-  claim. If a seeded substring is actually the assertion, delete that line. When in doubt, drop it.
+## `pistis_assumption` (INPUTS-ONLY)
+Each `pistis_assumption "<loc>" r"<substring>" (asmN : True) := by sorry` tactic the scaffold seeded
+(sharing its segment's `<loc>`) marks a prior fact this segment CONSUMES (from split's `assumptions`
+set). Replace the `True` placeholder with the Lean type of that fact — the exact form of the
+hypothesis it becomes; leave the body `:= by sorry` (proving is a later stage, same as a segment's
+own claim). These types are LOAD-BEARING (a later fill stage proves each `pistis_assumption`'s body,
+materializing it as a `have`, and a checker HARD-FAILS if one is dropped or retyped), so get the
+type right.
+- **INPUTS-ONLY:** a `pistis_assumption` is a fact the step consumes — NOT a conjunct of the step's
+  own claim. If a seeded substring is actually the assertion, delete that tactic. When in doubt, drop it.
 - **Trivially-true inputs are OK here** (unlike claims): a definitional / trivially-true consumed input is
-  allowed and is often the faithful choice (it makes explicit that a hypothesis was consumed).
+  allowed and is often the faithful choice (it makes explicit that a hypothesis was consumed) — just
+  not literally `True`, which is the unfilled-placeholder sentinel.
 
 ## ⛔ OUTSIDE-SOURCE BUG → STOP AND REPORT (do NOT silently "fix" it)
 A discrepancy while mapping is one of two things:
@@ -149,15 +156,16 @@ A discrepancy while mapping is one of two things:
    a. Replace its `(stepN : True)` with the real claim (RULE 2/3; write it in the statement's Mathlib
       idiom). For a segment needing a **frame** (reductio / case-split), add the frame; bodies stay
       `:= by sorry`.
-   b. Fill any `@pistis_assumption` `TODO` on that segment (INPUTS-ONLY).
+   b. Fill any `pistis_assumption`'s `True` placeholder on that segment (INPUTS-ONLY).
    c. Keep going — do NOT one-shot. When a small batch is filled, BUILD (see gate).
 3. **HARD GATE — you may NOT finish until ALL of these pass. Loop: fix → re-run → repeat.**
-   - `lake env lean <corpus>/item<N>/Main.lean` → **must succeed** (Main ELABORATES; only expected
-     `declaration uses 'sorry'` warnings from the `:= by sorry` bodies remain — and the `@pistis_closer`
-     line must be GONE, replaced by the real closing).
-   - `python3 scripts/check_main.py <corpus>/item<N>` → **must exit 0** — perfect tiling, **ZERO `True`**,
-     no stray sorry, `@pistis_assumption` types filled (no `TODO`), and check 6: every `assumptions`
-     entry in `split.json` is still a marker on its segment, none deleted and none invented.
+   - `lake env lean <corpus>/item<N>/Main.lean` → **must succeed** (Main ELABORATES — which now also
+     typechecks every `pistis_assumption`'s type immediately; only expected `declaration uses 'sorry'`
+     warnings from the `:= by sorry` bodies remain — and the `@pistis_closer` line must be GONE,
+     replaced by the real closing).
+   - `python3 scripts/check_main.py <corpus>/item<N>` → **must exit 0** — perfect tiling, **ZERO
+     `True`** on any segment OR assumption, no stray sorry, and check 5: every `assumptions` entry in
+     `split.json` is still a `pistis_assumption` on its segment, none deleted and none invented.
    - `python3 scripts/check_signatures.py <corpus>/item<N>` → **must exit 0** — Main's theorem signature
      still equals the frozen `data/statement.lean` (you did NOT weaken the statement).
 4. Run the SELF-REVIEW (below); fix anything; re-run the gate (still all green).
@@ -169,16 +177,17 @@ A discrepancy while mapping is one of two things:
   □ No `True` and no vacuous/tautological claim on any reasoning segment; only intro/wts/conclusion carry
     none. Reductio contradiction → `False`; a negation → `¬ …`.
   □ **No claim RESTATES A GIVEN** — that is the assertion-vs-justification confusion; the given belongs in
-    `@pistis_assumption`.
-  □ Every `@pistis_assumption`: substring is verbatim from the segment, type is a genuine consumed INPUT
-    (not a conjunct of this step's own claim); no `TODO` left.
-  □ ⛔ **You DELETED no `@pistis_assumption` marker.** Deleting one and making its premise an extra
+    `pistis_assumption`.
+  □ Every `pistis_assumption`: substring is verbatim from the segment, type is a genuine consumed INPUT
+    (not a conjunct of this step's own claim); no `True` placeholder left, body is `:= by sorry`.
+  □ ⛔ **You DELETED no `pistis_assumption`.** Deleting one and making its premise an extra
     conjunct of the claim is the one Atomicity break the older checks could not see — the text still
-    tiles, the claim is not `True`, no `TODO` remains — and `oai_math/item1` segment 1.7 shipped that
-    way. "A claim carrying only the conclusion leaves the premises with nothing to align against" is
-    NOT a reason: an assumption's formalization is its marker's TYPE, which is where it gets judged.
-    Check 6 now fails you for it. Delete a marker ONLY if the seeded substring is the segment's
-    ASSERT, and then `split.json` is what is wrong — stop and report it, do not edit around it.
+    tiles, the claim is not `True` — and `oai_math/item1` segment 1.7 shipped that way (before
+    `pistis_assumption` was a tactic). "A claim carrying only the conclusion leaves the premises with
+    nothing to align against" is NOT a reason: an assumption's formalization is its own TYPE, which
+    is where it gets judged. Check 5 now fails you for it. Delete a `pistis_assumption` ONLY if the
+    seeded substring is the segment's ASSERT, and then `split.json` is what is wrong — stop and
+    report it, do not edit around it.
   □ Claims are written in the formal statement's Mathlib idiom (same types/notation).
   □ **NO stray sorry** — the `@pistis_closer` line is replaced; every remaining `sorry` sits in a
     `pistis_segment` body or a `have := by sorry`; none in a tail `exact`/term.

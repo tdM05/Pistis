@@ -6,7 +6,7 @@ place where the formalization claims to say what the prose says:
 
     statement     the item's `nl_statement.txt`        <-> the Lean theorem statement
     seg-<loc>     one `pistis_segment`'s ASSERT         <-> that segment's Lean claim
-    asm-<loc>-<k> one of its `assumptions`             <-> that `@pistis_assumption`'s TYPE
+    asm-<loc>-<k> one of its `assumptions`             <-> that `pistis_assumption`'s type
 
 Every unit is derived, never hand-maintained: edit `Main.lean` or `split.json` and the units move with
 it. `gen_datapoints.py` turns units into `artifacts/` skeletons; `ui/proof_pane.js` renders them in
@@ -40,7 +40,7 @@ could only take ⊥ edges, and a ⊥ edge says "the formalization does not say t
 twice over: the premise IS formalized, in the marker's TYPE, and *this* unit was never the place
 that formalization was supposed to appear. Worse, the pressure it creates is to widen the claim into
 a conjunction so the premises have something to align against, which is precisely the Atomicity
-break `check_main.py` check 6 now exists to stop (`items/item1` segment 1.7 shipped that way).
+break `check_main.py` check 5 now exists to stop (`items/item1` segment 1.7 shipped that way).
 
 The `GAP` is kept rather than closed up, and it carries a span and a ⊥ edge like any other
 character: a reader of the segment's unit should see WHERE a premise was lifted out, and follow it to
@@ -48,10 +48,12 @@ the `asm-*` unit that holds it. Dropping it silently would make the sentence rea
 never stated the premise at all.
 
 `asm-*` is that unit: `T_N` is the assumption clause, verbatim as `split.json` quotes it out of the
-segment, and `T_F` is the Lean type on its `-- @pistis_assumption ("…", TYPE)` marker. This is the
-pair the paper's Atomic Faithfulness condition quantifies over (`∀ a ∈ assumps(s_i), formal(a) is
-faithful`), and until these units existed it was the one condition with nothing on disk to check.
-Assumption units carry no `C_F`: a marker introduces nothing, it consumes.
+segment, and `T_F` is the Lean type on its `pistis_assumption "<loc>" "…" (name : TYPE) := by …`
+tactic — a real tactic now, sharing the consuming segment's `loc`, rather than a `--` comment. This
+is the pair the paper's Atomic Faithfulness condition quantifies over (`∀ a ∈ assumps(s_i),
+formal(a) is faithful`), and until these units existed it was the one condition with nothing on disk
+to check. Assumption units carry no `C_F`: an assumption introduces nothing for the FOLLOWING
+segment to use as context (it is consumed by the segment it is wired to, via the `have` it emits).
 
 What the sentence INTRODUCES is formal context. "For a nonzero real τ, the matrix D_τ = D + τ e_s e_jᵀ
 is still supported on T" is formalized partly by the `obtain`/`set` lines above the tactic, and a
@@ -111,7 +113,7 @@ if str(PISTIS_SCRIPTS) not in __import__("sys").path:
 # `parse_main` reads, and a second copy of that pattern here could silently drift from the one the
 # checkers use.
 from pistis_lean import (                              # noqa: E402
-    parse_main, parse_assumptions, read_string_literal, _TAC as _TACTIC_RE,
+    parse_main, read_string_literal, _TAC as _TACTIC_RE,
 )
 
 # What a removed assumption leaves behind in a segment's NL target. U+2026, one character, and it
@@ -323,63 +325,60 @@ def source_anchors(src: str) -> dict[str, list[int]]:
 
     A unit's region is its tactic invocation's HEAD — the keyword, the loc, and the NL string literal
     (`pistis_segment "1.3" "and \\[…\\]"`), which is contiguous in the source and is where `T_N` is
-    read from. The claim after it is left alone.
-
-    An `asm-*` unit's region is its whole `-- @pistis_assumption ("clause", TYPE)` marker, on the
-    same principle: that marker is where BOTH of its targets are written, the clause being `T_N` and
-    the type `T_F`. A marker is a comment, so this has to run on the RAW source — `_code_lines`
-    blanks it, which is why `C_F` can never see one and why these are units rather than context.
+    read from. The claim after it is left alone. An `asm-*` unit's region is its
+    `pistis_assumption "<loc>" "clause" (name : TYPE) := by …` HEAD, on the same principle — same
+    shape as a segment's, since both of its targets (the clause as `T_N`, the type as `T_F`) are
+    written there too — numbered `k` within their shared `loc`, in source order, to match
+    `assumption_markers`.
     """
     def u16(i: int) -> int:
         return _utf16_len(src[:i])
 
     heads: dict[str, list[int]] = {}
+    asm_seen: dict[str, int] = {}
     for m in _TACTIC_RE.finditer(src):
         q = src.index('"', m.end())                 # the loc literal
         loc, after_loc = read_string_literal(src, q)
         q2 = src.index('"', after_loc)              # the NL text literal
-        _, after_text = read_string_literal(src, q2)
+        txt, after_text = read_string_literal(src, q2)
         kind = m.group(1)
         if kind == "intro":
             heads["statement"] = [u16(m.start()), u16(after_text)]
         elif kind == "segment":
             heads[f"seg-{loc}"] = [u16(m.start()), u16(after_text)]
+        elif kind == "assumption" and txt:
+            # An EMPTY text (`pistis_assumption "<loc>" ""`) is the documented form for an input the
+            # prose does not state — no NL clause to make a target out of, so no unit to open; it does
+            # not consume a `k` slot (see `assumption_markers`).
+            k = asm_seen.get(loc, 0)
+            asm_seen[loc] = k + 1
+            heads[f"asm-{loc}-{k}"] = [u16(m.start()), u16(after_text)]
         # pistis_wts / pistis_conclude carry NL but assert nothing, so they have no datapoint to open.
-    for uid, a in assumption_markers(src).items():
-        heads[uid] = [u16(a["start"]), u16(a["end"])]
     return heads
 
 
 def assumption_markers(src: str) -> dict[str, dict]:
-    """`{asm-<loc>-<k>: marker}` for every `@pistis_assumption` in `Main.lean`, in source order.
+    """`{asm-<loc>-<k>: {text, type, line}}` for every `pistis_assumption` in `Main.lean`.
 
-    A marker belongs to the first `pistis_*` tactic DECLARED BELOW IT — where `scaffold_main.py`
-    emits it, and the same attribution `check_main.py` check 6 uses to hold the markers to
-    `split.json`. `k` numbers them within their segment, in source order, so the ids line up with
-    that segment's `assumptions` list index for index.
+    `loc` is the `pistis_segment` it is wired to (several assumptions may share one `loc`), which
+    `pistis_assumption`'s own Lean elaboration records — so attribution is just reading it off
+    `parse_main`, no longer "the first tactic declared below it". `k` numbers them within their
+    `loc`, in source order, so the ids line up with that segment's `split.json` `assumptions` index
+    for index; `check_main.py` check 5 holds that pairing to `split.json`.
 
-    A marker with an EMPTY text is skipped: `pistis_assumption ""` is the documented form for an
-    input the prose does not state, so there is no NL clause to make a target out of and no unit to
-    open. It still has a type, and the fill stage still has to discharge it; it simply is not an
+    A marker with an EMPTY text is skipped: `pistis_assumption "<loc>" ""` is the documented form for
+    an input the prose does not state, so there is no NL clause to make a target out of and no unit
+    to open. It still has a type, and the fill stage still has to discharge it; it simply is not an
     alignment, because alignment needs two sides.
     """
-    locs: list[tuple[int, str]] = []
-    for pos in (m.start() for m in _TACTIC_RE.finditer(src)):
-        q = src.index('"', pos)
-        loc, _ = read_string_literal(src, q)
-        locs.append((pos, loc))
-
     out: dict[str, dict] = {}
     seen: dict[str, int] = {}
-    for a in parse_assumptions(src):
-        if not a["text"]:
+    for a in parse_main(src):
+        if a["kind"] != "assumption" or not a["text"]:
             continue
-        owner = next((loc for pos, loc in locs if pos > a["start"]), None)
-        if owner is None:
-            continue                                # an orphan below every tactic; check 6 reports it
-        k = seen.get(owner, 0)
-        seen[owner] = k + 1
-        out[f"asm-{owner}-{k}"] = a
+        k = seen.get(a["loc"], 0)
+        seen[a["loc"]] = k + 1
+        out[f"asm-{a['loc']}-{k}"] = {"text": a["text"], "type": a["claim"], "line": a["line"]}
     return out
 
 
@@ -466,8 +465,11 @@ def proof_outline(item_dir) -> dict:
         text = src_lines[line - 1] if 0 < line <= len(src_lines) else ""
         return max(0, (len(text) - len(text.lstrip())) - 2) // 2
 
-    # the `pistis_*` line each segment's object introductions are measured back to
-    tactic_lines = [0] + [s["line"] for s in segs]
+    # the `pistis_*` line each segment's object introductions are measured back to. `pistis_assumption`
+    # lines are EXCLUDED: an assumption sits between the previous segment's tactic and this one's, and
+    # counting it as a boundary would shrink the context window to just (assumption, segment) when an
+    # obtain/set/have ALSO sits before the assumption — cutting it out of this segment's `C_F`.
+    tactic_lines = [0] + [s["line"] for s in segs if s["kind"] != "assumption"]
 
     units: list[dict] = [{
         "id": "statement",
@@ -495,18 +497,19 @@ def proof_outline(item_dir) -> dict:
         assumps = list(entry.get("assumptions") or [])
 
         # The assumptions come FIRST, both on disk and in the panel, because that is where they are
-        # written: the markers sit above the tactic. Each is its own (clause, TYPE) pair — the paper's
-        # Atomic Faithfulness — and `check_main.py` check 6 is what guarantees the marker for
-        # `assumps[k]` is the one this names `asm-<loc>-<k>`.
+        # written: the `pistis_assumption` tactics sit above the segment's own tactic, sharing its
+        # `loc`. Each is its own (clause, TYPE) pair — the paper's Atomic Faithfulness — and
+        # `check_main.py` check 5 is what guarantees the assumption for `assumps[k]` is the one this
+        # names `asm-<loc>-<k>`.
         for k, text in enumerate(assumps):
             uid = f"asm-{seg['loc']}-{k}"
             mark = markers.get(uid)
             if mark is None or mark["text"] != text:
                 raise ValueError(
                     f"{uid}: split.json's assumption {text!r} has no matching "
-                    f"`-- @pistis_assumption` marker on segment {seg['loc']} in Main.lean "
+                    f"`pistis_assumption` tactic on segment {seg['loc']} in Main.lean "
                     f"(got {mark and mark['text']!r}). Run `check_main.py` — this is ATOMICITY: the "
-                    f"premise's formalization lives on that marker and nowhere else.")
+                    f"premise's formalization lives on that tactic and nowhere else.")
             units.append({
                 "id": uid,
                 "kind": "assumption",

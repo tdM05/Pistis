@@ -44,14 +44,15 @@ Conventions used throughout, so the per-edge reasons can stay specific:
     single assertion (Atomicity) and its `T_N` is the sentence MINUS the substrings `split.json`
     lists under `assumptions` — the paper's `assert(s_i)` — so a premise has neither a region of the
     claim to answer it nor a region of the prose to sit in. It gets a unit of its own, `asm-<loc>-<k>`,
-    whose `T_N` is the clause and whose `T_F` is the type on its `-- @pistis_assumption ("clause",
-    TYPE)` marker. That pair is what the paper's Atomic Faithfulness condition quantifies over.
+    whose `T_N` is the clause and whose `T_F` is the type on its `pistis_assumption "<loc>" "clause"
+    (name : TYPE) := by …` tactic. That pair is what the paper's Atomic Faithfulness condition
+    quantifies over.
     Only seg-1.7 has any, and the two below are the first assumptions in this corpus to be judged.
     Where a premise was lifted out, a single `…` is left, and it takes a ⊥ edge naming the unit that
     holds it: the segment's claim really does say nothing there, and a reader should be able to see
     where the sentence's premises went rather than find them silently deleted.
     Two earlier shapes are gone. First, the premises were conjuncts of the claim, so that they had
-    `S_F` regions to align against — which breaks Atomicity and is what `check_main.py` check 6 now
+    `S_F` regions to align against — which breaks Atomicity and is what `check_main.py` check 5 now
     rejects. Then they were ⊥-linked fragments of a `T_N` that was still the whole sentence, which
     reads as "the formalization does not say this" about a clause the marker does formalize.
   * LaTeX display delimiters (`\[`, `\]`) and sentence punctuation are linked to ⊥ as presentation.
@@ -437,7 +438,7 @@ u.ok(BOT, u.N("On the other hand,"),
 u.ok(BOT, u.N(GAP),
      r"Where `$y$ annihilates $\im D$` stood. `split.json` lists it under `assumptions`, so it is "
      "an INPUT to this step and not part of what the step asserts; its formalization is the type on "
-     "this segment's first `@pistis_assumption` marker and it is judged in the `asm-1.7-0` unit. "
+     "this segment's first `pistis_assumption` tactic and it is judged in the `asm-1.7-0` unit. "
      "The claim says nothing here, which is the correct reading of this gap and not a defect.")
 u.ok(BOT, u.N(("and", 2)),
      "The prose's 'and' joins the two premises that have just been lifted out. The claim has no "

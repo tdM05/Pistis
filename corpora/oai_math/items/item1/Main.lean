@@ -67,8 +67,10 @@ $D_\tau=D+\tau e_s e_j^{\mathsf T}$ is still supported on $T$,"
       r"so the entire old image $\im D$ is contained in $\im D_\tau$."
       (step6 : LinearMap.range D.mulVecLin ≤ LinearMap.range Dτ.mulVecLin) := by sorry
 
-    -- @pistis_assumption ("$y$ annihilates $\im D$", ∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0)
-    -- @pistis_assumption ("$y_s\ne0$", y s ≠ 0)
+    pistis_assumption "1.7" r"$y$ annihilates $\im D$"
+      (hyann : ∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0) := by sorry
+    pistis_assumption "1.7" r"$y_s\ne0$"
+      (hys : y s ≠ 0) := by sorry
     pistis_segment "1.7"
       r"On the other hand, $y$ annihilates $\im D$ and $y_s\ne0$, so
 $e_s\notin\im D$."

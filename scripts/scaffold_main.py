@@ -111,10 +111,14 @@ def build_body(segments: List[dict], index: int) -> List[str]:
         name = f"step{pos}"
         # a contradiction segment reaches `False`; every other reasoning segment starts `True`
         claim = "False" if kind == "contradiction" else "True"
-        # @pistis_assumption tags: one per consumed prior fact (the segment's `assumptions` set). The
-        # map agent fills each TODO type; the assumption phase later materializes them as `have`s.
-        for a in e.get("assumptions", []):
-            body.append(f'{sp()}-- @pistis_assumption ("{a}", TODO)')
+        # pistis_assumption tactics: one per consumed prior fact (the segment's `assumptions` set),
+        # with the SAME loc as the pistis_segment they are wired to. Each starts as a `True`
+        # placeholder with a `sorry` body, exactly like the segment's own claim — the map agent
+        # replaces `True` with the real type (`lake env lean` then elaborates it immediately), and a
+        # later fill stage replaces `sorry` with the real proof of that premise.
+        for i, a in enumerate(e.get("assumptions", [])):
+            body.append(f'{sp()}pistis_assumption "{index}.{pos}" {_lean_str(a)}')
+            body.append(f'{sp(1)}(asm{pos}_{i} : True) := by sorry')
         body.append(f'{sp()}pistis_segment "{index}.{pos}"')
         body.append(f'{sp(1)}{_lean_str(e["text"])}')
         body.append(f"{sp(1)}({name} : {claim}) := by sorry")

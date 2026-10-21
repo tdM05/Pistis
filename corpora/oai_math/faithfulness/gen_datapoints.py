@@ -23,7 +23,7 @@ Seeded, because it is DERIVED from files already gated as verbatim:
   * both targets — for a `seg-*` unit `T_N` is its sentence MINUS the substrings `split.json` lists
     under `assumptions` (a `…` left where each was), because the claim answers the segment's
     `assert` and not the premises it consumes, and `T_F` is that claim; for an `asm-*` unit the pair
-    is the assumption clause and the Lean type on its `-- @pistis_assumption` marker. Every piece of
+    is the assumption clause and the Lean type on its `pistis_assumption` tactic. Every piece of
     both is text `check_main.py` already gates verbatim against `data/nl_*.txt` / `Main.lean`;
   * `S_N[0]` — the unit's focus substring: `split.json`'s `assert`, the single thing the segment
     asserts, already gated as an exact substring of the segment's text by `check_split.py` (for an

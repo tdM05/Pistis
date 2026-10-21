@@ -22,7 +22,7 @@
     ],
     [
       1,
-      "Where `$y$ annihilates $\\im D$` stood. `split.json` lists it under `assumptions`, so it is an INPUT to this step and not part of what the step asserts; its formalization is the type on this segment's first `@pistis_assumption` marker and it is judged in the `asm-1.7-0` unit. The claim says nothing here, which is the correct reading of this gap and not a defect."
+      "Where `$y$ annihilates $\\im D$` stood. `split.json` lists it under `assumptions`, so it is an INPUT to this step and not part of what the step asserts; its formalization is the type on this segment's first `pistis_assumption` tactic and it is judged in the `asm-1.7-0` unit. The claim says nothing here, which is the correct reading of this gap and not a defect."
     ]
   ],
   [

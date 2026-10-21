@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 from check_main import check_main  # noqa: E402
-from pistis_lean import parse_main, parse_assumptions, read_string_literal  # noqa: E402
+from pistis_lean import parse_main, read_string_literal  # noqa: E402
 from scaffold_main import _lean_str  # noqa: E402
 
 STMT = "Prove $P$."
@@ -32,7 +32,7 @@ def _main(body: str) -> str:
 def _good_body(closer="  exact step2"):
     return (
         '  pistis_intro "1.0"\n    "Prove $P$."\n\n'
-        '  -- @pistis_assumption ("$a=b$", a = b)\n'
+        '  pistis_assumption "1.1" "$a=b$" (asm0 : a = b) := by sorry\n'
         '  pistis_segment "1.1"\n    "Since $a=b$, we get $x=y$."\n    (step1 : x = y) := by sorry\n\n'
         '  pistis_conclude "1.2"\n    "Thus $P$."\n\n'
         f"{closer}\n"
@@ -49,20 +49,26 @@ def test_read_string_literal_decodes_escapes():
 def test_parse_main_recovers_segments():
     segs = parse_main(_main(_good_body()))
     kinds = [s["kind"] for s in segs]
-    assert kinds == ["intro", "segment", "conclude"]
-    seg = segs[1]
+    assert kinds == ["intro", "assumption", "segment", "conclude"]
+    seg = segs[2]
     assert seg["loc"] == "1.1" and seg["name"] == "step1" and seg["claim"] == "x = y"
 
 
-def test_parse_assumptions():
-    a = parse_assumptions(_main(_good_body()))
-    assert len(a) == 1 and a[0]["text"] == "$a=b$" and a[0]["type"] == "a = b"
+def test_parse_main_recovers_assumption():
+    """A `pistis_assumption` is parsed exactly like a `pistis_segment` — same tail shape — except its
+    `loc` is the loc of the segment it is wired to, not a loc of its own."""
+    asm = parse_main(_main(_good_body()))[1]
+    assert asm["kind"] == "assumption"
+    assert asm["loc"] == "1.1"              # the loc of the pistis_segment it is wired to
+    assert asm["name"] == "asm0" and asm["claim"] == "a = b" and asm["text"] == "$a=b$"
 
 
 # --------------------------------------------------------------------------- PASS
 
 def test_mapped_passes():
     # note the proof tiling: "Since $a=b$, we get $x=y$." + " " + "Thus $P$."
+    # (the pistis_assumption's own text is NOT tiled — it is a substring of the segment's text,
+    # already counted there)
     ok, lines = check_main(_main(_good_body()), STMT, PROOF)
     assert ok, lines
 
@@ -71,6 +77,15 @@ def test_mapped_passes():
 
 def test_true_claim_fails():
     body = _good_body().replace("(step1 : x = y)", "(step1 : True)")
+    ok, lines = check_main(_main(body), STMT, PROOF)
+    assert not ok
+    assert any("vacuous" in l for l in lines)
+
+
+def test_true_assumption_fails():
+    """`True` is the scaffold's unfilled-placeholder sentinel for an assumption's type too — the map
+    agent must replace it with the real type, just like a segment's claim."""
+    body = _good_body().replace("(asm0 : a = b)", "(asm0 : True)")
     ok, lines = check_main(_main(body), STMT, PROOF)
     assert not ok
     assert any("vacuous" in l for l in lines)
@@ -87,13 +102,6 @@ def test_body_sorry_is_allowed():
     closer = "  have hbridge : x = y := by sorry\n  exact step2"
     ok, lines = check_main(_main(_good_body(closer=closer)), STMT, PROOF)
     assert ok, lines
-
-
-def test_todo_assumption_fails():
-    body = _good_body().replace('("$a=b$", a = b)', '("$a=b$", TODO)')
-    ok, lines = check_main(_main(body), STMT, PROOF)
-    assert not ok
-    assert any("TODO" in l for l in lines)
 
 
 def test_edited_text_breaks_tiling():
@@ -170,14 +178,16 @@ def test_raw_literal_hides_sorry_and_trailing_backslash_from_the_code_scan():
 #
 # ATOMICITY: a segment has a SINGLE assertion, its premises are `assumps`. `split.json` draws that
 # line; `Main.lean` must keep it. The way to break it that NO check could see was to delete a
-# `@pistis_assumption` marker and fold its content into the claim as an extra conjunct — check 4
-# only rejects a marker left as `TODO`, and a deleted one leaves nothing to reject.
+# `pistis_assumption` and fold its content into the claim as an extra conjunct — the vacuous-claim
+# check only rejects an assumption left as `True`, and a deleted one leaves nothing to reject.
 
 SPLIT = [
     {"role": "intro", "text": "Prove $P$."},
     {"text": "Since $a=b$, we get $x=y$.", "assumptions": ["$a=b$"], "assert": "we get $x=y$"},
     {"role": "conclusion", "text": "Thus $P$."},
 ]
+
+ASM0 = '  pistis_assumption "1.1" "$a=b$" (asm0 : a = b) := by sorry\n'
 
 
 def test_assumptions_wired_passes():
@@ -186,21 +196,21 @@ def test_assumptions_wired_passes():
     assert any("assumptions wired: 1" in l for l in lines)
 
 
-def test_deleted_assumption_marker_fails_while_every_other_check_passes():
+def test_deleted_assumption_fails_while_every_other_check_passes():
     """The regression this check exists for, in the shape it actually occurred.
 
-    `oai_math/items/item1` segment 1.7 dropped both markers and made the two premises conjuncts of
-    the claim. Asserting that coverage still PASSES is the load-bearing part: it pins down that the
-    other five checks cannot see this, so check 6 is doing work nothing else does.
+    `oai_math/items/item1` segment 1.7 dropped both assumptions and made the two premises conjuncts
+    of the claim. Asserting that coverage still PASSES is the load-bearing part: it pins down that
+    the other checks cannot see this, so the assumptions-wired check is doing work nothing else does.
     """
-    body = _good_body().replace('  -- @pistis_assumption ("$a=b$", a = b)\n', "")
+    body = _good_body().replace(ASM0, "")
     body = body.replace("(step1 : x = y)", "(step1 : a = b ∧ x = y)")
-    assert "@pistis_assumption" not in body
+    assert "pistis_assumption" not in body
 
     ok, lines = check_main(_main(body), STMT, PROOF, SPLIT)
     assert not ok
     assert any("reproduces source exactly" in l for l in lines)        # coverage is happy
-    assert not any("vacuous" in l or "TODO" in l or "not verbatim" in l or "stray" in l
+    assert not any("vacuous" in l or "not verbatim" in l or "stray" in l
                    for l in lines)                                     # so is everything else
     assert any("MISSING" in l and "$a=b$" in l for l in lines)
 
@@ -208,19 +218,19 @@ def test_deleted_assumption_marker_fails_while_every_other_check_passes():
     assert check_main(_main(body), STMT, PROOF)[0]
 
 
-def test_extra_named_assumption_fails():
-    body = _good_body().replace('("$a=b$", a = b)',
-                                '("$a=b$", a = b)\n  -- @pistis_assumption ("we get $x=y$", x = y)')
+def test_extra_assumption_fails():
+    body = _good_body().replace(
+        ASM0, ASM0 + '  pistis_assumption "1.1" "we get $x=y$" (asm1 : x = y) := by sorry\n')
     ok, lines = check_main(_main(body), STMT, PROOF, SPLIT)
     assert not ok
     assert any("EXTRA" in l and "we get $x=y$" in l for l in lines)
 
 
 def test_unattributed_empty_assumption_is_allowed():
-    """`pistis_assumption ""` is the documented marker for an input the prose does not state, so
+    """`pistis_assumption "<loc>" ""` is the documented form for an input the prose does not state, so
     `split.json` has no entry to match it against and it is not an extra."""
-    body = _good_body().replace('("$a=b$", a = b)',
-                                '("$a=b$", a = b)\n  -- @pistis_assumption ("", Nontrivial G)')
+    body = _good_body().replace(
+        ASM0, ASM0 + '  pistis_assumption "1.1" "" (asm1 : Nontrivial G) := by sorry\n')
     ok, lines = check_main(_main(body), STMT, PROOF, SPLIT)
     assert ok, lines
     assert any('1 unattributed ("")' in l for l in lines)
@@ -231,19 +241,22 @@ def test_assumption_order_must_match_split():
              {**SPLIT[1], "assumptions": ["Since $a=b$", "we get $x=y$"]},
              dict(SPLIT[2])]
     body = _good_body().replace(
-        '  -- @pistis_assumption ("$a=b$", a = b)\n',
-        '  -- @pistis_assumption ("we get $x=y$", x = y)\n'
-        '  -- @pistis_assumption ("Since $a=b$", a = b)\n')
+        ASM0,
+        '  pistis_assumption "1.1" "we get $x=y$" (asm0 : x = y) := by sorry\n'
+        '  pistis_assumption "1.1" "Since $a=b$" (asm1 : a = b) := by sorry\n')
     ok, lines = check_main(_main(body), STMT, PROOF, split)
     assert not ok
     assert any("wrong order" in l for l in lines)
 
 
-def test_marker_below_every_segment_is_an_orphan():
-    body = _good_body(closer='  -- @pistis_assumption ("$a=b$", a = b)\n  exact step2')
+def test_orphan_assumption_loc_is_reported():
+    """An assumption wired to a `loc` no `pistis_segment` (or structural tactic) carries is an orphan
+    — the analogue of the old "sits below every pistis_* tactic" case, now driven by `loc` equality
+    rather than source position."""
+    body = _good_body().replace(ASM0, '  pistis_assumption "9.9" "$a=b$" (asm9 : a = b) := by sorry\n')
     ok, lines = check_main(_main(body), STMT, PROOF, SPLIT)
     assert not ok
-    assert any("marks no segment" in l for l in lines)
+    assert any("no matching pistis_segment" in l for l in lines)
 
 
 def test_lean_str_round_trips_and_keeps_text_verbatim():

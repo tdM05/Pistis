@@ -235,7 +235,7 @@ function rerender(){
     }
   // one toolbar for the whole pane: overall progress, and the wrap toggle
   const bar = `<div class="ptoolbar">
-    <span class="mut">the proof — click a <code>pistis_</code> sentence or a <code>@pistis_assumption</code></span>
+    <span class="mut">the proof — click a <code>pistis_segment</code> or <code>pistis_assumption</code> sentence</span>
     <span class="grow"></span>
     <span class="mut">${done}/${total} done${missing ? ` · ${missing} without a datapoint` : ""}</span>
     <button id="backBtn" class="tiny" title="back to where you were before the last citation jump (alt+←)"></button>
