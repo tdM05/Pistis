@@ -1,0 +1,21 @@
+[
+  { "role": "intro", "text": "Show that if $G=\\langle x\\rangle$ is a cyclic group of order $n \\geq 1$ then a subgroup $H$ is maximal if and only $H=\\left\\langle x^{p}\\right\\rangle$ for some prime $p$ dividing $n$." },
+
+  { "text": "Suppose $H$ is a maximal subgroup of $G$.", "objects_introduced": ["$H$"], "assumptions": [], "assert": "$H$ is a maximal subgroup of $G$", "cite": null },
+  { "text": "Then $H$ is cyclic, and we may write $H=\\left\\langle x^k\\right\\rangle$ for some integer $k$, with $k>1$.", "objects_introduced": ["$k$"], "assumptions": ["$H$ is cyclic"], "assert": "$H=\\left\\langle x^k\\right\\rangle$ for some integer $k$, with $k>1$", "cite": null },
+  { "text": "Let $d=(n, k)$.", "objects_introduced": ["$d$"], "assumptions": [], "assert": "$d=(n, k)$", "cite": null },
+  { "text": "Since $H$ is a proper subgroup, we know by Proposition 6 that $d>1$.", "assumptions": ["$H$ is a proper subgroup"], "assert": "$d>1$", "cite": { "text": "Proposition 6" } },
+  { "text": "Choose a prime factor $p$ of $d$.", "objects_introduced": ["$p$"], "assumptions": [], "assert": "a prime factor $p$ of $d$", "cite": null },
+  { "text": "If $k=p=d$ then $k \\mid n$ as required.\n\nIf, however, $k$ is not prime, then consider the subgroup $K=\\left\\langle x^p\\right\\rangle$.", "objects_introduced": ["$K$"], "assumptions": ["$k=p=d$"], "assert": "$k \\mid n$", "cite": null },
+  { "text": "Since $p$ is a proper divisor of $k$, it follows that $H<K$.", "assumptions": ["$p$ is a proper divisor of $k$"], "assert": "$H<K$", "cite": null },
+  { "text": "But $H$ is maximal, so we must have $K=G$.", "assumptions": ["$H$ is maximal"], "assert": "$K=G$", "cite": null },
+  { "text": "Again by Proposition 6 , we must then have $(p, n)=1$.", "assumptions": [], "assert": "$(p, n)=1$", "cite": { "text": "Proposition 6" } },
+  { "text": "However, $p$ divides $d$ which divides $n$, so $p \\mid n$ and $(p, n)=p>1$, a contradiction.", "assumptions": ["$p$ divides $d$ which divides $n$"], "assert": "a contradiction", "cite": null, "frame": { "kind": "contradiction" } },
+  { "text": "Therefore $k=p$ and the left-to-right implication holds.\nNow, for the converse, suppose $H=\\left\\langle x^p\\right\\rangle$ for $p$ a prime dividing $n$.", "objects_introduced": ["$H$", "$p$"], "assumptions": [], "assert": "$H=\\left\\langle x^p\\right\\rangle$ for $p$ a prime dividing $n$", "cite": null },
+  { "text": "If $H$ is not maximal then the first part of this exercise shows that there is a maximal subgroup $K$ containing $H$.", "objects_introduced": ["$K$"], "assumptions": ["$H$ is not maximal"], "assert": "there is a maximal subgroup $K$ containing $H$", "cite": { "text": "the first part of this exercise" }, "frame": { "kind": "reductio_open", "supposition": "$H$ is not maximal" } },
+  { "text": "Then $K=\\left\\langle x^q\\right\\rangle$.", "objects_introduced": ["$q$"], "assumptions": [], "assert": "$K=\\left\\langle x^q\\right\\rangle$", "cite": null },
+  { "text": "So $x^p \\in\\left\\langle x^q\\right\\rangle$, which implies $q \\mid p$.", "assumptions": ["$x^p \\in\\left\\langle x^q\\right\\rangle$"], "assert": "$q \\mid p$", "cite": null },
+  { "text": "But the only divisors of $p$ are 1 and $p$.", "assumptions": [], "assert": "the only divisors of $p$ are 1 and $p$", "cite": null },
+  { "text": "If $q=1$ then $K=G$ and $K$ cannot be a proper subgroup, and if $q=p$ then $H=K$ and $H$ cannot be a proper subgroup of $K$.", "assumptions": ["$q=1$", "$q=p$"], "assert": "$K$ cannot be a proper subgroup", "cite": null },
+  { "text": "This contradiction shows that $H$ is maximal.", "assumptions": ["This contradiction"], "assert": "$H$ is maximal", "cite": null, "frame": { "kind": "reductio_close", "closes": "$H$ is not maximal" } }
+]

@@ -335,10 +335,13 @@ are still machine-checked to be well-typed Lean about the right objects.
 | `model.py` | the primitive: UTF-16 spans, regions, coverage, edges, unit IO, `status`, `rollup`, marker parsing, `lift`/`ancestry`, `cn_text`/`cn_errors` |
 | `items/item1/Proof.lean` | the formal side: plain Lean, `--|` markers, `sorry` bodies |
 | `build.py` | seeds a tree — root targets, `S_F` from markers, `S_N` from `split.json`, edges where locs agree — and scaffolds a child per refinable edge (`C_N` left empty on purpose) |
-| `annotate_item1.py` | `item1`'s authored annotation: 11 units, 69 edges, 63 `C_N` citations on 42 regions, every region and citation named by the text it covers |
+| `annotate_item1.py` | `item1`'s authored annotation: 11 units, 70 edges, 63 `C_N` citations on 42 regions, every region and citation named by the text it covers |
 | `check.py` | the gate: nine checks, plus `--lean` and `--mutate` |
 | `ui/` | the viewer: `serve.py`, `index.html`, `app.js`, `style.css` |
 | `units/item1/**` | the annotation on disk — one directory per unit, children as subdirectories |
+| `items/item1_gt/Proof.lean` | GT's proof (`items/item1/_gt/MaxSupportKernel.lean`), flattened and `--|`-marked the same way |
+| `annotate_item1_gt.py` | `item1_gt`'s authored annotation: root-only, `C_N` lifted from `item1`'s unchanged (same paper), edges where GT's own content differs from `item1`'s |
+| `units/item1_gt/**` | that annotation on disk — see *`item1_gt` — the same alignment, against GT*, above |
 
 A unit directory holds exactly seven files, and `check.py` fails if it holds an eighth:
 
@@ -360,12 +363,45 @@ python3 kpistis/build.py item1              # seed from Proof.lean + split.json 
 python3 kpistis/annotate_item1.py           # write the authored annotation (--check to validate only)
 python3 kpistis/check.py                    # the gate
 python3 kpistis/check.py --lean             # ... and elaborate Proof.lean (needs lake)
-python3 kpistis/check.py --mutate           # ... and check the gate against 13 broken copies
+python3 kpistis/check.py --mutate           # ... and check the gate against 14 broken copies
 python3 kpistis/ui/serve.py                 # then open http://localhost:8010
 ```
 
 The three steps are reproducible in that order from an empty `units/`: `build.py --force` then
 `annotate_item1.py` reproduces the tree on disk byte for byte.
+
+`--mutate` only ever self-tests the `item1` fixture — `_mutations()` pokes hardcoded paths
+(`root/1.2/T_F.lean`, `root/1.4/C_N.json`, ...) because it is a self-test of the checker, not of any
+item. `check.py <item> --mutate` for any other item prints a message and exits rather than crashing
+on a missing path.
+
+## `item1_gt` — the same alignment, against GT
+
+`units/item1_gt` is `item1`'s tree again, with the SAME NL side (`T_N` is byte-identical — its
+`data/` is a copy of `item1`'s) and a DIFFERENT formal side: `kpistis/items/item1_gt/Proof.lean` is
+`items/item1/_gt/MaxSupportKernel.lean` (the paper's own repository's proof, not ours), flattened
+into one `--|`-marked proof the same way `annotate_item1.py` cuts the faithful one up.
+
+It exists to turn `items/item1/ai.md`'s prose findings about GT into checked edges instead of
+sentences. Four of `item1_gt/root`'s 15 edges are `v=0` (its rollup is `unfaithful`, where `item1`'s
+is `faithful`) and one `v=1` edge is a ⊥ worth reading precisely because it is a ⊥:
+
+| edge | verdict | what it locates |
+|---|---|---|
+| `supported` → `1.2` | 0 | GT's term is `D + Matrix.single s j (1 : ℝ)` — no `τ`, no scalar multiple. The sentence is universally quantified ("for a nonzero real τ"); GT proves only the τ = 1 instance. |
+| `identity` → `1.3` | 0 | Same narrowing, one step further in: `hEx` has no `τ` either. |
+| `early-hys` → `1.7` | 0 | `y s ≠ 0` is split.json's own assumption of segment 1.7, but GT proves it immediately after opening the reductio — lines before the sentence that states it. The fact is right; the location is not. |
+| `notmem` → `1.7` | 0 | `hnot` captures only the sentence's third clause (`e_s ∉ im D`). The first clause ("y annihilates im D") is never a named fact anywhere in GT — folded anonymously into `hnot`'s own proof — and the second (`y_s≠0`) is `early-hys`, already misplaced. |
+| `⊥` → `1.5` | 1 (⊥, correctly) | Nothing in `Proof.lean` answers "for every w, Dw = Dτw − τw_j e_s ∈ im Dτ" at all. GT's analogue is an anonymous local fact used once inside a different `have`'s proof, never a named top-level statement — so there is truly nothing to point `S_F` at, which is itself the finding. |
+
+Everything else — `hdr`/`tech`/the reductio open/the final `exact`/the shared `thm` signature — is
+exactly as faithful as `item1`'s, because GT does not touch those parts at all; `kernel_support`'s own
+wrapper (the one piece GT shares with the official statement) matches byte for byte.
+
+    python3 kpistis/build.py item1_gt                 # seed from Proof.lean + the copied split.json
+    python3 kpistis/annotate_item1_gt.py              # write (--check to validate only)
+    python3 kpistis/check.py item1_gt                 # the gate — PASS, rollup = unfaithful
+    python3 kpistis/check.py item1_gt --lean           # Proof.lean still elaborates (sorry expected)
 
 ### The gate
 
@@ -452,18 +488,18 @@ is re-indented.
 ## Where `item1` currently stands
 
 ```
-11 units, 69 edges, 63 C_N citations on 42 of 53 NL regions, rollup = faithful
+11 units, 70 edges, 63 C_N citations on 42 of 53 NL regions, rollup = faithful
 root               13 regions F / 11 N, 13 edges (2 ⊥)   F 1036/1036   N 811/811   21 C_N
 root/1.1 … 1.9     1–7 regions a side, 3–7 edges each    complete coverage    3–6 C_N each
 root/1.2/formula   4 F / 5 N, 5 edges                    F 24/24   N 24/24       6 C_N
 ```
 
-Every edge is judged (`v = 1`) with a written reason, and there are no crossings anywhere. 27 of the
-69 edges are ⊥ edges, which is the interesting number: 16 are places where Lean says something the
+Every edge is judged (`v = 1`) with a written reason, and there are no crossings anywhere. 29 of the
+70 edges are ⊥ edges, which is the interesting number: 17 are places where Lean says something the
 paper does not (`import Mathlib`, `classical`, `with hDτ`, the `have`-scaffolding of each step, the
-witness `⟨1, one_ne_zero⟩`), and 11 are places where the paper says something Lean does not (the
+witness `⟨1, one_ne_zero⟩`), and 12 are places where the paper says something Lean does not (the
 connectives — "Moreover,", "On the other hand,", "Therefore" — the `\[…\]` display delimiters, and
-one stray `$`). Nothing is silently dropped on either side; each of those 27 carries a sentence
+one stray `$`). Nothing is silently dropped on either side; each of those 29 carries a sentence
 saying why it corresponds to nothing.
 
 ## What a prototype has not settled

@@ -1,0 +1,28 @@
+You are grading two formalizations of a mathematical proof in the Lean theorem prover.
+
+A formalization is FAITHFUL if its structure mirrors the natural-language (NL) proof: the same intermediate steps, under the same assumptions, in the same order -- not merely a proof that reaches the same conclusion by some other route.
+
+Here is the NL statement being proved:
+---
+{stmt}
+---
+
+Here is the NL proof whose reasoning the Lean code is supposed to mirror:
+---
+{proof}
+---
+
+FORMALIZATION A:
+```lean
+{a}
+```
+
+FORMALIZATION B:
+```lean
+{b}
+```
+
+Which formalization follows the natural-language proof's reasoning more faithfully -- same steps, same assumptions, same order? If they are genuinely indistinguishable, you may say TIE, but only then.
+
+Respond with ONLY a JSON object on a single line, no prose, no code fence:
+{{"winner": "A" | "B" | "TIE", "reason": "<one sentence>"}}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!--
+  Drill-down over the real PDF.
+
+  ONE LEVEL AT A TIME. A "focus" node decides what is shown: only its DIRECT
+  CHILDREN are drawn as boxes on the page. You start focused on the whole paper,
+  so the boxes are its sections. Click a box with children -> drill in (its
+  children become the boxes). Click a box with none -> it's the smallest segment,
+  its text shows on the right. Breadcrumb / Up climb back out.
+
+  The file tree on the left is the same navigation by another means: click a row
+  to focus that node (identical to clicking its box).
+
+  Boxes come from SyncTeX (exact source rectangles) and tile the focused region.
+  Boxes are tinted only by depth, nothing else.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seymour — segments</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      onerror="window.__noKatex=true">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        onerror="window.__noKatex=true"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onerror="window.__noKatex=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <button id="up" class="btn">&#8679; up</button>
+  <nav id="crumbs" class="crumbs"></nav>
+  <div class="spacer"></div>
+  <label class="zoomlab">zoom
+    <input type="range" id="zoom" min="0.9" max="2.4" step="0.1" value="1.4"></label>
+</header>
+
+<main id="main">
+  <aside class="tree-pane">
+    <div class="pane-head">Contents</div>
+    <div id="tree" class="tree"></div>
+  </aside>
+
+  <section class="pdf-pane">
+    <div id="pdfScroll" class="pdf-scroll">
+      <div id="pages" class="pages"></div>
+    </div>
+  </section>
+
+  <aside class="info-pane">
+    <div id="info" class="info-inner"></div>
+  </aside>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

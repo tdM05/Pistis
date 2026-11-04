@@ -1,0 +1,217 @@
+[
+  [
+    {
+      "spans": [
+        [
+          242,
+          299
+        ]
+      ],
+      "why": "The finiteness of $I$ and $J$ is asserted HERE as well, inside the lemma, and Lean asserts it once — `variable {I J : Type*} [Fintype I] [Fintype J]`. So the `variable` line is in this region and in `thm`, shared exactly as in `item1/root` (same paper, same double statement)."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          923,
+          945
+        ]
+      ],
+      "why": "'has maximum rank among all real matrices supported on $T$' is the hypothesis `hmax`, but the paper never defines `rank` and writes it for the first and only time in the proof's last line — a forward reference, same as in `item1`."
+    },
+    {
+      "spans": [
+        [
+          29,
+          167
+        ]
+      ],
+      "why": "'supported on $T$' twice in one lemma, defined in the paragraph above."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          389,
+          494
+        ]
+      ],
+      "why": "The conclusion this negates — without it 'instead' names nothing. Same back-reference as `item1/root/1.1`."
+    },
+    {
+      "spans": [
+        [
+          947,
+          963
+        ]
+      ],
+      "why": "Where the reductio opened here is discharged, nine sentences later."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          29,
+          167
+        ]
+      ],
+      "why": "'is still supported on $T$' needs the definition from thirteen lines earlier."
+    },
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "What $D$ is — the maximum-rank matrix fixed by the lemma's hypothesis."
+    },
+    {
+      "spans": [
+        [
+          461,
+          473
+        ]
+      ],
+      "why": "Where $s$ and $j$ come from. $e_s$, $e_j^{\\mathsf T}$ are never defined anywhere in the paper — the nearest it comes is this binder."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "What $D_\\tau$ is, from the previous sentence; $D_\\tau x=\\tau x_j e_s$ is a computation from that definition."
+    },
+    {
+      "spans": [
+        [
+          399,
+          417
+        ]
+      ],
+      "why": "That $x\\in\\ker D$ is what makes the $D$ term of $D_\\tau x$ vanish; the paper never shows the cancellation."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          637,
+          666
+        ]
+      ],
+      "why": "The equation this concludes from, immediately above."
+    },
+    {
+      "spans": [
+        [
+          517,
+          529
+        ]
+      ],
+      "why": "The step needs $x_j\\ne0$ to divide by $\\tau x_j$ — from the reductio supposition, not from anywhere near this sentence."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          570,
+          605
+        ]
+      ],
+      "why": "What $D_\\tau$ is; $Dw=D_\\tau w-\\tau w_j e_s$ is that rearranged."
+    },
+    {
+      "spans": [
+        [
+          667,
+          691
+        ]
+      ],
+      "why": "Why the right-hand side lies in $\\im D_\\tau$: by definition and by the previous sentence."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          693,
+          770
+        ]
+      ],
+      "why": "The 'so' makes this a conclusion of the previous sentence, which is where all the content is."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          419,
+          449
+        ]
+      ],
+      "why": "That $y\\in\\ker D^{\\mathsf T}$ is why '$y$ annihilates $\\im D$' is true — eleven lines up."
+    },
+    {
+      "spans": [
+        [
+          517,
+          529
+        ]
+      ],
+      "why": "$y_s\\ne0$ is asserted flatly here, but it follows from the reductio supposition, not from anything nearby."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          771,
+          832
+        ]
+      ],
+      "why": "One half of 'Therefore': $\\im D\\subseteq\\im D_\\tau$."
+    },
+    {
+      "spans": [
+        [
+          667,
+          691
+        ],
+        [
+          894,
+          911
+        ]
+      ],
+      "why": "The other half: strictness of the inclusion."
+    }
+  ],
+  [
+    {
+      "spans": [
+        [
+          301,
+          388
+        ]
+      ],
+      "why": "The maximality that is contradicted, fifteen lines up."
+    },
+    {
+      "spans": [
+        [
+          606,
+          632
+        ]
+      ],
+      "why": "Why `hmax` applies to $D_\\tau$ at all — step 1.2."
+    }
+  ]
+]

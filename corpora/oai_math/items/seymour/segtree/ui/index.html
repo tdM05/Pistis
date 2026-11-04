@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<!--
+  Segmentation tree over the paper's LaTeX source.
+
+  DATA: a box = {file, start, end, children}; start/end are char offsets into
+  ONE untouched source file (src/<file>). No concatenation. Nesting = containment
+  within the same file.
+
+  LEFT: a file picker (main.tex, 00..05, references.bib) + the chosen file's EXACT
+  raw bytes. You select text and create boxes, like a normal editor.
+  MIDDLE: the box tree (toggle/navigate), separate from the file view.
+  RIGHT: the real PDF, highlighted by injecting \color into the source and
+  recompiling the whole paper. When a box is the active level, the PDF focuses
+  it: everything outside greyed, the active box black, its DIRECT children
+  colored.
+
+  Two modes: CREATE (select text -> new box, child of the active box) and
+  SELECT (click a box to make it the active level).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seymour — seg-tree</title>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Seymour · seg&#8209;tree</div>
+  <div class="modes">
+    <button id="mode-create" class="mode on">✎ create</button>
+    <button id="mode-select" class="mode">☞ select level</button>
+  </div>
+  <button id="mkbox" class="btn" disabled>+ box <kbd>n</kbd></button>
+  <span id="selinfo" class="selinfo"></span>
+  <div class="spacer"></div>
+  <button id="renderpdf" class="btn">Render PDF</button>
+  <button id="save" class="btn primary">Save</button>
+  <span id="status" class="status"></span>
+</header>
+
+<main id="main">
+  <aside class="tree-pane" id="pane1">
+    <div class="tabs">
+      <button id="tab-boxes" class="tab-btn on">Boxes</button>
+      <button id="tab-files" class="tab-btn">Files</button>
+    </div>
+    <!-- BOXES tab -->
+    <div id="panel-boxes" class="panel">
+      <div class="levelbar">current level: <span id="activelab" class="levelval"></span></div>
+      <div id="tree" class="tree"></div>
+    </div>
+    <!-- FILES tab: a real file tree with folders (mirrors src/ exactly) -->
+    <div id="panel-files" class="panel" hidden>
+      <div id="filetree" class="tree"></div>
+    </div>
+  </aside>
+
+  <div class="splitter" data-left="pane1" data-right="pane2"></div>
+
+  <aside class="file-pane" id="pane2">
+    <div class="pane-head">File &middot; <span class="dimlab" id="curfilelab"></span></div>
+    <div id="src" class="src"></div>
+  </aside>
+
+  <div class="splitter" data-left="pane2" data-right="pane3"></div>
+
+  <section class="pdf-pane" id="pane3">
+    <div class="pane-head">PDF &middot; <span class="dimlab">Render · Ctrl/⌘-click text to jump to its source</span></div>
+    <div id="pdfScroll" class="pdf-scroll"><div id="pages" class="pages"></div></div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

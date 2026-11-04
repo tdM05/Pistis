@@ -1,0 +1,74 @@
+[
+  {
+    "role": "intro",
+    "text": "For finite index sets $I,J$, a matrix supported on\n$T\\subseteq I\\times J$ means a real matrix whose entries outside $T$ are\nzero; entries in $T$ are allowed to vanish.\n\n\\begin{lemma}[Kernels at maximum support rank]\\label{lem:kernel-support}\nLet $T\\subseteq I\\times J$, where $I$ and $J$ are finite.  Suppose that\n$D:\\R^J\\to\\R^I$ has maximum rank among all real matrices supported on $T$.\nThen, for every $x\\in\\ker D$, every $y\\in\\ker D^{\\mathsf T}$, and every\n$(s,j)\\in T$, one has $x_jy_s=0$."
+  },
+  {
+    "text": "Suppose instead that $x_jy_s\\ne0$.",
+    "assumptions": [],
+    "assert": "$x_jy_s\\ne0$",
+    "cite": null,
+    "frame": {
+      "kind": "reductio_open",
+      "supposition": "$x_jy_s\\ne0$"
+    }
+  },
+  {
+    "text": "For a nonzero real $\\tau$, the matrix\n$D_\\tau=D+\\tau e_s e_j^{\\mathsf T}$ is still supported on $T$,",
+    "objects_introduced": [
+      "$\\tau$",
+      "$D_\\tau$"
+    ],
+    "assumptions": [],
+    "assert": "$D_\\tau=D+\\tau e_s e_j^{\\mathsf T}$ is still supported on $T$",
+    "cite": null
+  },
+  {
+    "text": "and\n\\[\n D_\\tau x=\\tau x_j e_s.\n\\]",
+    "assumptions": [],
+    "assert": "\\[\n D_\\tau x=\\tau x_j e_s.\n\\]",
+    "cite": null
+  },
+  {
+    "text": "Thus $e_s\\in\\im D_\\tau$.",
+    "assumptions": [],
+    "assert": "$e_s\\in\\im D_\\tau$",
+    "cite": null
+  },
+  {
+    "text": "Moreover, for every $w\\in\\R^J$,\n\\[\n Dw=D_\\tau w-\\tau w_j e_s\\in\\im D_\\tau,\n\\]",
+    "assumptions": [],
+    "assert": "for every $w\\in\\R^J$,\n\\[\n Dw=D_\\tau w-\\tau w_j e_s\\in\\im D_\\tau,\n\\]",
+    "cite": null
+  },
+  {
+    "text": "so the entire old image $\\im D$ is contained in $\\im D_\\tau$.",
+    "assumptions": [],
+    "assert": "the entire old image $\\im D$ is contained in $\\im D_\\tau$",
+    "cite": null
+  },
+  {
+    "text": "On the other hand, $y$ annihilates $\\im D$ and $y_s\\ne0$, so\n$e_s\\notin\\im D$.",
+    "assumptions": [
+      "$y$ annihilates $\\im D$",
+      "$y_s\\ne0$"
+    ],
+    "assert": "$e_s\\notin\\im D$",
+    "cite": null
+  },
+  {
+    "text": "Therefore $\\rank D_\\tau>\\rank D$,",
+    "assumptions": [],
+    "assert": "$\\rank D_\\tau>\\rank D$",
+    "cite": null
+  },
+  {
+    "text": "a contradiction.",
+    "assumptions": [],
+    "assert": "a contradiction",
+    "cite": null,
+    "frame": {
+      "kind": "contradiction"
+    }
+  }
+]

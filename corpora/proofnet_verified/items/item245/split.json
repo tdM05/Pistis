@@ -1,0 +1,9 @@
+[
+  { "role": "intro", "text": "Let $\\varphi: R \\rightarrow S$ be a surjective homomorphism of rings. Prove that the image of the center of $R$ is contained in the center of $S$." },
+  { "text": "Suppose $r \\in \\varphi[Z(R)]$.", "objects_introduced": ["$r$"], "assumptions": [], "assert": "$r \\in \\varphi[Z(R)]$", "cite": null },
+  { "text": "Then $r=\\varphi(z)$ for some $z \\in Z(R)$.", "objects_introduced": ["$z$"], "assumptions": [], "assert": "$r=\\varphi(z)$ for some $z \\in Z(R)$", "cite": null },
+  { "text": "Now let $x \\in S$.", "objects_introduced": ["$x$"], "assumptions": [], "assert": "$x \\in S$", "cite": null },
+  { "text": "Since $\\varphi$ is surjective, we have $x=\\varphi y$ for some $y \\in R$.", "objects_introduced": ["$y$"], "assumptions": ["$\\varphi$ is surjective"], "assert": "$x=\\varphi y$ for some $y \\in R$", "cite": null },
+  { "text": "Now\n$$\nx r=\\varphi(y) \\varphi(z)=\\varphi(y z)=\\varphi(z y)=\\varphi(z) \\varphi(y)=r x .\n$$", "assumptions": [], "assert": "x r=\\varphi(y) \\varphi(z)=\\varphi(y z)=\\varphi(z y)=\\varphi(z) \\varphi(y)=r x", "cite": null },
+  { "role": "conclusion", "text": "Thus $r \\in Z(S)$." }
+]

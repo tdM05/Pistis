@@ -1,0 +1,240 @@
+{
+  "mode": "RAW",
+  "totals": {
+    "OURS": 17,
+    "THEIRS": 3,
+    "TIE": 0
+  },
+  "rows": [
+    {
+      "model": "us.anthropic.claude-opus-4-1-20250805-v1:0",
+      "label": "Claude-Opus-4.1 (ours vendor)",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B explicitly mirrors each step of the natural language proof in sequence with labeled segments matching the proof's logic, while Formalization A reorganizes the proof structure by extrac",
+          "ours_is_a": false
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A follows the NL proof step-by-step with explicit segments for each claim (defining D_\u03c4, showing it's supported on T, computing D_\u03c4x, proving e_s \u2208 im D_\u03c4, showing im D \u2286 im D_\u03c4, proving",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      "label": "Claude-Sonnet-4.5 (ours vendor)",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B explicitly mirrors each step of the natural-language proof in order with labeled segments (1.1 through 1.9), including the proof-by-contradiction structure and intermediate statements ",
+          "ours_is_a": false
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A explicitly breaks down the proof into labeled segments that directly correspond to each sentence of the natural-language proof in order (introducing D_\u03c4, showing D_\u03c4 x = \u03c4 x_j e_s, pro",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "label": "Claude-Haiku-4.5 (ours vendor)",
+      "OURS": 0,
+      "THEIRS": 2,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "THEIRS",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "THEIRS",
+          "reason": "Formalization A directly proves the theorem through explicit mathematical reasoning (contradiction via rank comparison), while Formalization B relies on external helper functions and a custom `pistis_",
+          "ours_is_a": false
+        },
+        {
+          "ok": true,
+          "verdict": "THEIRS",
+          "reason": "Formalization B follows the NL proof's structure by proving a key lemma (range_lt_range_add_single) that establishes the rank inequality through explicit construction of the perturbed matrix and conta",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "us.meta.llama3-3-70b-instruct-v1:0",
+      "label": "Llama-3.3-70B",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A follows the natural-language proof's reasoning more faithfully because it mirrors the same steps and assumptions in the same order as the original proof.",
+          "ours_is_a": true
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B follows the natural-language proof's reasoning more faithfully by explicitly mirroring the same steps and assumptions in the same order using pistis segments and assumptions.",
+          "ours_is_a": false
+        }
+      ]
+    },
+    {
+      "model": "us.meta.llama4-maverick-17b-instruct-v1:0",
+      "label": "Llama-4-Maverick",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A mirrors the natural-language proof's structure and steps more closely, using pistis_segment to annotate each step.",
+          "ours_is_a": true
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B mirrors the natural-language proof's structure and steps more closely, using pistis_segment to annotate each step of the proof.",
+          "ours_is_a": false
+        }
+      ]
+    },
+    {
+      "model": "us.deepseek.r1-v1:0",
+      "label": "DeepSeek-R1",
+      "OURS": 1,
+      "THEIRS": 1,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "split",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A mirrors the natural-language proof's step-by-step structure with explicit helper lemmas corresponding to each part of the original argument, while B abstracts some steps into separate ",
+          "ours_is_a": true
+        },
+        {
+          "ok": true,
+          "verdict": "THEIRS",
+          "reason": "Formalization A directly mirrors the NL proof's structure with self-contained steps, while B's reliance on external helper lemmas abstracts some reasoning.",
+          "ours_is_a": false
+        }
+      ]
+    },
+    {
+      "model": "us.mistral.pixtral-large-2502-v1:0",
+      "label": "Mistral-Pixtral-Large",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B explicitly follows the structure and steps of the natural-language proof, including intermediate steps and assumptions in the same order.",
+          "ours_is_a": false
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A explicitly mirrors the structure, assumptions, and steps of the NL proof in the same order, while Formalization B reorganizes and abstracts the reasoning.",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "us.amazon.nova-pro-v1:0",
+      "label": "Amazon-Nova-Pro",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B more closely mirrors the natural-language proof's structure and steps.",
+          "ours_is_a": false
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A more closely mirrors the natural-language proof's structure and assumptions in the same order.",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "openai.gpt-oss-120b-1:0",
+      "label": "OpenAI-gpt-oss-120B",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A explicitly follows the NL proof step\u2011by\u2011step\u2014contradiction assumption, construction of D\u03c4, computation of D\u03c4x, inclusion of e_s in the new image, containment of the old image, e_s not ",
+          "ours_is_a": true
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B explicitly reproduces each NL step (assume contrary, construct D_\u03c4, compute D_\u03c4x, show e_s\u2208im, containment of images, y annihilates, e_s\u2209im, rank increase, contradiction) in the same o",
+          "ours_is_a": false
+        }
+      ]
+    },
+    {
+      "model": "us.writer.palmyra-x5-v1:0",
+      "label": "Writer-Palmyra-X5",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B explicitly mirrors the natural-language proof's structure, assumptions, and order through annotated segments that match each step of the informal argument, while A, though correct, reo",
+          "ours_is_a": false
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A mirrors the natural-language proof step-by-step with explicit intermediate claims, assumptions, and contradiction structure in the same order, while B combines and reorders steps, part",
+          "ours_is_a": true
+        }
+      ]
+    }
+  ]
+}

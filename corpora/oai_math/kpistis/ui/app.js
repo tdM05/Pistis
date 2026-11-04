@@ -453,6 +453,17 @@ async function saveEdge(i, v, why, sel){
 }
 
 /* ------------------------------------------------------------------ chrome */
+function renderItemSelect(items){
+  const sel = $("itemsel");
+  sel.textContent = "";
+  for(const it of items){
+    const o = el("option", null, it);
+    o.value = it;
+    if(it === S.item) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
 function renderCrumbs(){
   const nav = $("crumbs");
   nav.textContent = "";
@@ -562,10 +573,18 @@ function render(){
 }
 
 async function boot(){
-  const t = await api("/api/tree");
+  const wanted = new URLSearchParams(location.search).get("item") || "";
+  const t = await api(`/api/tree?item=${encodeURIComponent(wanted)}`);
   S.item = t.item; S.tree = t.tree;
+  renderItemSelect(t.items);
   await go(location.hash.replace(/^#/, "") || "root");
 
+  $("itemsel").onchange = (e) => {
+    // A full reload, not an in-place switch: every piece of `S` (pin, hover, raw/ctx toggles, the
+    // path hash) is keyed to the CURRENT item's tree, and re-deriving all of it in place is just a
+    // worse version of what the browser already does for a fresh URL.
+    location.href = `${location.pathname}?item=${encodeURIComponent(e.target.value)}#root`;
+  };
   $("back").onclick = back;
   $("deeper").onclick = deeper;
   $("raw").onchange = (e) => { S.raw = e.target.checked; renderN(); renderCN(); paint(); };

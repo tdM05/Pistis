@@ -1,0 +1,39 @@
+[
+  { "role": "intro", "text": "Show that every linear map from a one-dimensional vector space to itself is multiplication by some scalar. More precisely, prove that if $\\operatorname{dim} V=1$ and $T \\in \\mathcal{L}(V, V)$, then there exists $a \\in \\mathbf{F}$ such that $T v=a v$ for all $v \\in V$." },
+
+  { "text": "If $\\operatorname{dim} V=1$, then in fact, $V=\\mathbf{F}$ and",
+    "assumptions": ["$\\operatorname{dim} V=1$"],
+    "assert": "$V=\\mathbf{F}$",
+    "cite": null },
+
+  { "text": "it is spanned by $1 \\in \\mathbf{F}$.",
+    "assumptions": [],
+    "assert": "it is spanned by $1 \\in \\mathbf{F}$",
+    "cite": null },
+
+  { "text": "Let $T$ be a linear map from $V$ to itself.",
+    "objects_introduced": ["$T$"],
+    "assumptions": [],
+    "assert": "$T$ be a linear map from $V$ to itself",
+    "cite": null },
+
+  { "text": "Let $T(1)=\\lambda \\in V(=\\mathbf{F})$.",
+    "objects_introduced": ["$\\lambda$"],
+    "assumptions": [],
+    "assert": "$T(1)=\\lambda \\in V(=\\mathbf{F})$",
+    "cite": null },
+
+  { "role": "wts", "text": "Step 2\n2 of 3" },
+
+  { "text": "Every $v \\in V$ is a scalar. Therefore,",
+    "assumptions": [],
+    "assert": "Every $v \\in V$ is a scalar",
+    "cite": null },
+
+  { "text": "$$\n\\begin{aligned}\nT(v) & =T(v \\cdot 1) \\\\\n& =v T(1) \\ldots .(\\text { By the linearity of } T) \\\\\n& =v \\lambda\n\\end{aligned}\n$$",
+    "assumptions": [],
+    "assert": "$$\n\\begin{aligned}\nT(v) & =T(v \\cdot 1) \\\\\n& =v T(1) \\ldots .(\\text { By the linearity of } T) \\\\\n& =v \\lambda\n\\end{aligned}\n$$",
+    "cite": { "text": "By the linearity of } T" } },
+
+  { "role": "conclusion", "text": "Hence, $T v=\\lambda v$ for every $v \\in V$." }
+]

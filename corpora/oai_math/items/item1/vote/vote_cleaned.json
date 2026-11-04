@@ -1,0 +1,161 @@
+{
+  "mode": "CLEANED",
+  "totals": {
+    "OURS": 7,
+    "THEIRS": 4,
+    "TIE": 0
+  },
+  "rows": [
+    {
+      "model": "us.anthropic.claude-opus-4-8",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "B mirrors the NL proof step-by-step including the nonzero \u03c4 perturbation, D\u03c4x = \u03c4xj e_s, e_s \u2208 im D\u03c4, Dw expression, old image containment, y annihilating im D, and the rank contradiction, whereas A s",
+          "ours_is_a": false
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A mirrors each NL step explicitly\u2014introducing nonzero \u03c4, forming D_\u03c4=D+\u03c4e_se_j^T, showing D_\u03c4x=\u03c4x_je_s, e_s\u2208im D_\u03c4, im D\u2286im D_\u03c4, e_s\u2209im D, and the rank contradiction\u2014whereas B fixes \u03c4=1 ",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "openai.gpt-oss-120b-1:0",
+      "OURS": 1,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 1,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B breaks the proof into the same sequential sub\u2011lemmas (non\u2011zero product, construct D\u03c4, compute D\u03c4x, show e_s in the new image, include the old image, show e_s not in the old image, rank",
+          "ours_is_a": false
+        },
+        {
+          "ok": false,
+          "err": "unparseable: ",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "minimax.minimax-m2.5",
+      "OURS": 0,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 2,
+      "verdict": "-",
+      "detail": [
+        {
+          "ok": false,
+          "err": "unparseable: ",
+          "ours_is_a": false
+        },
+        {
+          "ok": false,
+          "err": "unparseable: ",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "deepseek.v3.2",
+      "OURS": 2,
+      "THEIRS": 0,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "OURS (both orientations)",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B explicitly breaks the proof into named helper theorems that correspond directly to each sentence of the natural-language proof, mirroring its step-by-step logical flow.",
+          "ours_is_a": false
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A breaks the proof into nine explicit helper lemmas that directly mirror each step of the natural-language proof in order, while Formalization B condenses the reasoning into a single the",
+          "ours_is_a": true
+        }
+      ]
+    },
+    {
+      "model": "mistral.mistral-large-3-675b-instruct",
+      "OURS": 1,
+      "THEIRS": 1,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "split",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "THEIRS",
+          "reason": "Formalization B mirrors the natural-language proof's structure and intermediate steps more directly and concisely, particularly in the `range_lt_range_add_single` theorem which encapsulates the core c",
+          "ours_is_a": true
+        },
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization B explicitly breaks down the proof into helper theorems that mirror each step of the natural-language proof in the same order and with the same assumptions, whereas A combines multiple s",
+          "ours_is_a": false
+        }
+      ]
+    },
+    {
+      "model": "qwen.qwen3-32b-v1:0",
+      "OURS": 0,
+      "THEIRS": 2,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "THEIRS",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "THEIRS",
+          "reason": "Formalization B follows the natural-language proof's reasoning more faithfully, with fewer intermediate helper lemmas and a more direct, readable structure that mirrors the original proof's logical fl",
+          "ours_is_a": true
+        },
+        {
+          "ok": true,
+          "verdict": "THEIRS",
+          "reason": "Formalization A mirrors the natural-language proof's structure, intermediate steps, and order of reasoning more directly and concisely.",
+          "ours_is_a": false
+        }
+      ]
+    },
+    {
+      "model": "google.gemma-3-27b-it",
+      "OURS": 1,
+      "THEIRS": 1,
+      "TIE": 0,
+      "err": 0,
+      "verdict": "split",
+      "detail": [
+        {
+          "ok": true,
+          "verdict": "OURS",
+          "reason": "Formalization A closely mirrors the NL proof's structure of introducing a contradiction via a modified matrix and then showing rank increase, while B's approach is more direct and less step-by-step li",
+          "ours_is_a": true
+        },
+        {
+          "ok": true,
+          "verdict": "THEIRS",
+          "reason": "Formalization A directly mirrors the NL proof's contradiction argument and intermediate steps (defining D_tau, showing image inclusion, and reaching a rank contradiction), while B breaks the proof int",
+          "ours_is_a": false
+        }
+      ]
+    }
+  ]
+}

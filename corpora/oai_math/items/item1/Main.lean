@@ -1,5 +1,14 @@
 import Mathlib
 import Pistis
+import items.item1.step1
+import items.item1.step2
+import items.item1.step3
+import items.item1.step4
+import items.item1.step5
+import items.item1.step6
+import items.item1.step7
+import items.item1.step8
+import items.item1.step9
 set_option linter.unusedTactic false
 
 open Matrix
@@ -33,25 +42,29 @@ $(s,j)\in T$, one has $x_jy_s=0$."
     intro hsuppose1
     pistis_segment "1.1"
       r"Suppose instead that $x_jy_s\ne0$."
-      (step1 : x j * y s ≠ 0) := by sorry
+      (step1 : x j * y s ≠ 0) := by
+        exact helper_kernel_support_step1 hsuppose1
 
     obtain ⟨τ, hτ⟩ : ∃ τ : ℝ, τ ≠ 0 := ⟨1, one_ne_zero⟩
     set Dτ : Matrix I J ℝ := D + τ • Matrix.single s j (1 : ℝ) with hDτ
     pistis_segment "1.2"
       r"For a nonzero real $\tau$, the matrix
 $D_\tau=D+\tau e_s e_j^{\mathsf T}$ is still supported on $T$,"
-      (step2 : SupportedOn T Dτ) := by sorry
+      (step2 : SupportedOn T Dτ) := by
+        exact helper_kernel_support_step2 hDτ hD hsj
 
     pistis_segment "1.3"
       r"and
 \[
  D_\tau x=\tau x_j e_s.
 \]"
-      (step3 : Dτ.mulVec x = (τ * x j) • (Pi.single s (1 : ℝ) : I → ℝ)) := by sorry
+      (step3 : Dτ.mulVec x = (τ * x j) • (Pi.single s (1 : ℝ) : I → ℝ)) := by
+        exact helper_kernel_support_step3 hDτ (by simpa using LinearMap.mem_ker.mp hx)
 
     pistis_segment "1.4"
       r"Thus $e_s\in\im D_\tau$."
-      (step4 : (Pi.single s (1 : ℝ) : I → ℝ) ∈ LinearMap.range Dτ.mulVecLin) := by sorry
+      (step4 : (Pi.single s (1 : ℝ) : I → ℝ) ∈ LinearMap.range Dτ.mulVecLin) := by
+        exact helper_kernel_support_step4 hτ step3 hsuppose1
 
     pistis_segment "1.5"
       r"Moreover, for every $w\in\R^J$,
@@ -61,28 +74,40 @@ $D_\tau=D+\tau e_s e_j^{\mathsf T}$ is still supported on $T$,"
 
       (step5 : ∀ w : J → ℝ,
           (D.mulVec w = Dτ.mulVec w - (τ * w j) • (Pi.single s (1 : ℝ) : I → ℝ)) ∧
-            D.mulVec w ∈ LinearMap.range Dτ.mulVecLin) := by sorry
+            D.mulVec w ∈ LinearMap.range Dτ.mulVecLin) := by
+        exact helper_kernel_support_step5 hDτ step4
 
     pistis_segment "1.6"
       r"so the entire old image $\im D$ is contained in $\im D_\tau$."
-      (step6 : LinearMap.range D.mulVecLin ≤ LinearMap.range Dτ.mulVecLin) := by sorry
+      (step6 : LinearMap.range D.mulVecLin ≤ LinearMap.range Dτ.mulVecLin) := by
+        exact helper_kernel_support_step6 step5
 
     pistis_assumption "1.7" r"$y$ annihilates $\im D$"
-      (hyann : ∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0) := by sorry
+      (hyann : ∀ v ∈ LinearMap.range D.mulVecLin, y ⬝ᵥ v = 0) := by
+        rintro v ⟨w, rfl⟩
+        have hy' : Dᵀ.mulVec y = 0 := LinearMap.mem_ker.mp hy
+        have key := Matrix.dotProduct_transpose_mulVec D w y
+        rw [hy', dotProduct_zero] at key
+        exact key.symm
     pistis_assumption "1.7" r"$y_s\ne0$"
-      (hys : y s ≠ 0) := by sorry
+      (hys : y s ≠ 0) := by
+        intro h
+        exact hsuppose1 (by rw [h, mul_zero])
     pistis_segment "1.7"
       r"On the other hand, $y$ annihilates $\im D$ and $y_s\ne0$, so
 $e_s\notin\im D$."
-      (step7 : (Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin) := by sorry
+      (step7 : (Pi.single s (1 : ℝ) : I → ℝ) ∉ LinearMap.range D.mulVecLin) := by
+        exact helper_kernel_support_step7 hyann hys
 
     pistis_segment "1.8"
       r"Therefore $\rank D_\tau>\rank D$,"
-      (step8 : Dτ.rank > D.rank) := by sorry
+      (step8 : Dτ.rank > D.rank) := by
+        exact helper_kernel_support_step8 step4 step6 step7
 
     pistis_segment "1.9"
       r"a contradiction."
-      (step9 : False) := by sorry
+      (step9 : False) := by
+        exact helper_kernel_support_step9 hmax step2 step8
     exact step9
 
   exact not_not.mp habsurd1

@@ -1,0 +1,466 @@
+'use strict';
+
+// files come from the server (/files) — the full self-contained src/ tree,
+// folders and all. FILES = every file (relative paths like "figures/pruning.tex");
+// TEXFILES = the .tex ones that can hold boxes.
+let FILES = [];
+let TEXFILES = [];
+const SRC = {};                 // file -> raw text
+let curFile = 'main.tex';
+let mode = 'create';            // 'create' | 'select'
+let curSel = null;              // {file, s, e}
+let dirty = false;
+
+// box: {id, file, s, e, children}. root is a virtual container ('paper').
+let ROOT = { id: 'root', file: null, s: 0, e: 0, children: [] };
+let activeId = 'root';          // the active LEVEL (new boxes attach under it)
+const COLLAPSED = {};
+let idCounter = 1;
+const freshId = () => 'b' + (idCounter++);
+
+const $ = (x) => document.getElementById(x);
+// each box gets its OWN distinct hue from its numeric id (golden-ratio spread),
+// so siblings never collide. Same hue is used in the tree, the source tint, and
+// the PDF — one box, one color, everywhere.
+// one hue per box (golden-ratio spread so siblings never collide), L=50% S=72%
+// used IDENTICALLY everywhere (tree swatch, source tint, PDF) so a box is the
+// same colour in all three panes.
+function boxHue(id) { const n = parseInt(String(id).replace(/\D/g, ''), 10) || 0; return Math.round((n * 137.508) % 360); }
+function boxColor(id) { return `hsl(${boxHue(id)} 72% 50%)`; }
+
+/* ================================================= tree helpers */
+function walk(n, fn, d = 0) { fn(n, d); n.children.forEach((c) => walk(c, fn, d + 1)); }
+function find(id) { let f = null; walk(ROOT, (n) => { if (n.id === id) f = n; }); return f; }
+function depthOf(id) { let d = -1; walk(ROOT, (n, dd) => { if (n.id === id) d = dd; }); return d; }
+function parentOf(id) { let p = null; walk(ROOT, (n) => { if (n.children.some((c) => c.id === id)) p = n; }); return p; }
+// is [s,e) in `file` inside box b's range?
+function inside(b, file, s, e) { return b.file === file && b.s <= s && e <= b.e; }
+
+/* ================================================= file tree (folders) */
+// Build a nested folder structure from the flat relative paths, then render it
+// as an indented tree — identical layout to src/ (so figures/pruning.tex shows
+// under a figures/ folder, not flattened).
+function buildFileTree() {
+  const root = {};                        // nested dict: name -> subdict | true(file)
+  FILES.forEach((rel) => {
+    const parts = rel.split('/');
+    let node = root;
+    parts.forEach((p, i) => {
+      if (i === parts.length - 1) node[p] = rel;           // leaf = full rel path
+      else node = (node[p] = node[p] || {});
+    });
+  });
+  const host = $('filetree'); host.innerHTML = '';
+  host.appendChild(fileTreeLevel(root, 0));
+}
+function fileTreeLevel(node, depth) {
+  const box = document.createElement('div');
+  // folders first, then files, each alphabetical
+  const keys = Object.keys(node).sort((a, b) => {
+    const fa = typeof node[a] === 'object', fb = typeof node[b] === 'object';
+    return fa !== fb ? (fa ? -1 : 1) : a.localeCompare(b);
+  });
+  keys.forEach((name) => {
+    const val = node[name];
+    const row = document.createElement('div');
+    row.className = 'frow';
+    row.style.paddingLeft = (8 + depth * 14) + 'px';
+    const icon = document.createElement('span'); icon.className = 'ficon';
+    if (typeof val === 'object') {          // folder
+      icon.textContent = '▾';
+      const label = document.createElement('span'); label.textContent = name + '/';
+      row.append(icon, label);
+      const kids = fileTreeLevel(val, depth + 1);
+      row.onclick = () => { const h = kids.hidden; kids.hidden = !h; icon.textContent = h ? '▾' : '▸'; };
+      box.append(row, kids);
+    } else {                                 // file (val = rel path)
+      icon.textContent = '·';
+      const label = document.createElement('span'); label.textContent = name;
+      row.append(icon, label);
+      row.dataset.file = val;
+      if (val === curFile) row.classList.add('cur');
+      row.onclick = () => openFile(val);
+      box.append(row);
+    }
+  });
+  return box;
+}
+function openFile(rel) {
+  curFile = rel;
+  $('filetree').querySelectorAll('.frow.cur').forEach((e) => e.classList.remove('cur'));
+  const r = $('filetree').querySelector(`.frow[data-file="${CSS.escape(rel)}"]`);
+  if (r) r.classList.add('cur');
+  $('curfilelab').textContent = rel;
+  renderFile();
+}
+// render the current file's EXACT bytes, line by line, each char-run a .tok with
+// offsets; highlight the boxes of THIS file (active box + its direct children).
+function renderFile() {
+  const host = $('src'); host.innerHTML = '';
+  const text = SRC[curFile] || '';
+  // Show EVERY box in this file, tinted (background) by its depth so nesting is
+  // visible; the active box is outlined. This is the tex-side visualization.
+  const ranges = [];               // {s,e,id,depth,active}
+  walk(ROOT, (n, d) => {
+    if (n !== ROOT && n.file === curFile) {
+      ranges.push({ s: n.s, e: n.e, id: n.id, depth: d, active: n.id === activeId });
+    }
+  });
+
+  // build line rows
+  let line = 1, lineStart = 0;
+  const pushLine = (s, e) => {
+    const row = document.createElement('div'); row.className = 'ln';
+    const num = document.createElement('span'); num.className = 'lnum'; num.textContent = line; row.appendChild(num);
+    const code = document.createElement('span'); code.className = 'lsrc';
+    // split this line [s,e) at range boundaries that fall inside it
+    const bounds = new Set([s, e]);
+    ranges.forEach((r) => { if (r.s > s && r.s < e) bounds.add(r.s); if (r.e > s && r.e < e) bounds.add(r.e); });
+    const pts = [...bounds].sort((a, b) => a - b);
+    for (let k = 0; k < pts.length - 1; k++) {
+      const a = pts[k], b = pts[k + 1];
+      const span = document.createElement('span'); span.className = 'tok'; span.dataset.s = a; span.dataset.e = b;
+      span.textContent = text.slice(a, b);
+      const covers = ranges.filter((r) => r.s <= a && b <= r.e);
+      if (covers.length) {
+        span.style.background = blendHexIds(covers.map((r) => r.id)) + '33';   // ~20% alpha
+        span.dataset.cover = JSON.stringify(covers.map((r) => r.id));
+        // boundaries: top+bottom border (innermost colour) make the band; a left
+        // border where a box starts here, a right border where one ends.
+        const inner = covers.reduce((p, q) => ((q.e - q.s) <= (p.e - p.s) ? q : p));
+        const col = boxColor(inner.id);
+        const sh = ['inset 0 1.5px 0 0 ' + col, 'inset 0 -1.5px 0 0 ' + col];
+        const starters = covers.filter((r) => r.s === a);
+        const enders = covers.filter((r) => r.e === b);
+        if (starters.length) sh.push('inset 2px 0 0 0 ' + boxColor(starters.reduce((p, q) => ((q.e - q.s) <= (p.e - p.s) ? q : p)).id));
+        if (enders.length) sh.push('inset -2px 0 0 0 ' + boxColor(enders.reduce((p, q) => ((q.e - q.s) <= (p.e - p.s) ? q : p)).id));
+        span._base = sh.join(', ');
+        span.style.boxShadow = span._base;
+      }
+      code.appendChild(span);
+    }
+    row.appendChild(code); host.appendChild(row);
+    line++;
+  };
+  for (let i = 0; i <= text.length; i++) {
+    if (i === text.length || text[i] === '\n') { pushLine(lineStart, i); lineStart = i + 1; if (i < text.length) { /* newline consumed */ } }
+  }
+  wireHover();
+}
+
+// Hover a box's text → outline that whole box (all its pieces across lines).
+// Hovering a piece picks the INNERMOST covering box, so nested boxes are
+// individually hoverable. The outline is a bold inset ring in the box's colour.
+let _hoverId = null;
+function wireHover() {
+  const host = $('src');
+  host.onmousemove = (e) => {
+    const tok = e.target.closest && e.target.closest('.tok');
+    const ids = tok && tok.dataset.cover ? JSON.parse(tok.dataset.cover) : null;
+    if (!ids || !ids.length) { if (_hoverId) setHover(null); return; }
+    // innermost = the box with the smallest span among those covering this tok
+    let best = ids[0], bw = Infinity;
+    ids.forEach((id) => { const n = find(id); const w = n ? n.e - n.s : Infinity; if (w < bw) { bw = w; best = id; } });
+    if (best !== _hoverId) setHover(best);
+  };
+  host.onmouseleave = () => setHover(null);
+}
+function setHover(id) {
+  _hoverId = id;
+  const host = $('src');
+  host.querySelectorAll('.tok').forEach((t) => {
+    const ids = t.dataset.cover ? JSON.parse(t.dataset.cover) : [];
+    if (id && ids.includes(id)) t.style.boxShadow = (t._base ? t._base + ', ' : '') + 'inset 0 0 0 2px ' + boxColor(id);
+    else t.style.boxShadow = t._base || '';
+  });
+}
+
+/* ================================================= selection -> offsets */
+function tokAnc(node) { let x = node.nodeType === 3 ? node.parentElement : node; while (x && !(x.classList && x.classList.contains('tok'))) x = x.parentElement; return x; }
+function pointOffset(node, off, side) {
+  const a = tokAnc(node); if (!a) return null;
+  if (node.nodeType === 3) return +a.dataset.s + off;
+  return side === 'end' ? +a.dataset.e : +a.dataset.s;
+}
+function readSelection() {
+  const s = window.getSelection(); if (!s || s.rangeCount === 0 || s.isCollapsed) return null;
+  const r = s.getRangeAt(0); const host = $('src');
+  if (!host.contains(r.startContainer) || !host.contains(r.endContainer)) return null;
+  let a = pointOffset(r.startContainer, r.startOffset, 'start');
+  let b = pointOffset(r.endContainer, r.endOffset, 'end');
+  if (a == null || b == null) return null;
+  if (a > b) [a, b] = [b, a];
+  if (a >= b) return null;
+  return { file: curFile, s: a, e: b };
+}
+
+/* ================================================= create / select */
+async function makeBox() {
+  if (mode !== 'create' || !curSel) return;
+  const { file, s, e } = curSel;
+  // block-at-creation: server validity (well-formed span in this file)
+  let v;
+  try { v = await fetch('/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file, s, e }) }).then((r) => r.json()); }
+  catch (_) { v = { ok: false, reason: 'validate failed' }; }
+  if (!v.ok) { flash('✗ invalid span: ' + v.reason); return; }
+
+  // parent = the active box IF it contains the selection; else the deepest box
+  // (in this file) that contains it; else root.
+  let parent = find(activeId);
+  if (!(parent && (parent.id === 'root' || inside(parent, file, s, e)))) parent = null;
+  if (!parent) {
+    parent = ROOT;
+    walk(ROOT, (n) => { if (n !== ROOT && inside(n, file, s, e) && (n.e - n.s) <= (parent.e - parent.s || Infinity)) parent = n; });
+  }
+  // containment guard: child must be within parent (root always ok)
+  if (parent !== ROOT && !inside(parent, file, s, e)) { flash('✗ selection not inside the active box'); return; }
+
+  const box = { id: freshId(), file, s, e, children: [] };
+  // absorb existing siblings that fall within the new box
+  const abs = parent.children.filter((c) => inside(box, c.file, c.s, c.e));
+  parent.children = parent.children.filter((c) => !inside(box, c.file, c.s, c.e));
+  box.children = abs;
+  parent.children.push(box);
+  parent.children.sort((a, b) => a.s - b.s);
+  // NOTE: the active level does NOT change on create — it stays wherever you set
+  // it, so repeated selections keep nesting under the same parent until you
+  // deliberately pick a new level in "select level" mode.
+  dirty = true;
+  window.getSelection().removeAllRanges(); curSel = null;
+  refreshAll();
+}
+
+function setActive(id) { activeId = id; refreshAll(); }
+
+function deleteBox(id) {
+  const p = parentOf(id); if (!p) return;
+  const i = p.children.findIndex((c) => c.id === id);
+  const removed = p.children[i];
+  p.children.splice(i, 1, ...removed.children);        // promote children
+  p.children.sort((a, b) => a.s - b.s);
+  if (activeId === id) activeId = p.id;
+  dirty = true; refreshAll();
+}
+
+/* ================================================= box tree panel */
+function renderTree() {
+  const host = $('tree'); host.innerHTML = '';
+  host.appendChild(treeRow(ROOT, true));
+  // persistent "current level" banner: swatch + name + a way back up
+  const a = find(activeId);
+  const lab = $('activelab'); lab.innerHTML = '';
+  const dot = document.createElement('span'); dot.className = 'lvdot';
+  dot.style.background = activeId === 'root' ? '#111' : boxColor(activeId);
+  const txt = document.createElement('span'); txt.textContent = activeId === 'root' ? 'paper (top level)' : label(a);
+  lab.appendChild(dot); lab.appendChild(txt);
+}
+function label(b) { const t = (SRC[b.file] || '').slice(b.s, b.e).replace(/\s+/g, ' ').trim(); return t.slice(0, 28) || '(span)'; }
+function treeRow(node, isRoot) {
+  const wrap = document.createElement('div'); const row = document.createElement('div');
+  const kids = node.children.length > 0, collapsed = !!COLLAPSED[node.id];
+  row.className = 'row' + (node.id === activeId ? ' active' : '');
+  const tw = document.createElement('span'); tw.className = 'twist' + (kids ? '' : ' leaf');
+  tw.textContent = kids ? (collapsed ? '▸' : '▾') : '·';
+  if (kids) tw.onclick = (e) => { e.stopPropagation(); COLLAPSED[node.id] = !collapsed; renderTree(); };
+  row.appendChild(tw);
+  if (!isRoot) { const sw = document.createElement('span'); sw.className = 'rswatch'; sw.style.background = boxColor(node.id); row.appendChild(sw); }
+  const name = document.createElement('span'); name.className = 'rname'; name.textContent = isRoot ? 'paper' : label(node); row.appendChild(name);
+  if (!isRoot) { const fl = document.createElement('span'); fl.className = 'rfile'; fl.textContent = node.file.replace('.tex', '').replace('-', '·').slice(0, 10); row.appendChild(fl); }
+  if (!isRoot) { const del = document.createElement('span'); del.className = 'rdel'; del.textContent = '✕'; del.onclick = (e) => { e.stopPropagation(); deleteBox(node.id); }; row.appendChild(del); }
+  row.onclick = () => {
+    // jump the file view to this box either way
+    if (!isRoot && node.file !== curFile) { curFile = node.file; $('filesel').value = curFile; }
+    // select-level mode: clicking SETS the ambient active level. create mode:
+    // clicking only navigates/views — the active level is unchanged.
+    if (mode === 'select') setActive(node.id);
+    else { renderTree(); renderFile(); }
+    if (!isRoot) jumpTo(node.s);
+  };
+  wrap.appendChild(row);
+  if (kids) { const box = document.createElement('div'); box.className = 'children' + (collapsed ? ' hidden' : ''); node.children.forEach((c) => box.appendChild(treeRow(c, false))); wrap.appendChild(box); }
+  return wrap;
+}
+function jumpTo(offset) {
+  const host = $('src');
+  const t = [...host.querySelectorAll('.tok')].find((x) => +x.dataset.s <= offset && offset < +x.dataset.e);
+  if (t) t.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+/* ================================================= modes + ui */
+function setMode(m) { mode = m; $('mode-create').classList.toggle('on', m === 'create'); $('mode-select').classList.toggle('on', m === 'select'); updateSelUI(); }
+function updateSelUI() {
+  const btn = $('mkbox'), info = $('selinfo');
+  if (mode === 'create' && curSel) {
+    btn.disabled = false;
+    const a = find(activeId);
+    info.textContent = `${curSel.file} [${curSel.s},${curSel.e}) → under ${activeId === 'root' ? 'paper' : label(a)}`;
+  } else { btn.disabled = true; info.textContent = mode === 'select' ? 'select mode — click a box in the tree' : ''; }
+}
+function flash(msg) { $('status').textContent = msg; setTimeout(() => { $('status').textContent = ''; }, 3000); }
+function refreshAll() { renderFile(); renderTree(); updateSelUI(); }
+
+/* ================================================= PDF */
+let pdfDoc = null; const PDF_SCALE = 1.25; const pageEls = {};
+// a box's colour as rgb[0..1] and #RRGGBB (same hue as tree swatch / source tint)
+function hueRGB(id) { const h = boxHue(id) / 360, s = 0.72, l = 0.5; const f = (n) => { const k = (n + h * 12) % 12; return l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1)); }; return [f(0), f(8), f(4)]; }
+function rgbToHex(rgb) { return '#' + rgb.map((v) => Math.round(255 * Math.max(0, Math.min(1, v))).toString(16).padStart(2, '0')).join('').toUpperCase(); }
+function boxHexColor(id) { return rgbToHex(hueRGB(id)); }
+// exact blend: average the rgb of several boxes' colours
+function blendHexIds(ids) {
+  const acc = [0, 0, 0];
+  ids.forEach((id) => { const c = hueRGB(id); acc[0] += c[0]; acc[1] += c[1]; acc[2] += c[2]; });
+  return rgbToHex(acc.map((v) => v / ids.length));
+}
+// blend of #RRGGBB hex strings (average rgb)
+function blendHexColors(hexes) {
+  if (hexes.length === 1) return hexes[0];
+  const acc = [0, 0, 0];
+  hexes.forEach((h) => { const n = parseInt(h.slice(1), 16); acc[0] += (n >> 16) & 255; acc[1] += (n >> 8) & 255; acc[2] += n & 255; });
+  return rgbToHex(acc.map((v) => v / hexes.length / 255));
+}
+// The whole PDF is ALWAYS grey (set once in the preamble). We only send the
+// spans to COLOUR: the active box -> black, its direct children -> their own
+// colour, overlaps -> exact blend. If nothing is selected (active = paper) we
+// colour every box. One path, no focus branching.
+function selectedSpans() {
+  const active = (activeId !== 'root') ? find(activeId) : null;
+  const spans = [];   // {file,s,e,color}
+  if (active) {
+    spans.push({ file: active.file, s: active.s, e: active.e, color: '#000000' });   // level = black
+    active.children.forEach((c) => spans.push({ file: c.file, s: c.s, e: c.e, color: boxHexColor(c.id) }));
+  } else {
+    walk(ROOT, (n) => { if (n !== ROOT) spans.push({ file: n.file, s: n.s, e: n.e, color: boxHexColor(n.id) }); });
+  }
+  // cut into non-overlapping pieces; each piece = blend of the spans covering it
+  // (the active black blends with a child only in the sliver where they'd tie —
+  // but children sit strictly inside, so a child piece has no active overlap
+  // once we drop the active colour where a child covers).
+  const byFile = {};
+  spans.forEach((sp) => { (byFile[sp.file] = byFile[sp.file] || []).push(sp); });
+  const out = [];
+  for (const file of Object.keys(byFile)) {
+    const boxes = byFile[file];
+    const pts = new Set();
+    boxes.forEach((b) => { pts.add(b.s); pts.add(b.e); });
+    const sorted = [...pts].sort((x, y) => x - y);
+    for (let k = 0; k < sorted.length - 1; k++) {
+      const s = sorted[k], e = sorted[k + 1];
+      const cover = boxes.filter((b) => b.s <= s && e <= b.e);
+      if (!cover.length) continue;
+      // narrower spans (children) win over the active box; same-width overlaps blend
+      const minW = Math.min(...cover.map((b) => b.e - b.s));
+      const win = cover.filter((b) => (b.e - b.s) === minW);
+      out.push({ file, s, e, color: blendHexColors(win.map((b) => b.color)) });
+    }
+  }
+  return { boxes: out };
+}
+async function renderPdf() {
+  $('status').textContent = 'compiling…';
+  let blob;
+  try {
+    const r = await fetch('/render', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(selectedSpans()) });
+    const ct = r.headers.get('Content-Type') || '';
+    if (!ct.includes('pdf')) { const j = await r.json(); throw new Error((j.log || j.error || 'compile failed').slice(-240)); }
+    blob = await r.blob();
+  } catch (e) { flash('render failed: ' + e.message); return; }
+  const url = URL.createObjectURL(blob);
+  const lib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+  lib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  pdfDoc = await lib.getDocument(url).promise;
+  const host = $('pages'); host.innerHTML = '';
+  const dpr = window.devicePixelRatio || 1;
+  for (let p = 1; p <= pdfDoc.numPages; p++) {
+    const page = await pdfDoc.getPage(p);
+    const vp = page.getViewport({ scale: PDF_SCALE });
+    const wrap = document.createElement('div'); wrap.className = 'page-wrap';
+    wrap.style.width = vp.width + 'px'; wrap.style.height = vp.height + 'px';
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(vp.width * dpr); canvas.height = Math.floor(vp.height * dpr);
+    canvas.style.width = vp.width + 'px'; canvas.style.height = vp.height + 'px';
+    const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr); wrap.appendChild(canvas);
+    host.appendChild(wrap); pageEls[p] = { wrap };
+    page.render({ canvasContext: ctx, viewport: vp });
+    // Ctrl/⌘-click → jump to the source FILE this point came from (SyncTeX).
+    wrap.dataset.page = p;
+    wrap.addEventListener('click', onPdfCtrlClick);
+  }
+  URL.revokeObjectURL(url);
+  $('status').textContent = 'rendered ✓'; setTimeout(() => { $('status').textContent = ''; }, 1200);
+}
+
+// Ctrl/⌘-click a PDF page → SyncTeX reverse-sync to the source FILE, open it in
+// the Files tab. File granularity only (always reliable; no offset mapping).
+async function onPdfCtrlClick(e) {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const wrap = e.currentTarget;
+  const page = +wrap.dataset.page;
+  const rect = wrap.getBoundingClientRect();
+  // click position -> PDF points (top-left origin): divide out the render scale
+  const x = (e.clientX - rect.left) / PDF_SCALE;
+  const y = (e.clientY - rect.top) / PDF_SCALE;
+  let hit;
+  try { hit = await fetch('/whereis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page, x, y }) }).then((r) => r.json()); }
+  catch (_) { return; }
+  if (hit && hit.file && SRC[hit.file] !== undefined) { switchTab('files'); openFile(hit.file); }
+  else flash('could not locate source for that point');
+}
+
+/* ================================================= resizable panes */
+function setupSplitters() {
+  document.querySelectorAll('.splitter').forEach((sp) => {
+    const left = $(sp.dataset.left);
+    sp.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); sp.setPointerCapture(e.pointerId);
+      sp.classList.add('drag'); document.body.classList.add('resizing');
+      const startX = e.clientX, startW = left.getBoundingClientRect().width;
+      const move = (ev) => { const w = Math.max(120, startW + (ev.clientX - startX)); left.style.flex = '0 0 ' + w + 'px'; };
+      const up = (ev) => { sp.releasePointerCapture(ev.pointerId); sp.classList.remove('drag'); document.body.classList.remove('resizing'); sp.removeEventListener('pointermove', move); sp.removeEventListener('pointerup', up); };
+      sp.addEventListener('pointermove', move); sp.addEventListener('pointerup', up);
+    });
+  });
+}
+
+/* ================================================= save/load */
+async function save() {
+  try { const r = await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ROOT) });
+    if (!r.ok) throw new Error('HTTP ' + r.status); dirty = false; flash('saved ✓');
+  } catch (e) { flash('save failed: ' + e.message); }
+}
+
+function switchTab(which) {
+  $('tab-boxes').classList.toggle('on', which === 'boxes');
+  $('tab-files').classList.toggle('on', which === 'files');
+  $('panel-boxes').hidden = which !== 'boxes';
+  $('panel-files').hidden = which !== 'files';
+}
+
+async function init() {
+  const fl = await fetch('/files').then((r) => r.json());
+  FILES = fl.files; TEXFILES = fl.tex;
+  for (const f of FILES) SRC[f] = await fetch('src/' + f).then((r) => r.text());
+  try { const t = await fetch('tree.json').then((r) => r.ok ? r.json() : null); if (t && t.children) { ROOT = t; walk(ROOT, (n) => { const m = /^b(\d+)$/.exec(n.id || ''); if (m) idCounter = Math.max(idCounter, +m[1] + 1); }); } } catch (_) {}
+
+  buildFileTree();
+  $('curfilelab').textContent = curFile;
+  setupSplitters();
+  refreshAll();
+
+  $('tab-boxes').onclick = () => switchTab('boxes');
+  $('tab-files').onclick = () => switchTab('files');
+  document.addEventListener('selectionchange', () => { if (mode === 'create') { curSel = readSelection(); updateSelUI(); } });
+  $('mode-create').onclick = () => setMode('create');
+  $('mode-select').onclick = () => setMode('select');
+  $('mkbox').onclick = makeBox;
+  $('renderpdf').onclick = renderPdf;
+  $('save').onclick = save;
+  document.addEventListener('keydown', (e) => {
+    const t = document.activeElement; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+    if (e.key === 'n' && mode === 'create' && curSel) { e.preventDefault(); makeBox(); }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+    if (e.key === 'Escape' && activeId !== 'root') { const p = parentOf(activeId); if (p) setActive(p.id); }
+  });
+  window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+}
+init();

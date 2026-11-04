@@ -1,0 +1,1020 @@
+{
+  "paper": "A proof of Seymour's second-neighborhood conjecture",
+  "source_dir": "/u/taddmao/code/autoform/math/preprints/A-proof-of-Seymours-second-neighborhood-conjecture-September-23-2026/build/source",
+  "tree": {
+    "id": "paper",
+    "label": "A proof of Seymour's second-neighborhood conjecture",
+    "text": "OpenAI — September 23, 2026.",
+    "children": [
+      {
+        "id": "title",
+        "label": "Title",
+        "text": "A proof of Seymour's second-neighborhood conjecture — OpenAI.",
+        "children": [],
+        "src": [
+          "main.tex",
+          29,
+          33
+        ]
+      },
+      {
+        "id": "abstract",
+        "label": "Abstract",
+        "text": "We prove that every nonempty finite oriented graph has a vertex with at least as many vertices at directed distance two as at directed distance one, resolving Seymour's second neighborhood conjecture positively.",
+        "children": [],
+        "src": [
+          "main.tex",
+          34,
+          38
+        ]
+      },
+      {
+        "id": "sec:intro",
+        "label": "1. Introduction",
+        "text": "",
+        "children": [
+          {
+            "id": "intro:head",
+            "label": "§1 heading",
+            "text": "Section 1 — Introduction.",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              1,
+              2
+            ]
+          },
+          {
+            "id": "def:oriented",
+            "label": "Definition: oriented graph",
+            "text": "An *oriented graph* is a finite directed graph with no loops, no multiple arcs, and no pair of opposite arcs. Its underlying undirected graph need not be complete or connected.",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              3,
+              5
+            ]
+          },
+          {
+            "id": "def:neighborhoods",
+            "label": "Definition: $N_1^+(v)$, $N_2^+(v)$ + the conjecture",
+            "text": "$$N_1^+(v)=\\{u:v\\to u\\},\\quad N_2^+(v)=\\{w\\notin\\{v\\}\\cup N_1^+(v):\\exists u,\\,v\\to u\\to w\\}.$$ $N_2^+(v)$ = vertices at directed distance exactly two, counted once. Seymour's conjecture: some vertex has $|N_1^+(v)|\\le|N_2^+(v)|$.",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              6,
+              15
+            ]
+          },
+          {
+            "id": "thm:main",
+            "label": "Theorem 1.1 (main result)",
+            "text": "Every nonempty finite oriented graph has a vertex $v$ such that $$|N_1^+(v)|\\le|N_2^+(v)|.$$",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              16,
+              22
+            ]
+          },
+          {
+            "id": "rmk:sinks",
+            "label": "Remark: sinks, essential content",
+            "text": "Resolves the conjecture with no connectivity or degree hypothesis; a sink already satisfies it. Removing vertices reached in one step is essential to the assertion.",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              23,
+              28
+            ]
+          },
+          {
+            "id": "rmk:preview",
+            "label": "Preview of §5 (weighted) and §6 (cycles)",
+            "text": "The theorem yields the vertex- and arc-weighted forms via Seacrest's equivalences (two quantifier orders), stated in §5, and short-directed-cycle consequences in §6 (e.g. min in/outdegree $\\ge n/3$ forces a directed triangle).",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              29,
+              38
+            ]
+          },
+          {
+            "id": "bg:priorwork",
+            "label": "Background: tournament case & history",
+            "text": "Conjecture recorded by Dean & Latka; tournament case (Dean's conjecture) proved by Fisher via Farkas, combinatorially by Havet & Thomassé; extensions by Fidler–Yuster, Ghazal, and others.",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              39,
+              51
+            ]
+          },
+          {
+            "id": "bg:priorwork2",
+            "label": "Background: degree/ratio & random results",
+            "text": "Degree-condition and ratio results (Kaneko–Locke, Chen–Shen–Yuster, Huang–Peng), random-orientation results, and dense-case preprints.",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              52,
+              67
+            ]
+          },
+          {
+            "id": "bg:builds-on",
+            "label": "What this proof builds on",
+            "text": "Builds on the minimal-counterexample and graph-product methods of Brantner–Brockman–Kay–Snively and Seacrest's subset perspective; adapts Seacrest's Lemma 4 edge-deletion idea. Main new ingredient: a pruning bound for finite binary relations whose deletion cost depends on points left uncovered.",
+            "children": [],
+            "src": [
+              "00-introduction.tex",
+              68,
+              78
+            ]
+          },
+          {
+            "id": "intro:strategy",
+            "label": "Proof strategy",
+            "text": "",
+            "children": [
+              {
+                "id": "intro:strat:head",
+                "label": "“Proof strategy.”",
+                "text": "Paragraph heading: Proof strategy.",
+                "children": [],
+                "src": [
+                  "00-introduction.tex",
+                  79,
+                  79
+                ]
+              },
+              {
+                "id": "intro:strat:F",
+                "label": "Image operator $F_D$",
+                "text": "$F_D(S)=\\{y:\\exists x\\in S,\\,x\\to y\\}$, $F_D^2=F_D\\circ F_D$; $F_D$ does not subtract $S$. In an oriented graph $N_2^+(v)=F_D^2(\\{v\\})\\setminus F_D(\\{v\\})$.",
+                "children": [],
+                "src": [
+                  "00-introduction.tex",
+                  80,
+                  88
+                ]
+              },
+              {
+                "id": "intro:strat:reduce",
+                "label": "Step A — counterexample ⟶ strict subset inequality",
+                "text": "Minimum-order then minimum-arc counterexample; arc deletion gives $|F_D^2(S)\\setminus F_D(S)|<|F_D(S)\\setminus S|$ for nonempty proper $S$; a transitive-tournament blowup turns this into $|U|+|F_G^2(U)|<2|F_G(U)|$, all indegrees positive. (§2.)",
+                "children": [],
+                "src": [
+                  "00-introduction.tex",
+                  89,
+                  105
+                ]
+              },
+              {
+                "id": "intro:strat:extremal",
+                "label": "Step B — the extremal obstruction",
+                "text": "Two diagonal-containing families of pairs in $V(G)\\times V(G)$ maximizing $M+d$; complementing second iterated images yields prospective families of combined size $>M+2d$.",
+                "children": [],
+                "src": [
+                  "00-introduction.tex",
+                  106,
+                  119
+                ]
+              },
+              {
+                "id": "intro:strat:prune",
+                "label": "Step C — pruning restores compatibility",
+                "text": "The pruning lemma (§3) restores compatibility, keeps the diagonal, deletes $\\le d+d'$ members, making the objective $>M+d$ — the contradiction (§4).",
+                "children": [],
+                "src": [
+                  "00-introduction.tex",
+                  120,
+                  134
+                ]
+              },
+              {
+                "id": "intro:strat:prune-proof",
+                "label": "How the pruning lemma is proved",
+                "text": "Bounds a matching in an augmented bipartite graph; opposite-order coordinate changes factor one matrix through two index sets, and a maximum-rank choice makes kernels control matching size. Independent of orientation.",
+                "children": [],
+                "src": [
+                  "00-introduction.tex",
+                  135,
+                  140
+                ]
+              }
+            ],
+            "src": [
+              "00-introduction.tex",
+              79,
+              140
+            ]
+          }
+        ],
+        "src": [
+          "00-introduction.tex",
+          1,
+          140
+        ]
+      },
+      {
+        "id": "sec:reduction",
+        "label": "2. Counterexample → strict subset inequality",
+        "text": "",
+        "children": [
+          {
+            "id": "red:head",
+            "label": "§2 heading",
+            "text": "Section 2 — From a counterexample to a strict subset inequality.",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              1,
+              2
+            ]
+          },
+          {
+            "id": "red:intro",
+            "label": "Section intro: the operator $F=F_D$",
+            "text": "Convert a counterexample into a graph whose first image exceeds the average of a set and its second image. Here $F=F_D$ is the union of out-neighborhoods in base graph $D$; $F(S)$ need not be disjoint from $S$.",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              3,
+              9
+            ]
+          },
+          {
+            "id": "prop:reduction",
+            "label": "Prop 2.1 (Counterexample reduction)",
+            "text": "If Theorem 1.1 has a counterexample, there is a finite nonempty oriented graph $G$ with every vertex of positive indegree and $$|U|+|F_G^2(U)|<2|F_G(U)|\\quad(\\varnothing\\ne U\\subsetneq V(G)).$$",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              10,
+              20
+            ]
+          },
+          {
+            "id": "red:plan",
+            "label": "Two-step plan",
+            "text": "Two steps: minimality gives a strict deficit for subsets of a counterexample; a transitive-tournament blowup turns that deficit into the required inequality.",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              21,
+              26
+            ]
+          },
+          {
+            "id": "red:seacrest",
+            "label": "Relation to Seacrest's Lemma 4",
+            "text": "The arc-deletion argument adapts Seacrest's Lemma 4 (his $\\lambda=1$ gives $|F^2(S)\\setminus F(S)|<|F(S)|$ in an edge-minimal counterexample). Lemma 2.2 strengthens the right side to $|F(S)\\setminus S|$ under minimum order then minimum arcs.",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              27,
+              35
+            ]
+          },
+          {
+            "id": "lem:subset-deficit",
+            "label": "Lemma 2.2 (Subset deficit)",
+            "text": "Let $D$ be finite nonempty oriented with $|N_1^+(v)|>|N_2^+(v)|$ for all $v$; pick $D$ of minimum order then minimum arcs. Then $D$ is strongly connected, all indegrees positive, and $$|F^2(S)\\setminus F(S)|<|F(S)\\setminus S|\\quad(\\varnothing\\ne S\\subsetneq V(D)).$$",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              36,
+              48
+            ]
+          },
+          {
+            "id": "pf:subset-deficit",
+            "label": "Proof of Lemma 2.2",
+            "text": "",
+            "children": [
+              {
+                "id": "pf:sd:connected",
+                "label": "Strongly connected, no sink",
+                "text": "A sink satisfies the inequality, so $D$ has no sink and $>1$ vertex. A terminal strong component would be a smaller counterexample; so $D$ is strongly connected and every vertex has an in-neighbor.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  49,
+                  58
+                ]
+              },
+              {
+                "id": "pf:sd:setup",
+                "label": "Fix $S$; define $I$, $E$, $g$",
+                "text": "$I=F(S)\\cap S$, $E=F(S)\\setminus S$, $g(T)=|F(T)\\setminus(I\\cup T)|$. Strong connectivity gives $E\\ne\\varnothing$. Grow $T$ from $\\varnothing$ to $E$ so each step raises $g$ by less than the vertices added.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  59,
+                  67
+                ]
+              },
+              {
+                "id": "pf:sd:delete",
+                "label": "Delete arcs $S\\to E\\setminus T$; find $v\\in S$",
+                "text": "$D_T$ deletes all arcs $S\\to E\\setminus T$. Arc-minimality gives $v$ with $|N^+_{1,D_T}(v)|\\le|N^+_{2,D_T}(v)|$; it must have lost a first out-neighbor, so $v\\in S$ and $Q=F(\\{v\\})\\cap(E\\setminus T)\\ne\\varnothing$.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  68,
+                  82
+                ]
+              },
+              {
+                "id": "pf:sd:endpoints",
+                "label": "Where surviving 2-paths land",
+                "text": "In $D_T$, $F^2_{D_T}(\\{v\\})\\subseteq I\\cup T\\cup F(T)$; any newly counted second out-neighbor lies in $Q\\cap F(T)$.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  83,
+                  96
+                ]
+              },
+              {
+                "id": "pf:sd:gained",
+                "label": "The lost second out-neighbors $C$",
+                "text": "$C=F(Q)\\setminus(I\\cup T\\cup Q\\cup F(T))\\subseteq N^+_{2,D}(v)$ (using $v\\notin F(Q)$ by orientation), and no vertex of $C$ survives in $D_T$.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  97,
+                  107
+                ]
+              },
+              {
+                "id": "pf:sd:increment",
+                "label": "Deficit increment is $<|Q|$",
+                "text": "With $d_2<d_1$: $g(T\\cup Q)-g(T)=|C|-|Q\\cap F(T)|\\le |Q|+d_2-d_1<|Q|.$",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  108,
+                  125
+                ]
+              },
+              {
+                "id": "pf:sd:terminate",
+                "label": "Sum over the growth to $T=E$",
+                "text": "Summing gives $g(E)<|E|$; since $F^2(S)\\setminus F(S)=F(E)\\setminus(I\\cup E)$ has size $g(E)$, the deficit follows.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  126,
+                  139
+                ]
+              }
+            ],
+            "src": [
+              "01-reduction.tex",
+              49,
+              139
+            ]
+          },
+          {
+            "id": "red:amplify",
+            "label": "Bridge: amplifying the integer deficit",
+            "text": "Each unit of base deficit contributes a full block; internal contribution costs $\\le1$ per base vertex. Construction: the lexicographic product $D[T_m]$ (as in Brantner–Brockman–Kay–Snively Thm 4.3), but estimated for every nonempty proper subset.",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              140,
+              149
+            ]
+          },
+          {
+            "id": "lem:blowup",
+            "label": "Lemma 2.3 (Transitive-tournament blowup)",
+            "text": "Replace each vertex of $D$ (positive indegrees, satisfying the subset deficit) by a transitive tournament on $m>n$ vertices, with all arcs between blocks of an arc. The result $G$ is oriented, has positive indegrees, and satisfies $|U|+|F_G^2(U)|<2|F_G(U)|$.",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              150,
+              160
+            ]
+          },
+          {
+            "id": "pf:blowup",
+            "label": "Proof of Lemma 2.3",
+            "text": "",
+            "children": [
+              {
+                "id": "pf:bl:internal",
+                "label": "Internal block estimates",
+                "text": "Label blocks $1..m$ (small→large). For least element $a$, $f(T)=\\{a+1,..,m\\}$, so $|T|-|f(T)|\\le1$, $f^2(T)\\subseteq f(T)$, $|T|-2|f(T)|+|f^2(T)|\\le1$. $G$ is oriented with positive indegrees.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  161,
+                  176
+                ]
+              },
+              {
+                "id": "pf:bl:firstimage",
+                "label": "Support $S$, $H_0$, and $|F_G(U)|$",
+                "text": "$T_v$ = labels of $U$ in block $v$, $S=\\{v:T_v\\ne\\varnothing\\}$, $H_0=F(S)\\cup F^2(S)$. Every $F(S)$-block is filled: $|F_G(U)|=m|F(S)|+\\sum_{v\\in S\\setminus F(S)}|f(T_v)|$.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  177,
+                  189
+                ]
+              },
+              {
+                "id": "pf:bl:secondimage",
+                "label": "Bounding $|F_G^2(U)|$",
+                "text": "2-paths with two external arcs land in $F^2(S)$-blocks; one external arc in $F(S)$-blocks; internal-only give $f^2(T_v)$. So $|F_G^2(U)|\\le m|H_0|+\\sum_{v\\in S\\setminus H_0}|f^2(T_v)|$.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  190,
+                  197
+                ]
+              },
+              {
+                "id": "pf:bl:combine",
+                "label": "Combine: $\\le -m+n<0$ for proper $S$",
+                "text": "$|U|-2|F_G(U)|+|F_G^2(U)|\\le m(|F^2(S)\\setminus F(S)|-|F(S)\\setminus S|)+n$. For $S\\subsetneq V(D)$ the deficit makes the bracket $<0$, so the bound is $\\le -m+n<0$.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  198,
+                  224
+                ]
+              },
+              {
+                "id": "pf:bl:full",
+                "label": "The case $S=V(D)$",
+                "text": "Positive indegrees give $F_G(U)=F_G^2(U)=V(G)$, so $|U|-2|F_G(U)|+|F_G^2(U)|=|U|-|V(G)|<0$ since $U$ is proper.",
+                "children": [],
+                "src": [
+                  "01-reduction.tex",
+                  225,
+                  235
+                ]
+              }
+            ],
+            "src": [
+              "01-reduction.tex",
+              161,
+              235
+            ]
+          },
+          {
+            "id": "pf:reduction",
+            "label": "Proof of Prop 2.1 (combines 2.2 & 2.3)",
+            "text": "Choose a counterexample of minimum order then minimum arcs; Lemma 2.2 supplies positive indegrees and the subset deficit, and Lemma 2.3 (any $m>|V(D)|$) supplies $G$.",
+            "children": [],
+            "src": [
+              "01-reduction.tex",
+              236,
+              242
+            ]
+          }
+        ],
+        "src": [
+          "01-reduction.tex",
+          1,
+          242
+        ]
+      },
+      {
+        "id": "sec:pruning",
+        "label": "3. Pruning two families of pairs",
+        "text": "",
+        "children": [
+          {
+            "id": "pru:head",
+            "label": "§3 heading",
+            "text": "Section 3 — Pruning two families of pairs.",
+            "children": [],
+            "src": [
+              "02-pruning.tex",
+              1,
+              2
+            ]
+          },
+          {
+            "id": "pru:intro",
+            "label": "Section intro: the deletion bound",
+            "text": "A deletion bound for two families of ordered pairs, charging deleted members to original conflicts plus post-deletion uncovered points. Holds for every finite binary relation; no orientation needed.",
+            "children": [],
+            "src": [
+              "02-pruning.tex",
+              3,
+              9
+            ]
+          },
+          {
+            "id": "lem:pruning",
+            "label": "Lemma 3.1 (Pruning)",
+            "text": "For finite $X$ with relation $\\to$ and $\\mathcal R,\\mathcal C\\subseteq X\\times X$: $(p,j),(i,s)$ *conflict* if $p\\to i$, $s\\to j$. With $Z=\\{(i,j)\\}$, $H=\\{(p,s)\\}$ over conflicts, there are conflict-free $\\mathcal R'\\subseteq\\mathcal R$, $\\mathcal C'\\subseteq\\mathcal C$ keeping every conflict-free member with $$|\\mathcal R\\setminus\\mathcal R'|+|\\mathcal C\\setminus\\mathcal C'|\\le|H|+|\\{z\\in Z\\text{ uncovered}\\}|.$$",
+            "children": [],
+            "src": [
+              "02-pruning.tex",
+              10,
+              40
+            ]
+          },
+          {
+            "id": "pru:gap1",
+            "label": "Toward the proof: a rank fact",
+            "text": "The proof bounds a matching in an augmented bipartite graph via matrix ranks; first the elementary rank fact (Lemma 3.2). A matrix supported on $T$ has zero entries outside $T$.",
+            "children": [],
+            "src": [
+              "02-pruning.tex",
+              41,
+              47
+            ]
+          },
+          {
+            "id": "lem:kernel-support",
+            "label": "Lemma 3.2 (Kernels at maximum support rank)",
+            "text": "For finite $I,J$, $T\\subseteq I\\times J$: if $D:\\mathbb R^J\\to\\mathbb R^I$ has maximum rank among matrices supported on $T$, then for $x\\in\\ker D$, $y\\in\\ker D^{\\mathsf T}$, $(s,j)\\in T$, $x_jy_s=0$.",
+            "children": [],
+            "src": [
+              "02-pruning.tex",
+              48,
+              53
+            ]
+          },
+          {
+            "id": "pf:kernel-support",
+            "label": "Proof of Lemma 3.2",
+            "text": "If $x_jy_s\\ne0$, perturb $D_\\tau=D+\\tau e_se_j^{\\mathsf T}$ (still supported on $T$): $e_s\\in\\im D_\\tau$ and $\\im D\\subseteq\\im D_\\tau$, but $y$ annihilates $\\im D$ with $y_s\\ne0$ so $e_s\\notin\\im D$ — hence $\\rank D_\\tau>\\rank D$, contradiction.",
+            "children": [],
+            "src": [
+              "02-pruning.tex",
+              54,
+              68
+            ]
+          },
+          {
+            "id": "pf:pruning",
+            "label": "Proof of Lemma 3.1 (four parts)",
+            "text": "",
+            "children": [
+              {
+                "id": "pf:pr:intro",
+                "label": "Trivial case & conventions",
+                "text": "No conflicts ⟹ retain everything, $Z=H=\\varnothing$. Coordinate bases throughout; empty minors have determinant 1.",
+                "children": [],
+                "src": [
+                  "02-pruning.tex",
+                  69,
+                  75
+                ]
+              },
+              {
+                "id": "pf:pr:graph",
+                "label": "Part 1 — augmented graph & the matching bound",
+                "text": "",
+                "children": [
+                  {
+                    "id": "pf:pr:graph:build",
+                    "label": "Build $\\Gamma$",
+                    "text": "Bipartite $\\Gamma$: parts $\\mathcal R\\sqcup Z_L$, $\\mathcal C\\sqcup Z_R$. Join conflicting members; join each member to the opposite $Z$-copy it covers. Conflict-free members are isolated.",
+                    "children": [],
+                    "src": [
+                      "02-pruning.tex",
+                      76,
+                      89
+                    ]
+                  },
+                  {
+                    "id": "fig:pruning",
+                    "label": "Figure: one conflict ⟶ 3-edge path",
+                    "text": "A conflict between $r=(p,j)$, $c=(i,s)$ forces path $z_L-c-r-z_R$, $z=(i,j)\\in Z$; copies $z_L,z_R$ distinct. Conflicts can share vertices/edges.",
+                    "children": [],
+                    "src": [
+                      "02-pruning.tex",
+                      90,
+                      99
+                    ]
+                  },
+                  {
+                    "id": "pf:pr:graph:charge",
+                    "label": "A small cover gives the charge $|H|+q$",
+                    "text": "A vertex cover $K$ of size $\\le|Z|+|H|$ omitting isolated vertices: deleting its original members leaves no conflict, and $|K\\cap(\\mathcal R\\sqcup\\mathcal C)|\\le|H|+q$ with $q$ post-deletion uncovered $Z$-points.",
+                    "children": [],
+                    "src": [
+                      "02-pruning.tex",
+                      100,
+                      119
+                    ]
+                  }
+                ],
+                "src": [
+                  "02-pruning.tex",
+                  76,
+                  119
+                ]
+              },
+              {
+                "id": "pf:pr:submatch",
+                "label": "Part 2 — decompose a maximum matching",
+                "text": "Maximum matching $\\mathcal M$ with fewest original–original edges ($k$); $\\alpha$ ($\\mathcal R$–$Z_R$), $\\beta$ ($Z_L$–$\\mathcal C$), $\\ell=|\\alpha|$, $t=|\\beta|$, $|\\mathcal M|=k+\\ell+t$. Augmenting paths show $\\alpha,\\beta$ are each maximum in their subgraph.",
+                "children": [],
+                "src": [
+                  "02-pruning.tex",
+                  120,
+                  147
+                ]
+              },
+              {
+                "id": "pf:pr:maps",
+                "label": "Part 3 — four maps, one commuting square",
+                "text": "Variables $a_{xy},b_{xy}$ give $L,N,B,A$ with $NL=AB$. Goal: an assignment with $\\rank L=\\ell$, $\\rank N=t$, $\\dim\\ker A\\ge k$, forcing $|\\mathcal M|\\le|Z|+|H|$ via rank–nullity.",
+                "children": [],
+                "src": [
+                  "02-pruning.tex",
+                  148,
+                  210
+                ]
+              },
+              {
+                "id": "pf:pr:choice",
+                "label": "Part 4a — simultaneous generic choice",
+                "text": "Via Edmonds' generic-rank/matching correspondence: pick coefficients so $\\alpha$'s columns base $\\im L$, $\\beta$'s base $\\im N^{\\mathsf T}$, and each $D^{p,i}$ has maximum support rank — one product of nonzero polynomials, nonzero at some real assignment.",
+                "children": [],
+                "src": [
+                  "02-pruning.tex",
+                  211,
+                  274
+                ]
+              },
+              {
+                "id": "pf:pr:kernel",
+                "label": "Part 4b — kernel restriction gives $\\dim\\ker A\\ge k$",
+                "text": "Lift matched endpoints to $u^r\\in\\ker L$, $v^c\\in\\ker N^{\\mathsf T}$; Lemma 3.2 gives $u_{pj}v_{is}=0$ per conflict, so $Bu^r$ are independent and $A(Bu^r)=NLu^r=0$; thus $|\\mathcal M|=k+\\ell+t\\le|Z|+|H|$.",
+                "children": [],
+                "src": [
+                  "02-pruning.tex",
+                  275,
+                  333
+                ]
+              },
+              {
+                "id": "pf:pr:cover",
+                "label": "Part 4c — matching bound ⟶ cover (König)",
+                "text": "Alternating-path cover $K=(\\mathcal V_L\\setminus W_L)\\cup W_R$ covers every edge, $|K|=|\\mathcal M|\\le|Z|+|H|$, omits isolated vertices; the charge inequality proves the lemma.",
+                "children": [],
+                "src": [
+                  "02-pruning.tex",
+                  334,
+                  356
+                ]
+              }
+            ],
+            "src": [
+              "02-pruning.tex",
+              69,
+              356
+            ]
+          }
+        ],
+        "src": [
+          "02-pruning.tex",
+          1,
+          356
+        ]
+      },
+      {
+        "id": "sec:incompat",
+        "label": "4. The extremal contradiction",
+        "text": "",
+        "children": [
+          {
+            "id": "inc:head",
+            "label": "§4 heading",
+            "text": "Section 4 — The extremal contradiction.",
+            "children": [],
+            "src": [
+              "03-incompatibility.tex",
+              1,
+              2
+            ]
+          },
+          {
+            "id": "inc:intro",
+            "label": "Section intro",
+            "text": "Use the pruning lemma to rule out the graph from Prop 2.1, converting the strict subset inequalities into a strict increase of an extremal quantity on two families of pairs.",
+            "children": [],
+            "src": [
+              "03-incompatibility.tex",
+              3,
+              7
+            ]
+          },
+          {
+            "id": "prop:no-concavity",
+            "label": "Prop 4.1 (no such graph)",
+            "text": "There is no nonempty finite oriented graph $G$ with every vertex having an in-neighbor and $$|U|+|F^2(U)|<2|F(U)|\\quad(\\varnothing\\ne U\\subsetneq V(G)).$$",
+            "children": [],
+            "src": [
+              "03-incompatibility.tex",
+              8,
+              20
+            ]
+          },
+          {
+            "id": "pf:no-concavity",
+            "label": "Proof of Prop 4.1",
+            "text": "",
+            "children": [
+              {
+                "id": "pf:nc:ops",
+                "label": "Coordinate operators & compatibility",
+                "text": "$F_1S$ advances the first coordinate along an arc, $F_2S$ the second. $P,Q$ *compatible* if $F_1P\\cap F_2Q=\\varnothing$ (= no conflict). $P=Q=\\Delta$ is compatible by orientation.",
+                "children": [],
+                "src": [
+                  "03-incompatibility.tex",
+                  21,
+                  38
+                ]
+              },
+              {
+                "id": "pf:nc:maxobj",
+                "label": "The maximized objective $M+d$",
+                "text": "Among compatible pairs with $\\Delta\\subseteq P\\cap Q$, maximize $M+d$ where $M=|P|+|Q|$, $d=|X|^2-|F_1P|-|F_2Q|$ = uncovered points. A maximum exists since $X$ is finite.",
+                "children": [],
+                "src": [
+                  "03-incompatibility.tex",
+                  39,
+                  51
+                ]
+              },
+              {
+                "id": "pf:nc:fibers",
+                "label": "Columns/rows proper ⟶ sum the hypothesis",
+                "text": "Each column $P_j\\ni j$ and row $Q_i\\ni i$ is proper (else compatibility breaks). Summing the concavity inequality: $|P|+|F_1^2P|<2|F_1P|$ and $|Q|+|F_2^2Q|<2|F_2Q|$.",
+                "children": [],
+                "src": [
+                  "03-incompatibility.tex",
+                  52,
+                  65
+                ]
+              },
+              {
+                "id": "pf:nc:complement",
+                "label": "Complement families gain $>M+2d$",
+                "text": "$\\mathcal R=(X\\times X)\\setminus F_2^2Q$, $\\mathcal C=(X\\times X)\\setminus F_1^2P$ give $|\\mathcal R|+|\\mathcal C|=2|X|^2-|F_2^2Q|-|F_1^2P|>M+2d$. They may conflict.",
+                "children": [],
+                "src": [
+                  "03-incompatibility.tex",
+                  66,
+                  83
+                ]
+              },
+              {
+                "id": "pf:nc:diag",
+                "label": "The diagonal survives and is conflict-free",
+                "text": "$\\Delta\\subseteq\\mathcal R\\cap\\mathcal C$, and each diagonal member is conflict-free (a conflict would force $(i,s)\\in F_1^2P$ or $(p,j)\\in F_2^2Q$). So pruning's preservation clause applies.",
+                "children": [],
+                "src": [
+                  "03-incompatibility.tex",
+                  84,
+                  100
+                ]
+              },
+              {
+                "id": "pf:nc:Hbound",
+                "label": "The conflict set $H$: $|H|\\le d$",
+                "text": "For a conflict, $(p,s)\\in F_1P$ or $F_2Q$ would force membership contradictions; so $H\\subseteq(X\\times X)\\setminus(F_1P\\cup F_2Q)$ and $|H|\\le d$.",
+                "children": [],
+                "src": [
+                  "03-incompatibility.tex",
+                  101,
+                  119
+                ]
+              },
+              {
+                "id": "pf:nc:finish",
+                "label": "Apply pruning; the $M+d$ contradiction",
+                "text": "Pruning gives conflict-free $P'\\subseteq\\mathcal R$, $Q'\\subseteq\\mathcal C\\supseteq\\Delta$, so $\\le d+d'$ deletions and $|P'|+|Q'|+d'>M+2d-(d+d')+d'=M+d$ — contradicting maximality of $(P,Q)$.",
+                "children": [],
+                "src": [
+                  "03-incompatibility.tex",
+                  120,
+                  142
+                ]
+              }
+            ],
+            "src": [
+              "03-incompatibility.tex",
+              21,
+              142
+            ]
+          },
+          {
+            "id": "pf:main",
+            "label": "Proof of Theorem 1.1",
+            "text": "If the theorem were false, Prop 2.1 produces a nonempty finite oriented graph with positive indegrees satisfying the concavity inequality; Prop 4.1 rules it out.",
+            "children": [],
+            "src": [
+              "03-incompatibility.tex",
+              143,
+              148
+            ]
+          }
+        ],
+        "src": [
+          "03-incompatibility.tex",
+          1,
+          148
+        ]
+      },
+      {
+        "id": "sec:weighted",
+        "label": "5. Weighted consequences",
+        "text": "",
+        "children": [
+          {
+            "id": "wt:head",
+            "label": "§5 heading",
+            "text": "Section 5 — Weighted consequences.",
+            "children": [],
+            "src": [
+              "04-weighted-consequences.tex",
+              1,
+              2
+            ]
+          },
+          {
+            "id": "wt:intro",
+            "label": "Section intro",
+            "text": "Applies Theorem 1.1 through Seacrest's established equivalences; the equivalences are not new here.",
+            "children": [],
+            "src": [
+              "04-weighted-consequences.tex",
+              3,
+              7
+            ]
+          },
+          {
+            "id": "cor:weighted",
+            "label": "Corollary 5.1 (weighted forms)",
+            "text": "For a nonempty finite oriented graph $D$: (i) for every $\\eta\\ge0$ some $v$ has $\\eta(N_1^+(v))\\le\\eta(N_2^+(v))$; (ii) a total-mass-one weighting (not all positive) works for every $v$; (iii) for every arc weighting $w\\ge0$ some $v$ has $\\sum_s\\beta_v^w(s)\\ge\\sum_{u\\in N_1^+(v)}w(vu)$.",
+            "children": [],
+            "src": [
+              "04-weighted-consequences.tex",
+              8,
+              41
+            ]
+          },
+          {
+            "id": "pf:weighted",
+            "label": "Proof of Corollary 5.1",
+            "text": "",
+            "children": [
+              {
+                "id": "pf:wt:iii",
+                "label": "(iii) = Seacrest's arc-weighted form",
+                "text": "Seacrest's Prop 2: his arc-weighted conjecture is equivalent to the unweighted one, so Theorem 1.1 gives (iii).",
+                "children": [],
+                "src": [
+                  "04-weighted-consequences.tex",
+                  42,
+                  47
+                ]
+              },
+              {
+                "id": "pf:wt:i",
+                "label": "(i) by specializing $w(us)=\\eta(s)$",
+                "text": "Setting $w(us)=\\eta(s)$ makes $\\beta_v^w(s)=\\eta(s)$ on $N_2^+(v)$ and $0$ elsewhere, so (iii)'s two sides become $\\eta(N_2^+(v))$ and $\\eta(N_1^+(v))$.",
+                "children": [],
+                "src": [
+                  "04-weighted-consequences.tex",
+                  48,
+                  61
+                ]
+              },
+              {
+                "id": "pf:wt:ii",
+                "label": "(ii) via Farkas on $M_D$",
+                "text": "$M_D$ has $\\pm1$ on second/first out-neighbors; reversing arcs transposes it. Seacrest's Farkas-lemma Theorem 1 gives a nonzero $\\eta\\ge0$ with $M_D\\eta\\ge0$ (the alternative contradicts (i) on $\\overleftarrow D$); normalize.",
+                "children": [],
+                "src": [
+                  "04-weighted-consequences.tex",
+                  62,
+                  70
+                ]
+              }
+            ],
+            "src": [
+              "04-weighted-consequences.tex",
+              42,
+              70
+            ]
+          }
+        ],
+        "src": [
+          "04-weighted-consequences.tex",
+          1,
+          70
+        ]
+      },
+      {
+        "id": "sec:cycles",
+        "label": "6. Directed-cycle consequences",
+        "text": "",
+        "children": [
+          {
+            "id": "cy:head",
+            "label": "§6 heading",
+            "text": "Section 6 — Directed-cycle consequences.",
+            "children": [],
+            "src": [
+              "05-directed-cycle-consequences.tex",
+              1,
+              2
+            ]
+          },
+          {
+            "id": "cy:intro",
+            "label": "Section intro",
+            "text": "In a triangle-free oriented graph every exact second out-neighbor is a non-neighbor; combined with Theorem 1.1 this gives degree and order bounds (Thomassé/Sullivan, Behzad–Chartrand–Wall).",
+            "children": [],
+            "src": [
+              "05-directed-cycle-consequences.tex",
+              3,
+              14
+            ]
+          },
+          {
+            "id": "cor:cycles",
+            "label": "Corollary 6.1 (non-neighbors & cycles)",
+            "text": "For order-$n$ oriented $D$ with $Z(v)=V\\setminus(\\{v\\}\\cup N_1^+(v)\\cup N_1^-(v))$: (i) no directed 3-cycle ⟹ some $v$ has $d^+(v)\\le|Z(v)|$, $n-1\\ge2d^+(v)+d^-(v)$; (ii) $\\delta^+,\\delta^-\\ge n/3$ ⟹ a directed 3-cycle; (iii) $r$-regular with girth exactly four ⟹ $n\\ge3r+1$.",
+            "children": [],
+            "src": [
+              "05-directed-cycle-consequences.tex",
+              15,
+              41
+            ]
+          },
+          {
+            "id": "pf:cycles",
+            "label": "Proof of Corollary 6.1",
+            "text": "",
+            "children": [
+              {
+                "id": "pf:cy:setup",
+                "label": "$N_2^+(v)\\subseteq Z(v)$ & part (i)",
+                "text": "No directed 3-cycle ⟹ a second out-neighbor is not $v$, a first out-neighbor, or an in-neighbor, so $N_2^+(v)\\subseteq Z(v)$. Theorem 1.1: $d^+(v)\\le|Z(v)|$; with $n-1=d^++d^-+|Z|$ gives (i).",
+                "children": [],
+                "src": [
+                  "05-directed-cycle-consequences.tex",
+                  42,
+                  60
+                ]
+              },
+              {
+                "id": "pf:cy:finish",
+                "label": "Parts (ii) and (iii)",
+                "text": "(ii): triangle-freeness would give $n-1\\ge2\\delta^++\\delta^-\\ge n$. (iii): girth four excludes 3-cycles and the regular count gives $n-1\\ge3r$.",
+                "children": [],
+                "src": [
+                  "05-directed-cycle-consequences.tex",
+                  61,
+                  72
+                ]
+              }
+            ],
+            "src": [
+              "05-directed-cycle-consequences.tex",
+              42,
+              72
+            ]
+          }
+        ],
+        "src": [
+          "05-directed-cycle-consequences.tex",
+          1,
+          72
+        ]
+      },
+      {
+        "id": "references",
+        "label": "References",
+        "text": "Bibliography (plain style); see references.bib.",
+        "children": [],
+        "src": [
+          "main.tex",
+          45,
+          47
+        ]
+      }
+    ],
+    "src": [
+      "main.tex",
+      29,
+      47
+    ]
+  }
+}

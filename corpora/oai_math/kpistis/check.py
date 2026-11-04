@@ -302,6 +302,14 @@ def _mutations():
 
 
 def mutate(item: str) -> int:
+    # `_mutations()` pokes hardcoded paths (`root/1.2/T_F.lean`, `root/1.4/C_N.json`, ...) because it
+    # is a self-test of THE CHECKER, not of any item, and `item1` is its one fixture. It is not
+    # item-generic the way `gate`/`lean` are, so say so plainly instead of letting a missing path
+    # surface as a bare `FileNotFoundError` for every other item.
+    if item != "item1":
+        print(f"--mutate only self-tests the item1 fixture ({item!r} was given); "
+              f"run `check.py item1 --mutate` to validate the gate itself.")
+        return 2
     live = gate(item)
     if live:
         print("the tree itself does not pass; fix that before trusting the mutations")
