@@ -37,7 +37,13 @@ body.resizing{cursor:col-resize;user-select:none;}
 .twist.leaf{opacity:.25;}
 .rswatch{width:9px;height:9px;border-radius:2px;flex:none;}
 .rname{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.piecerow{font-size:12px;opacity:.85;} .piecerow .rname{font-style:italic;}
+/* piece sub-rows: visually distinct from child boxes — italic, muted, hollow
+   diamond marker, faint dashed left edge */
+.piecerow{font-size:11.5px;color:#777;}
+.piecerow .rname{font-style:italic;}
+.pcmark{width:11px;flex:none;text-align:center;font-size:10px;}
+.minibtn{font:10px -apple-system,system-ui,sans-serif;border:1px solid var(--line);background:#fff;border-radius:5px;padding:1px 6px;margin-left:6px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--ink);}
+.minibtn:hover{border-color:var(--accent);}
 .rdel{color:var(--dim);flex:none;padding:0 4px;border-radius:4px;} .rdel:hover{color:#fff;background:#c0392b;}
 .children{margin-left:15px;border-left:1px solid var(--line);}
 

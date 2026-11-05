@@ -119,6 +119,31 @@ function readSelection(){
   return {start:lo,end:hi};
 }
 function spanOf(node){ let x=node.nodeType===3?node.parentElement:node; while(x&&!(x.dataset&&x.dataset.start!==undefined)) x=x.parentElement; return x||null; }
+
+// a box AT the current level (i.e. a direct child of levelId) whose region
+// covers character index `i`. Click-select is scoped to the level you're in:
+// at top level you pick top-level boxes, inside a level you pick its children —
+// never a deeper leaf. Innermost among the eligible children wins.
+function boxAtChar(i){
+  const kids=(find(levelId)||ROOT).children;
+  let best=null,bw=Infinity;
+  kids.forEach((n)=>{ if(pieces(n).some((p)=>p.start<=i&&i<p.end)){ const w=regionLen(n); if(w<bw){bw=w;best=n;} } });
+  return best;
+}
+// select a box (blue) + reveal it in the tree (expand ancestors, scroll to row)
+function selectBox(id){ selId=id; let p=parentOf(id); while(p){COLLAPSED[p.id]=false;p=parentOf(p.id);} render();
+  const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.scrollIntoView({block:'nearest'}); }
+// plain left-click on the PDF (no text selected) over a box -> select that box
+function onPdfClick(e){
+  if(window.getSelection && !window.getSelection().isCollapsed) return;   // a drag-select -> leave it
+  const sp=spanOf(e.target); if(!sp) return;
+  // char index at the click: start of the span + offset into its text by x
+  let i=+sp.dataset.start;
+  // refine within the span using caretRangeFromPoint if available
+  const cr=document.caretRangeFromPoint?document.caretRangeFromPoint(e.clientX,e.clientY):null;
+  if(cr && cr.startContainer && spanOf(cr.startContainer)===sp) i=+sp.dataset.start+clampOff(cr.startContainer,cr.startOffset,sp);
+  const box=boxAtChar(i); if(box) selectBox(box.id);
+}
 function clampOff(node,off,span){ if(node.nodeType===3) return Math.min(off, span.textContent.length); return off===0?0:span.textContent.length; }
 
 /* ───────────────── box ops ───────────────── */
@@ -214,10 +239,12 @@ function renderTree(){
 function label(b){ if(!b) return '(none)'; const ps=pieces(b); if(!ps.length) return '(span)'; const t=CHARS.slice(ps[0].start,ps[0].end).replace(/\s+/g,' ').trim(); return (t.slice(0,30)||'(span)')+(ps.length>1?` …+${ps.length-1}`:''); }
 function treeRow(node,isRoot){
   const wrap=document.createElement('div'); const row=document.createElement('div'); row._id=node.id;
+  // anything to expand: child boxes OR multiple pieces -> this node folds
+  const expandable = node.children.length>0 || pieces(node).length>1;
   const kids=node.children.length>0, collapsed=!!COLLAPSED[node.id];
   row.className='row'+(node.id===selId?' picked':'')+(node.id===levelId?' level':'');
-  const tw=document.createElement('span'); tw.className='twist'+(kids?'':' leaf'); tw.textContent=kids?(collapsed?'▸':'▾'):'·';
-  if(kids) tw.onclick=(e)=>{e.stopPropagation();COLLAPSED[node.id]=!collapsed;renderTree();};
+  const tw=document.createElement('span'); tw.className='twist'+(expandable?'':' leaf'); tw.textContent=expandable?(collapsed?'▸':'▾'):'·';
+  if(expandable) tw.onclick=(e)=>{e.stopPropagation();COLLAPSED[node.id]=!collapsed;renderTree();};
   row.appendChild(tw);
   if(!isRoot){const sw=document.createElement('span');sw.className='rswatch';sw.style.background=boxColor(node.id);row.appendChild(sw);}
   const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':label(node); row.appendChild(nm);
@@ -233,14 +260,16 @@ function treeRow(node,isRoot){
   if(!isRoot && pieces(node).length>1 && !collapsed){
     const pb=document.createElement('div'); pb.className='children';
     pieces(node).forEach((p,pi)=>{ const pr=document.createElement('div'); pr.className='row piecerow';
-      const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='·';pr.appendChild(pad);
-      const dot=document.createElement('span');dot.className='rswatch';dot.style.background=boxColor(node.id);dot.style.opacity='.6';pr.appendChild(dot);
-      const t=document.createElement('span');t.className='rname';t.textContent=`${pi+1}. ${CHARS.slice(p.start,p.end).replace(/\s+/g,' ').trim().slice(0,22)||'(span)'}`;pr.appendChild(t);
+      const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='◦';pr.appendChild(pad);
+      // pieces use a hollow diamond marker (not a filled box swatch) to read as
+      // "a fragment of this box", visually distinct from a real child box.
+      const dot=document.createElement('span');dot.className='pcmark';dot.style.color=boxColor(node.id);dot.textContent='◇';pr.appendChild(dot);
+      const t=document.createElement('span');t.className='rname';t.textContent=`piece ${pi+1}: ${CHARS.slice(p.start,p.end).replace(/\s+/g,' ').trim().slice(0,20)||'(span)'}`;pr.appendChild(t);
       const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='remove this piece';del.onclick=(e)=>{e.stopPropagation();removePiece(node.id,pi);};pr.appendChild(del);
       pr.onclick=()=>{selId=node.id;render();scrollToChar(p.start);}; pb.appendChild(pr); });
     wrap.appendChild(pb);
   }
-  if(kids){const box=document.createElement('div');box.className='children';node.children.forEach((c)=>box.appendChild(treeRow(c,false)));wrap.appendChild(box);}
+  if(kids && !collapsed){const box=document.createElement('div');box.className='children';node.children.forEach((c)=>box.appendChild(treeRow(c,false)));wrap.appendChild(box);}
   return wrap;
 }
 function scrollToChar(i){ const m=CHARMETA[i]; if(!m)return; const pg=pageEls[m.page]; if(!pg)return; $('pdfScroll').scrollTo({top:Math.max(0,pg.wrap.offsetTop+m.y-80),behavior:'smooth'}); }
@@ -279,6 +308,9 @@ async function init(){
   setupSplitters();
   await renderPdf();
   document.addEventListener('selectionchange',()=>{ curSel=readSelection(); updateSelUI(); });
+  $('pages').addEventListener('click', onPdfClick);
+  $('collapseAll').onclick=()=>{ walk(ROOT,(n)=>{ if(n.id!=='root') COLLAPSED[n.id]=true; }); renderTree(); };
+  $('expandAll').onclick=()=>{ for(const k in COLLAPSED) delete COLLAPSED[k]; renderTree(); };
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
   $('save').onclick=()=>save(true);
   document.addEventListener('keydown',(e)=>{ const t=document.activeElement; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'))return;

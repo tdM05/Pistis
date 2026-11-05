@@ -1,0 +1,166 @@
+{
+  "id": "root",
+  "pieces": [],
+  "children": [
+    {
+      "id": "b1",
+      "pieces": [
+        {
+          "start": 6552,
+          "end": 14529
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b2",
+      "pieces": [
+        {
+          "start": 14531,
+          "end": 27401
+        }
+      ],
+      "children": [
+        {
+          "id": "b6",
+          "pieces": [
+            {
+              "start": 14531,
+              "end": 14562
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "b5",
+          "pieces": [
+            {
+              "start": 14562,
+              "end": 14956
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "b3",
+          "pieces": [
+            {
+              "start": 14956,
+              "end": 15739
+            },
+            {
+              "start": 16673,
+              "end": 27401
+            }
+          ],
+          "children": [
+            {
+              "id": "b11",
+              "pieces": [
+                {
+                  "start": 14956,
+                  "end": 15739
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "b12",
+              "pieces": [
+                {
+                  "start": 16673,
+                  "end": 27401
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "b7",
+          "pieces": [
+            {
+              "start": 15739,
+              "end": 16045
+            }
+          ],
+          "children": [
+            {
+              "id": "b13",
+              "pieces": [
+                {
+                  "start": 15739,
+                  "end": 15897
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "b14",
+              "pieces": [
+                {
+                  "start": 15897,
+                  "end": 16045
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "b4",
+          "pieces": [
+            {
+              "start": 16045,
+              "end": 16673
+            }
+          ],
+          "children": [
+            {
+              "id": "b9",
+              "pieces": [
+                {
+                  "start": 16045,
+                  "end": 16300
+                }
+              ],
+              "children": [
+                {
+                  "id": "b15",
+                  "pieces": [
+                    {
+                      "start": 16131,
+                      "end": 16213
+                    }
+                  ],
+                  "children": [
+                    {
+                      "id": "b16",
+                      "pieces": [
+                        {
+                          "start": 16197,
+                          "end": 16212
+                        }
+                      ],
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "b10",
+              "pieces": [
+                {
+                  "start": 16301,
+                  "end": 16673
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
