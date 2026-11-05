@@ -59,3 +59,18 @@ body.resizing{cursor:col-resize;user-select:none;}
 /* box highlight rectangles (drawn under the text layer) */
 .hl-layer{position:absolute;inset:0;pointer-events:none;}
 .hl{position:absolute;border-radius:1px;}
+/* link arrows: one SVG over the whole pages stack, above canvases/highlights
+   but click-through so text selection + box picking still work underneath */
+.arrow-layer{position:absolute;left:0;top:0;pointer-events:none;z-index:4;overflow:visible;}
+
+/* link badge on a tree row + link sub-rows */
+.linkbadge{flex:none;font-size:10px;font-weight:700;color:#7a4fd0;padding:0 5px;letter-spacing:.02em;}
+.linkrow{font-size:11.5px;color:#6b5bbf;}
+.linkrow .rname{font-style:normal;}
+.linkrow.incoming{color:#9a93b8;}
+.linkrow .twist{color:inherit;opacity:.9;}
+.btn.armed{background:#7a4fd0;color:#fff;border-color:#7a4fd0;}
+.btn.armed kbd{background:#ffffff33;border-color:#ffffff55;color:#fff;}
+.btn.confirm{background:#1f9d55;color:#fff;border-color:#1f9d55;}
+.btn.confirm:hover:not(:disabled){border-color:#157a40;background:#188048;}
+.btn.confirm kbd{background:#ffffff33;border-color:#ffffff55;color:#fff;}
