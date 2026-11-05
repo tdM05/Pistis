@@ -161,7 +161,10 @@
                       "end": 16009
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "label": [
+                    "formula"
+                  ]
                 },
                 {
                   "id": "b46",
@@ -192,8 +195,18 @@
                     "end": 312
                   }
                 ]
-              }
+              },
+              "label": [
+                "definition",
+                "formula",
+                "compound-formula",
+                "connective",
+                "conjunction"
+              ]
             }
+          ],
+          "label": [
+            "organizer-section"
           ]
         },
         {
@@ -492,6 +505,9 @@
             ]
           }
         }
+      ],
+      "label": [
+        "organizer-section"
       ]
     },
     {

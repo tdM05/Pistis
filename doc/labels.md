@@ -19,16 +19,21 @@ Markers: indented = child. `[isa]`/`[hasa]` = relation to its children.
   - →definition
   - →theorem
   - →organizer-section
-- definition [isa]
-  - →term
-  - →formula
-- theorem [hasa]
-  - →formula                  (the statement)
-  - proof [hasa]
+- definition
+  - [isa]
+    - →term
     - →formula
+  - [hasa]
     - →commentary
-    - →theorem
-    - tactic (base)
+- theorem [hasa]
+  - →formula
+  - →proof
+  - →commentary
+- proof [hasa]
+  - →formula
+  - →theorem
+  - →commentary
+  - tactic (base)
 - formula [isa]
   - external-citation (base)
   - atomic-formula [isa]

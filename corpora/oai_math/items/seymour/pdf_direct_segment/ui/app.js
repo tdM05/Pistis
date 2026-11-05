@@ -45,40 +45,63 @@ const freshId = () => 'b' + (idCounter++);
 const COLLAPSED = {};
 
 // ── LABELS ──────────────────────────────────────────────────────────────────
-// Each box MAY carry box.label (a function/grammar label). The allowed label of
-// a box is constrained by its PARENT box's label: valid children = the parent
-// label's decomposition. See doc/labels.md. LABEL_CHILDREN[x] = labels allowed
-// directly inside a box labelled x. A label absent here (or 'base' ones) admits
-// no children. ROOT (unlabelled) uses LABEL_ROOT.
-const LABEL_ROOT = ['commentary','definition','theorem','organizer-section'];
-const LABEL_CHILDREN = {
-  'organizer-section': ['commentary','definition','theorem','organizer-section'],
-  'definition':        ['term','formula'],
-  'theorem':           ['formula','proof'],
-  'proof':             ['formula','commentary','theorem','tactic'],
-  'formula':           ['external-citation','atomic-formula','compound-formula'],
-  'atomic-formula':    ['relation','equality'],
-  'relation':          ['relation-symbol','term'],
-  'equality':          ['equality-symbol','term'],
-  'compound-formula':  ['quantified','connective'],
-  'quantified':        ['universal','existential'],
-  'universal':         ['quantifier','variable-symbol','formula'],
-  'existential':       ['quantifier','variable-symbol','formula'],
-  'connective':        ['negation','implication','conjunction','disjunction'],
-  'negation':          ['connective-symbol','formula'],
-  'implication':       ['connective-symbol','formula'],
-  'conjunction':       ['connective-symbol','formula'],
-  'disjunction':       ['connective-symbol','formula'],
-  'term':              ['external-citation','implicit-external-reference','atomic-term','composite-term'],
-  'atomic-term':       ['variable','constant'],
-  'variable':          ['variable-symbol'],
-  'constant':          ['constant-symbol'],
-  'composite-term':    ['function-application'],
+// See doc/labels.md. Two relations:
+//  ISA[x]  = is-a children (x is ABSTRACT: a box can't be labelled x; you refine
+//            to a concrete subtype). A concrete label = one NOT in ISA.
+//  HASA[x] = has-a child-box slots of a concrete label x. A slot accepts the slot
+//            label OR any is-a subtype of it (subtype expansion).
+// A box's label is stored as the full is-a PATH (array), e.g.
+//   ['formula','atomic-formula','relation']  or  ['definition','formula','…','relation'].
+// The last element is the actual (concrete) label; path[0] is the top (what the
+// tree tag shows). A leaf label (judgeable) = concrete and not in HASA.
+const ISA = {
+  'definition':       ['term','formula'],
+  'formula':          ['external-citation','atomic-formula','compound-formula'],
+  'atomic-formula':   ['relation','equality'],
+  'compound-formula': ['quantified','connective'],
+  'quantified':       ['universal','existential'],
+  'connective':       ['negation','implication','conjunction','disjunction'],
+  'term':             ['external-citation','implicit-external-reference','atomic-term','composite-term'],
+  'atomic-term':      ['variable','constant'],
+  'composite-term':   ['function-application'],
+};
+const HASA = {
+  'organizer-section':   ['commentary','definition','theorem','organizer-section'],
+  'theorem':             ['formula','proof'],
+  'proof':               ['formula','commentary','theorem','tactic'],
+  'relation':            ['relation-symbol','term'],
+  'equality':            ['equality-symbol','term'],
+  'universal':           ['quantifier','variable-symbol','formula'],
+  'existential':         ['quantifier','variable-symbol','formula'],
+  'negation':            ['connective-symbol','formula'],
+  'implication':         ['connective-symbol','formula'],
+  'conjunction':         ['connective-symbol','formula'],
+  'disjunction':         ['connective-symbol','formula'],
+  'variable':            ['variable-symbol'],
+  'constant':            ['constant-symbol'],
   'function-application':['function-symbol','term'],
 };
-// labels valid for a box given its parent box (null parent → root set).
-function allowedLabels(parentBox){ if(!parentBox||!parentBox.label) return LABEL_ROOT;
-  return LABEL_CHILDREN[parentBox.label]||[]; }
+const ROOT_SLOTS = ['commentary','definition','theorem','organizer-section'];
+const LABEL_SHORT = {definition:'def','external-citation':'cite','implicit-external-reference':'ext'};
+
+function isAbstract(l){ return l in ISA; }
+function isComposite(l){ return l in HASA; }
+function isLeafLabel(l){ return !isAbstract(l) && !isComposite(l); }  // has-a base
+// concrete label of a stored path (last element), or null.
+function labelConcrete(path){ return path&&path.length?path[path.length-1]:null; }
+// all full paths of CONCRETE labels reachable by refining `slot` via is-a.
+function pathsUnder(slot, prefix){ const p=[...(prefix||[]),slot];
+  if(!isAbstract(slot)) return [p];
+  return ISA[slot].flatMap((c)=>pathsUnder(c,p)); }
+// valid label-paths for a box given its PARENT box. root → ROOT_SLOTS; a labelled
+// parent → its has-a slots (subtype-expanded); unlabelled non-root parent → none
+// (label the parent first — keeps labelling top-down and the tree well-formed).
+function allowedLabelPaths(parentBox){
+  const atTop = !parentBox || parentBox===ROOT || parentBox.id==='root';
+  const slots = atTop ? ROOT_SLOTS
+    : (parentBox.label ? (HASA[labelConcrete(parentBox.label)]||[]) : null);
+  if(!slots) return null;                 // null => parent not labelled yet
+  return slots.flatMap((s)=>pathsUnder(s,[])); }
 
 const $ = (x) => document.getElementById(x);
 function boxHue(id){const n=parseInt(String(id).replace(/\D/g,''),10)||0;return Math.round((n*137.508)%360);}
@@ -191,30 +214,28 @@ function leanIsNone(b){ return !!(b&&b.lean&&b.lean.none); }
 // and the old boolean lean.ok -> the new box.verdict ('ok'|'notok') on leaves.
 function normalizeLean(){ walk(ROOT,(n)=>{
   if(n.lean&&!n.lean.none&&!n.lean.spans&&n.lean.file!=null){ const {file,start,end}=n.lean; n.lean={spans:[{file,start,end}]}; }
-  if(n.lean&&n.lean.ok!==undefined){ if(isLeaf(n)&&!n.verdict) n.verdict=n.lean.ok?'ok':'notok'; delete n.lean.ok; }
+  if(n.lean&&n.lean.ok!==undefined){ delete n.lean.ok; }   // legacy boolean dropped (verdict now label-gated)
+  if(typeof n.label==='string'){ delete n.label; delete n.verdict; }  // legacy flat label dropped (now path-based)
 }); }
 
 /* ───────── faithfulness verdict (ok / notok / undecidable) ───────── */
-// Leaves are judged MANUALLY; parents are DERIVED from their descendants.
-function isLeaf(n){ return !n.children||n.children.length===0; }
+// A box is JUDGED manually iff its concrete label is a HAS-A BASE (leaf label);
+// everything else DERIVES from its children. A composite-labelled or unlabelled
+// box with no children = loose end ⇒ undecidable.
+function isJudgeable(n){ const c=labelConcrete(n.label); return c!=null && isLeafLabel(c); }
 // a node's verdict: 'ok' | 'notok' | 'undecidable' | 'unset'.
-//  leaf   → its stored n.verdict (unset if none)
-//  parent → rollup: any notok ⇒ notok; else all ok ⇒ ok; else undecidable
-//           (a parent only fails hard when a leaf genuinely fails; anything
-//            unjudged/ambiguous leaves it undecidable, not falsely notok)
-function verdictOf(n){ if(isLeaf(n)) return n.verdict||'unset';
+//  judgeable (leaf label) → its stored n.verdict (unset if none)
+//  else                   → rollup over children: any notok ⇒ notok;
+//                           else all ok ⇒ ok; else undecidable (incl. no children)
+function verdictOf(n){ if(isJudgeable(n)) return n.verdict||'unset';
+  if(!n.children||!n.children.length) return 'undecidable';
   let anyNotok=false, allOk=true;
   for(const c of n.children){ const v=verdictOf(c); if(v==='notok')anyNotok=true; if(v!=='ok')allOk=false; }
   if(anyNotok) return 'notok'; if(allOk) return 'ok'; return 'undecidable'; }
-// set/toggle a leaf's verdict. Clicking the active verdict again clears it.
+// set/toggle a box's verdict. Clicking the active verdict again clears it.
 function setVerdict(v){ const b=selId&&find(selId); if(!b){flash('select a box first');return;}
-  if(!isLeaf(b)){flash('only leaf segments are judged — parents are derived from their children');return;}
+  if(!isJudgeable(b)){flash('only leaf-label (has-a base) boxes are judged — others derive');return;}
   if(b.verdict===v) delete b.verdict; else b.verdict=v; markDirty(); refreshAll(); }
-// set/clear the selected box's grammar label. '' clears. Enforced against the
-// parent's allowed set (the <select> only offers valid options anyway).
-function setLabel(v){ const b=selId&&find(selId); if(!b){flash('select a box first');return;}
-  if(!v){ delete b.label; } else { if(!allowedLabels(parentOf(b.id)).includes(v)){flash('“'+v+'” not allowed under this parent');return;} b.label=v; }
-  markDirty(); refreshAll(); }
 // sort + merge overlapping/adjacent spans WITHIN the same file.
 function mergeLeanSpans(b){ const sp=b.lean.spans; sp.sort((x,y)=> x.file<y.file?-1:x.file>y.file?1:x.start-y.start);
   const out=[]; for(const p of sp){ const last=out[out.length-1];
@@ -619,8 +640,9 @@ function treeRow(node,isRoot){
   row.appendChild(tw);
   if(!isRoot){const sw=document.createElement('span');sw.className='rswatch';sw.style.background=boxColor(node.id);row.appendChild(sw);}
   const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':label(node); row.appendChild(nm);
-  // label tag: small text chip of the box's grammar/function label
-  if(!isRoot && node.label){ const lt=document.createElement('span'); lt.className='labeltag'; lt.textContent=node.label; lt.title='label: '+node.label; row.appendChild(lt); }
+  // label tag: shows the TOP of the is-a path (click/hover for the full path).
+  if(!isRoot && node.label&&node.label.length){ const lt=document.createElement('span'); lt.className='labeltag';
+    const top=node.label[0]; lt.textContent=LABEL_SHORT[top]||top; lt.title=node.label.join(' → '); row.appendChild(lt); }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
   if(!isRoot){ const out=linksFrom(node.id).length, inc=linksTo(node.id).length;
     if(out||inc){ const lb=document.createElement('span'); lb.className='linkbadge';
@@ -629,12 +651,12 @@ function treeRow(node,isRoot){
   // verdict — green=ok, red=not ok, grey=undecidable/unjudged. Leaves are solid,
   // derived parents are outlined. Nothing shows on unmapped boxes.
   if(!isRoot && node.lean){ const lb=document.createElement('span');
-    const v=verdictOf(node);
-    lb.className='leanbadge '+v+(isLeaf(node)?' leafv':' derived');
+    const v=verdictOf(node); const judged=isJudgeable(node);
+    lb.className='leanbadge '+v+(judged?' leafv':' derived');
     const nsp=leanSpans(node).length;
     lb.textContent=node.lean.none?'∅':('λ'+(nsp>1?nsp:''));
     const vtxt=v==='ok'?'faithful':v==='notok'?'not faithful':'undecidable';
-    lb.title=(node.lean.none?'mapped to nothing':(nsp+' Lean span'+(nsp>1?'s':'')+': '+[...new Set(leanSpans(node).map((p)=>p.file.replace(/^lean\//,'')))].join(', ')))+' · '+(isLeaf(node)?'':'derived — ')+vtxt;
+    lb.title=(node.lean.none?'mapped to nothing':(nsp+' Lean span'+(nsp>1?'s':'')+': '+[...new Set(leanSpans(node).map((p)=>p.file.replace(/^lean\//,'')))].join(', ')))+' · '+(judged?'':'derived — ')+vtxt;
     row.appendChild(lb); }
   // (to make this node the current level for nesting, double-click the row)
   if(!isRoot){const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.onclick=(e)=>{e.stopPropagation();deleteBox(node.id);};row.appendChild(del);}
@@ -709,16 +731,39 @@ function updateSelUI(){
   } else { mk.disabled=true; ex.disabled=true; rm.disabled=true; info.textContent=selId?`selected “${label(box)}” · l=link from here · m=map to Lean`:''; }
   updateLeanUI(); updateLabelUI();
 }
-// Label dropdown: offers only labels valid under the selected box's PARENT.
-function updateLabelUI(){ const sel=$('labelSel'); if(!sel) return; const box=selId&&find(selId);
-  if(!box){ sel.disabled=true; sel.innerHTML='<option value="">(none)</option>'; return; }
-  sel.disabled=false;
-  const opts=allowedLabels(parentOf(box.id));
-  let html='<option value="">(none)</option>'+opts.map((o)=>`<option value="${o}">${o}</option>`).join('');
-  // if the stored label is no longer valid under the parent, still show it (flagged)
-  if(box.label && !opts.includes(box.label)) html+=`<option value="${box.label}">${box.label} (invalid here)</option>`;
-  sel.innerHTML=html; sel.value=box.label||'';
+// Label picker: a CASCADE of dropdowns. The first offers the box's top-level
+// slots; choosing an abstract one (e.g. definition / formula) reveals the next
+// dropdown for its is-a children, and so on until a concrete label is reached.
+// The committed label (box.label) = the full path so far, valid only once it
+// bottoms out at a concrete label (isAbstract(last)==false).
+function topSlots(parentBox){ const paths=allowedLabelPaths(parentBox); if(!paths) return null;
+  return [...new Set(paths.map((p)=>p[0]))]; }   // distinct first-level choices
+function updateLabelUI(){ const host=$('labelPick'); if(!host) return; host.innerHTML='';
+  const box=selId&&find(selId); if(!box){ return; }
+  const slots=topSlots(parentOf(box.id));
+  if(!slots){ const s=document.createElement('span'); s.className='labelhint'; s.textContent='label parent first'; host.appendChild(s); return; }
+  // walk the current path level by level, emitting one <select> per level, plus
+  // one trailing <select> for the next level if the path isn't concrete yet.
+  const path=box.label?[...box.label]:[];
+  let choices=slots, lvl=0;
+  for(;;){
+    const chosen=path[lvl]||'';
+    const sel=document.createElement('select'); sel.className='labelsel';
+    let html='<option value="">'+(lvl===0?'label…':'…')+'</option>'
+      +choices.map((c)=>`<option value="${c}"${c===chosen?' selected':''}>${LABEL_SHORT[c]||c}${isAbstract(c)?' ▸':''}</option>`).join('');
+    sel.innerHTML=html;
+    sel.onchange=(e)=>{ const v=e.target.value; const np=path.slice(0,lvl); if(v) np.push(v); setLabelPath(np); };
+    host.appendChild(sel);
+    if(!chosen) break;                         // nothing picked at this level → stop
+    if(!isAbstract(chosen)) break;             // concrete → done, no further level
+    choices=ISA[chosen]; lvl++;                // abstract → descend
+  }
 }
+// commit a (possibly partial) path. Stored only when it ends concrete; a partial
+// (ends abstract) is held so the cascade can continue, but clears verdict.
+function setLabelPath(path){ const b=selId&&find(selId); if(!b) return;
+  if(!path.length){ delete b.label; delete b.verdict; markDirty(); refreshAll(); return; }
+  b.label=path; if(!isJudgeable(b)) delete b.verdict; markDirty(); refreshAll(); }
 // Lean toolbar: add (m), remove (r), none, clear + the verdict buttons.
 function updateLeanUI(){ const box=selId&&find(selId);
   const map=$('leanMap'),unmap=$('leanUnmap'),none=$('leanNone'),clr=$('leanClear'),info=$('leanInfo');
@@ -729,8 +774,8 @@ function updateLeanUI(){ const box=selId&&find(selId);
   const overlaps=box&&leanCurSel&&spans.some((p)=>p.file===leanCurSel.file&&leanCurSel.start<p.end&&leanCurSel.end>p.start);
   map.disabled=!box||!leanCurSel; if(unmap) unmap.disabled=!overlaps;
   none.disabled=!box; clr.disabled=!box||!box.lean;
-  // verdict buttons: only LEAVES are judged manually; parents are derived.
-  const leaf=box&&isLeaf(box); const cur=box?verdictOf(box):'unset';
+  // verdict buttons: only leaf-label (has-a base) boxes judged; others derive.
+  const leaf=box&&isJudgeable(box); const cur=box?verdictOf(box):'unset';
   [ok,notok,undec].forEach((btn)=>{ if(btn) btn.disabled=!leaf; });
   if(ok){ ok.classList.toggle('on',leaf&&cur==='ok'); }
   if(notok){ notok.classList.toggle('on',leaf&&cur==='notok'); }
@@ -783,7 +828,6 @@ async function init(){
   $('leanMap').onclick=mapLean; $('leanUnmap').onclick=removeLeanSel; $('leanNone').onclick=mapLeanNone; $('leanClear').onclick=clearLean;
   $('vOk').onclick=()=>setVerdict('ok'); $('vNotok').onclick=()=>setVerdict('notok'); $('vUndec').onclick=()=>setVerdict('undecidable');
   $('tabBoxes').onclick=()=>switchTab('boxes'); $('tabLean').onclick=()=>switchTab('lean');
-  $('labelSel').onchange=(e)=>setLabel(e.target.value);
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
   // link button toggles link mode: arm when idle, cancel when already armed
