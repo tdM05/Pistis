@@ -30,6 +30,20 @@ body.resizing{cursor:col-resize;user-select:none;}
 .labelsel{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:2px 4px;height:24px;background:#fff;color:var(--ink);max-width:150px;}
 .labelsel:disabled{opacity:.5;}
 .labelhint{font:11px var(--mono);color:#b08900;}
+.labelissue{font:10px var(--mono);color:#c0392b;white-space:normal;flex-basis:100%;text-align:right;}
+.issuemark{flex:none;font-size:11px;color:#e08600;cursor:help;padding:0 2px;}
+/* Errors tab: issues grouped by type, collapsible groups */
+.errlist{padding:4px 0 40px;}
+.errempty{padding:10px 12px;font-size:12px;color:#1f9d55;}
+.errgrouphead{display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer;background:#ffe8e3;border-top:1px solid #f0cfc8;border-bottom:1px solid #f0cfc8;font:11px -apple-system,system-ui,sans-serif;font-weight:700;color:#c0392b;}
+.errgrouphead:hover{background:#ffddd6;}
+.errgrouphead .tw{width:12px;text-align:center;}
+.errgrouphead .gk{flex:1;}
+.errgrouphead .gc{background:#c0392b;color:#fff;border-radius:9px;padding:0 6px;font-size:10px;}
+.errrow{padding:4px 10px 4px 24px;border-bottom:1px solid #f3dcd7;cursor:pointer;font-size:11px;}
+.errrow:hover{background:#fff4f2;}
+.errname{display:block;font-weight:600;color:#7a2018;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.errmsg{display:block;font:10px var(--mono);color:#c0392b;}
 /* small label chip on a tree row */
 .labeltag{flex:none;font-size:9.5px;font-weight:600;color:#3858a8;background:#e4ecff;border:1px solid #cdddff;border-radius:3px;padding:0 4px;letter-spacing:.01em;}
 

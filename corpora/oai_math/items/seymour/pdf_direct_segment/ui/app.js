@@ -67,8 +67,9 @@ const ISA = {
 };
 const HASA = {
   'organizer-section':   ['commentary','definition','theorem','organizer-section'],
-  'theorem':             ['formula','proof'],
-  'proof':               ['formula','commentary','theorem','tactic'],
+  'definition':          ['commentary'],   // definition is-a term/formula AND has-a optional commentary
+  'theorem':             ['formula','proof','commentary'],
+  'proof':               ['formula','theorem','commentary','tactic'],
   'relation':            ['relation-symbol','term'],
   'equality':            ['equality-symbol','term'],
   'universal':           ['quantifier','variable-symbol','formula'],
@@ -93,15 +94,99 @@ function labelConcrete(path){ return path&&path.length?path[path.length-1]:null;
 function pathsUnder(slot, prefix){ const p=[...(prefix||[]),slot];
   if(!isAbstract(slot)) return [p];
   return ISA[slot].flatMap((c)=>pathsUnder(c,p)); }
+// has-a slots of a box = union of HASA over EVERY label in its is-a path (the box
+// is-a each of them, so it has-a all their children). e.g. a definition→…→relation
+// box has relation's {relation-symbol,term} AND definition's {commentary}.
+function hasaSlotsOf(box){ const out=[]; for(const l of (box.label||[])){ (HASA[l]||[]).forEach((s)=>{ if(!out.includes(s)) out.push(s); }); } return out; }
 // valid label-paths for a box given its PARENT box. root → ROOT_SLOTS; a labelled
 // parent → its has-a slots (subtype-expanded); unlabelled non-root parent → none
 // (label the parent first — keeps labelling top-down and the tree well-formed).
 function allowedLabelPaths(parentBox){
   const atTop = !parentBox || parentBox===ROOT || parentBox.id==='root';
   const slots = atTop ? ROOT_SLOTS
-    : (parentBox.label ? (HASA[labelConcrete(parentBox.label)]||[]) : null);
+    : (parentBox.label ? hasaSlotsOf(parentBox) : null);
   if(!slots) return null;                 // null => parent not labelled yet
   return slots.flatMap((s)=>pathsUnder(s,[])); }
+
+// ── structural conditions (doc/label_conditions.md) ─────────────────────────
+// CONDITIONS[label] = list of {slot, min, max} required child counts. A child
+// "counts as slot" if its is-a path HEAD subtypes the slot. commentary is never
+// counted. max:null = unbounded. Labels absent here impose no arity condition.
+const CONDITIONS = {
+  'theorem':             [{slot:'formula',min:1,max:1},{slot:'proof',min:1,max:1}],
+  'relation':            [{slot:'relation-symbol',min:1,max:1},{slot:'term',min:1,max:null}],
+  'equality':            [{slot:'equality-symbol',min:1,max:1},{slot:'term',min:2,max:2}],
+  'universal':           [{slot:'quantifier',min:1,max:1},{slot:'variable-symbol',min:1,max:1},{slot:'formula',min:1,max:1}],
+  'existential':         [{slot:'quantifier',min:1,max:1},{slot:'variable-symbol',min:1,max:1},{slot:'formula',min:1,max:1}],
+  'negation':            [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:1,max:1}],
+  'implication':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
+  'conjunction':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
+  'disjunction':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
+  'function-application':[{slot:'function-symbol',min:1,max:1},{slot:'term',min:1,max:null}],
+  'variable':            [{slot:'variable-symbol',min:1,max:1}],
+  'constant':            [{slot:'constant-symbol',min:1,max:1}],
+};
+// is label `l` the slot, or an is-a subtype of it?
+function labelSubtypes(l, slot){ if(l===slot) return true;
+  const kids=ISA[l]; return kids? kids.some((k)=>labelSubtypes(k,slot)) : false; }
+// a child box counts as `slot` if its path head subtypes slot (commentary never).
+function childCountsAs(child, slot){ const head=child.label&&child.label[0]; return head? labelSubtypes(head,slot) : false; }
+// loose-end issues for ONE box (not recursive). [] = clean.
+function boxIssues(box){ const out=[];
+  if(!box.label||!box.label.length){ out.push('unlabelled'); return out; }
+  const concrete=labelConcrete(box.label);
+  if(isAbstract(concrete)) out.push('incomplete label (ends abstract)');
+  const conds=CONDITIONS[concrete]||[];
+  for(const c of conds){ const n=(box.children||[]).filter((ch)=>childCountsAs(ch,c.slot)).length;
+    if(n<c.min) out.push(`needs ${c.min===c.max?c.min:c.min+'+'} ${c.slot} (has ${n})`);
+    else if(c.max!=null && n>c.max) out.push(`too many ${c.slot} (${n}, max ${c.max})`);
+  }
+  // any child whose label isn't an allowed slot of this box = misplaced
+  const slots=hasaSlotsOf(box);
+  for(const ch of (box.children||[])){ const head=ch.label&&ch.label[0];
+    if(head && !slots.some((s)=>labelSubtypes(head,s))) out.push(`child “${head}” not allowed here`); }
+  return out; }
+// whole-subtree: does this box or any descendant have an issue?
+function subtreeHasIssue(box){ if(box!==ROOT && boxIssues(box).length) return true;
+  return (box.children||[]).some(subtreeHasIssue); }
+// every issue in the tree: [{id, label, issues:[…]}], in reading order.
+function allIssues(){ const out=[]; walk(ROOT,(n)=>{ if(n===ROOT) return; const iss=boxIssues(n); if(iss.length) out.push({id:n.id, box:n, issues:iss}); }); return out; }
+// normalize an issue string to a GROUP key (so "needs 2 formula (has 1)" and
+// "needs 2 formula (has 0)" group together). 'unlabelled' is forced to sort last.
+function issueGroupKey(msg){
+  if(msg==='unlabelled') return 'unlabelled';
+  if(msg==='incomplete label (ends abstract)') return 'incomplete label';
+  let m=msg.match(/^needs .*? (\S+) \(has/); if(m) return 'missing '+m[1];
+  m=msg.match(/^too many (\S+)/); if(m) return 'too many '+m[1];
+  m=msg.match(/^child .* not allowed/); if(m) return 'misplaced child';
+  return msg; }
+const ERR_GROUP_COLLAPSED={};
+// render the Errors tab: issues grouped by type, each group a collapsible
+// dropdown; 'unlabelled' group forced to the bottom (usually large / in-progress).
+function renderErrors(){ const list=$('errList'); if(!list) return;
+  const items=allIssues();                       // [{id,box,issues:[…]}]
+  // expand into (box, single-issue) rows, bucket by group key
+  const groups={};
+  items.forEach(({id,box,issues})=>{ issues.forEach((msg)=>{ const k=issueGroupKey(msg);
+    (groups[k]||(groups[k]=[])).push({id,box,msg}); }); });
+  const keys=Object.keys(groups).sort((a,b)=>{
+    if(a==='unlabelled') return 1; if(b==='unlabelled') return -1;   // unlabelled last
+    return a.localeCompare(b); });
+  list.innerHTML='';
+  const tab=$('tabErrors'); if(tab) tab.textContent=items.length?('Errors ('+items.length+')'):'Errors';
+  if(!keys.length){ const e=document.createElement('div'); e.className='errempty'; e.textContent='✓ no structural errors'; list.appendChild(e); return; }
+  keys.forEach((k)=>{ const rows=groups[k]; const collapsed=!!ERR_GROUP_COLLAPSED[k];
+    const gh=document.createElement('div'); gh.className='errgrouphead';
+    gh.innerHTML=`<span class="tw">${collapsed?'▸':'▾'}</span><span class="gk">${k}</span><span class="gc">${rows.length}</span>`;
+    gh.onclick=()=>{ ERR_GROUP_COLLAPSED[k]=!collapsed; renderErrors(); };
+    list.appendChild(gh);
+    if(collapsed) return;
+    rows.forEach(({id,box,msg})=>{ const row=document.createElement('div'); row.className='errrow';
+      const nm=document.createElement('span'); nm.className='errname'; nm.textContent=(box.label?box.label[0]:'(unlabelled)')+': '+label(box); row.appendChild(nm);
+      const ms=document.createElement('span'); ms.className='errmsg'; ms.textContent=msg; row.appendChild(ms);
+      row.onclick=()=>{ selectBox(id); const b=find(id); if(b&&pieces(b).length) scrollToChar(pieces(b)[0].start); };
+      list.appendChild(row); }); });
+}
 
 const $ = (x) => document.getElementById(x);
 function boxHue(id){const n=parseInt(String(id).replace(/\D/g,''),10)||0;return Math.round((n*137.508)%360);}
@@ -554,7 +639,7 @@ function drawArrows(){ const svg=$('arrowLayer'); if(!svg) return; const host=$(
 }
 
 /* ───────────────── paint highlights on the PDF ───────────────── */
-function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); }
+function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); }
 
 // SINGLE SOURCE OF TRUTH for the focus view at the current level.
 //  - `level`    : the current level node (outline; ROOT = whole paper)
@@ -643,6 +728,8 @@ function treeRow(node,isRoot){
   // label tag: shows the TOP of the is-a path (click/hover for the full path).
   if(!isRoot && node.label&&node.label.length){ const lt=document.createElement('span'); lt.className='labeltag';
     const top=node.label[0]; lt.textContent=LABEL_SHORT[top]||top; lt.title=node.label.join(' → '); row.appendChild(lt); }
+  // loose-end marker: ⚠ if this box violates a structural condition (soft flag)
+  if(!isRoot){ const iss=boxIssues(node); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
   if(!isRoot){ const out=linksFrom(node.id).length, inc=linksTo(node.id).length;
     if(out||inc){ const lb=document.createElement('span'); lb.className='linkbadge';
@@ -758,6 +845,8 @@ function updateLabelUI(){ const host=$('labelPick'); if(!host) return; host.inne
     if(!isAbstract(chosen)) break;             // concrete → done, no further level
     choices=ISA[chosen]; lvl++;                // abstract → descend
   }
+  // trailing loose-end note for the selected box
+  const iss=boxIssues(box); if(iss.length){ const w=document.createElement('span'); w.className='labelissue'; w.textContent='⚠ '+iss.join('; '); host.appendChild(w); }
 }
 // commit a (possibly partial) path. Stored only when it ends concrete; a partial
 // (ends abstract) is held so the cascade can continue, but clears verdict.
@@ -790,7 +879,7 @@ function updateLeanUI(){ const box=selId&&find(selId);
 }
 function clearSel(){ window.getSelection().removeAllRanges(); curSel=null; }
 function flash(m){ $('status').textContent=m; setTimeout(()=>{if($('status').textContent===m)$('status').textContent='';},3000); }
-function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); }
+function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); }
 
 /* ───────────────── save ───────────────── */
 let _t=null; function markDirty(){dirty=true;clearTimeout(_t);_t=setTimeout(save,600);}
@@ -806,11 +895,15 @@ function setupSplitters(){ document.querySelectorAll('.splitter').forEach((sp)=>
     const up=(ev)=>{sp.releasePointerCapture(ev.pointerId);sp.classList.remove('drag');document.body.classList.remove('resizing');sp.removeEventListener('pointermove',mv);sp.removeEventListener('pointerup',up);};
     sp.addEventListener('pointermove',mv);sp.addEventListener('pointerup',up);}); }); }
 
-// switch the left panel between the Boxes tree and the Lean file tree.
-function switchTab(which){ const boxes=which==='boxes';
-  $('viewBoxes').style.display=boxes?'':'none'; $('viewLean').style.display=boxes?'none':'';
-  $('tabBoxes').classList.toggle('active',boxes); $('tabLean').classList.toggle('active',!boxes);
-  if(!boxes) renderLeanTree(); }
+// switch the left panel between the Boxes tree, Lean file tree, and Errors list.
+function switchTab(which){
+  $('viewBoxes').style.display =which==='boxes' ?'':'none';
+  $('viewLean').style.display  =which==='lean'  ?'':'none';
+  $('viewErrors').style.display=which==='errors'?'':'none';
+  $('tabBoxes').classList.toggle('active',which==='boxes');
+  $('tabLean').classList.toggle('active',which==='lean');
+  $('tabErrors').classList.toggle('active',which==='errors');
+  if(which==='lean') renderLeanTree(); if(which==='errors') renderErrors(); }
 
 /* ───────────────── init ───────────────── */
 async function init(){
@@ -827,7 +920,7 @@ async function init(){
   $('pages').addEventListener('dblclick', onPdfDblClick);
   $('leanMap').onclick=mapLean; $('leanUnmap').onclick=removeLeanSel; $('leanNone').onclick=mapLeanNone; $('leanClear').onclick=clearLean;
   $('vOk').onclick=()=>setVerdict('ok'); $('vNotok').onclick=()=>setVerdict('notok'); $('vUndec').onclick=()=>setVerdict('undecidable');
-  $('tabBoxes').onclick=()=>switchTab('boxes'); $('tabLean').onclick=()=>switchTab('lean');
+  $('tabBoxes').onclick=()=>switchTab('boxes'); $('tabLean').onclick=()=>switchTab('lean'); $('tabErrors').onclick=()=>switchTab('errors');
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
   // link button toggles link mode: arm when idle, cancel when already armed
