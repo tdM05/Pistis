@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<!--
+  PDF-direct segmentation.
+
+  The PDF *is* the source. We render it (PDF.js) and build ONE global character
+  sequence from its text layer — every selectable glyph, in reading order,
+  concatenated across pages. A box's region is a list of pieces, each a
+  [start,end) range of CHARACTER INDICES into that sequence. No LaTeX, no
+  SyncTeX, no compile: highlighting is just drawing rectangles over the glyphs
+  of the selected character indices (like a PDF highlighter), and the stored
+  span is exact because the character sequence is deterministic.
+
+  Left: Boxes tree. Middle/right: the PDF with a selectable text layer + box
+  highlights. Select text on the PDF, press n (new box) / e (add to selected) /
+  r (remove selection from selected).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seymour — PDF-direct segmentation</title>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">PDF&#8209;direct seg</div>
+  <button id="mkbox" class="btn" disabled>+ box <kbd>n</kbd></button>
+  <button id="extendbox" class="btn" disabled>+ add to current <kbd>e</kbd></button>
+  <button id="removebox" class="btn" disabled>&minus; remove selection <kbd>r</kbd></button>
+  <span id="selinfo" class="selinfo"></span>
+  <div class="spacer"></div>
+  <button id="save" class="btn primary">Save</button>
+  <span id="status" class="status"></span>
+</header>
+
+<main id="main">
+  <aside class="tree-pane" id="pane1">
+    <div class="pane-head">Boxes</div>
+    <div class="levelbar">selected: <span id="sellab" class="levelval">(none)</span></div>
+    <div id="tree" class="tree"></div>
+  </aside>
+  <div class="splitter" data-left="pane1" data-right="pane2"></div>
+  <section class="pdf-pane" id="pane2">
+    <div class="pane-head">PDF &middot; <span class="dimlab">select text, then n / e / r</span></div>
+    <div id="pdfScroll" class="pdf-scroll"><div id="pages" class="pages"></div></div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

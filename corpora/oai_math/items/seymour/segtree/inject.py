@@ -19,6 +19,7 @@ closing a group it did not open). A clean span is exactly one that compiles when
 wrapped, so no compile is needed to validate.
 """
 import os
+import re
 import shutil
 import subprocess
 
@@ -100,6 +101,32 @@ def span_is_clean(file, s, e):
     for k in range(s, e):
         if D[k] < base:
             return False, "span closes a group it did not open"
+    # environments: \begin{env}/\end{env} must be balanced WITHIN the span — a
+    # dangling \begin or \end (span cuts across a figure/equation/etc. boundary)
+    # is brace-balanced yet still breaks LaTeX, so reject it here.
+    ok, why = _env_balanced(read_file(file), s, e)
+    if not ok:
+        return False, why
+    return True, "ok"
+
+
+_ENV_RE = re.compile(r"\\(begin|end)\s*\{([^}]*)\}")
+def _env_balanced(text, s, e):
+    stack = []
+    for m in _ENV_RE.finditer(text, s, e):
+        if m.end() > e:
+            break
+        kind, env = m.group(1), m.group(2)
+        if kind == "begin":
+            stack.append(env)
+        else:  # end
+            if not stack:
+                return False, f"span ends an environment ({env}) it did not open"
+            if stack[-1] != env:
+                return False, f"environment mismatch (\\end{{{env}}} vs \\begin{{{stack[-1]}}})"
+            stack.pop()
+    if stack:
+        return False, f"span opens an environment ({stack[-1]}) it does not close"
     return True, "ok"
 
 

@@ -11,9 +11,15 @@ let mode = 'create';            // 'create' | 'select'
 let curSel = null;              // {file, s, e}
 let dirty = false;
 
-// box: {id, file, s, e, children}. root is a virtual container ('paper').
-let ROOT = { id: 'root', file: null, s: 0, e: 0, children: [] };
-let activeId = 'root';          // the active LEVEL (new boxes attach under it)
+// box: {id, pieces:[{file,s,e},...], children}. A box's region is a LIST of
+// pieces, so it can be DISCONTINUOUS and span multiple files. root is a virtual
+// container with no pieces.
+let ROOT = { id: 'root', pieces: [], children: [] };
+let activeId = 'root';          // AMBER: the active LEVEL — where new boxes nest;
+                                // drives the PDF focus (black vs grey).
+let selId = null;               // BLUE: the currently SELECTED box — the target
+                                // of EXTEND. Set by clicking a box (tex or tree);
+                                // persists across file/tab switches.
 const COLLAPSED = {};
 let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
@@ -33,8 +39,17 @@ function walk(n, fn, d = 0) { fn(n, d); n.children.forEach((c) => walk(c, fn, d 
 function find(id) { let f = null; walk(ROOT, (n) => { if (n.id === id) f = n; }); return f; }
 function depthOf(id) { let d = -1; walk(ROOT, (n, dd) => { if (n.id === id) d = dd; }); return d; }
 function parentOf(id) { let p = null; walk(ROOT, (n) => { if (n.children.some((c) => c.id === id)) p = n; }); return p; }
-// is [s,e) in `file` inside box b's range?
-function inside(b, file, s, e) { return b.file === file && b.s <= s && e <= b.e; }
+
+// ---- piece / region helpers (a box's region is box.pieces) ----
+function pieces(b) { return b.pieces || []; }
+// total char length of a box's region (for "narrowest/innermost" comparisons)
+function regionLen(b) { return pieces(b).reduce((t, p) => t + (p.e - p.s), 0); }
+// does box b cover the char range [s,e) in `file`? (inside ANY one piece)
+function covers(b, file, s, e) { return pieces(b).some((p) => p.file === file && p.s <= s && e <= p.e); }
+// is span [s,e) in `file` fully inside box b (within one of its pieces)?
+function inside(b, file, s, e) { return covers(b, file, s, e); }
+// the files a box touches
+function boxFiles(b) { return [...new Set(pieces(b).map((p) => p.file))]; }
 
 /* ================================================= file tree (folders) */
 // Build a nested folder structure from the flat relative paths, then render it
@@ -100,11 +115,12 @@ function renderFile() {
   const text = SRC[curFile] || '';
   // Show EVERY box in this file, tinted (background) by its depth so nesting is
   // visible; the active box is outlined. This is the tex-side visualization.
-  const ranges = [];               // {s,e,id,depth,active}
+  const ranges = [];               // {s,e,id,depth,active,len}  (one per PIECE in this file)
   walk(ROOT, (n, d) => {
-    if (n !== ROOT && n.file === curFile) {
-      ranges.push({ s: n.s, e: n.e, id: n.id, depth: d, active: n.id === activeId });
-    }
+    if (n === ROOT) return;
+    pieces(n).forEach((p) => {
+      if (p.file === curFile) ranges.push({ s: p.s, e: p.e, id: n.id, depth: d, active: n.id === activeId, len: regionLen(n) });
+    });
   });
 
   // build line rows
@@ -127,13 +143,13 @@ function renderFile() {
         span.dataset.cover = JSON.stringify(covers.map((r) => r.id));
         // boundaries: top+bottom border (innermost colour) make the band; a left
         // border where a box starts here, a right border where one ends.
-        const inner = covers.reduce((p, q) => ((q.e - q.s) <= (p.e - p.s) ? q : p));
+        const inner = covers.reduce((p, q) => (q.len <= p.len ? q : p));
         const col = boxColor(inner.id);
         const sh = ['inset 0 1.5px 0 0 ' + col, 'inset 0 -1.5px 0 0 ' + col];
         const starters = covers.filter((r) => r.s === a);
         const enders = covers.filter((r) => r.e === b);
-        if (starters.length) sh.push('inset 2px 0 0 0 ' + boxColor(starters.reduce((p, q) => ((q.e - q.s) <= (p.e - p.s) ? q : p)).id));
-        if (enders.length) sh.push('inset -2px 0 0 0 ' + boxColor(enders.reduce((p, q) => ((q.e - q.s) <= (p.e - p.s) ? q : p)).id));
+        if (starters.length) sh.push('inset 2px 0 0 0 ' + boxColor(starters.reduce((p, q) => (q.len <= p.len ? q : p)).id));
+        if (enders.length) sh.push('inset -2px 0 0 0 ' + boxColor(enders.reduce((p, q) => (q.len <= p.len ? q : p)).id));
         span._base = sh.join(', ');
         span.style.boxShadow = span._base;
       }
@@ -160,10 +176,48 @@ function wireHover() {
     if (!ids || !ids.length) { if (_hoverId) setHover(null); return; }
     // innermost = the box with the smallest span among those covering this tok
     let best = ids[0], bw = Infinity;
-    ids.forEach((id) => { const n = find(id); const w = n ? n.e - n.s : Infinity; if (w < bw) { bw = w; best = id; } });
+    ids.forEach((id) => { const n = find(id); const w = n ? regionLen(n) : Infinity; if (w < bw) { bw = w; best = id; } });
     if (best !== _hoverId) setHover(best);
   };
   host.onmouseleave = () => setHover(null);
+  // Plain left-click (no drag / no selection) on a box's text -> select that box
+  // in the left box-tree panel. A click that made a text selection is left alone
+  // (that's how you pick text to create/extend a box).
+  host.onclick = (e) => {
+    if (e.ctrlKey || e.metaKey) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;            // user selected text -> not a pick
+    const tok = e.target.closest && e.target.closest('.tok');
+    const ids = tok && tok.dataset.cover ? JSON.parse(tok.dataset.cover) : null;
+    if (!ids || !ids.length) return;
+    // innermost covering box
+    let best = ids[0], bw = Infinity;
+    ids.forEach((id) => { const n = find(id); const w = n ? regionLen(n) : Infinity; if (w < bw) { bw = w; best = id; } });
+    selectBox(best, true);
+  };
+}
+// Set the BLUE selection (the extend target). Persists across file/tab switches.
+// `reveal` also reveals + scrolls the row in the Boxes tab (used when clicking
+// from the tex side); clicking a tree row directly doesn't need to re-reveal.
+function selectBox(id, reveal) {
+  selId = id;
+  if (reveal) {
+    switchTab('boxes');
+    let p = parentOf(id);
+    while (p) { COLLAPSED[p.id] = false; p = parentOf(p.id); }
+    renderTree();
+    const r = [...$('tree').querySelectorAll('.row')].find((x) => x._boxId === id);
+    if (r) r.scrollIntoView({ block: 'nearest' });
+  } else {
+    paintSelectedRow();
+  }
+  updateSelUI();
+}
+// repaint which tree row carries the blue .picked class (no full re-render)
+function paintSelectedRow() {
+  $('tree').querySelectorAll('.row.picked').forEach((r) => r.classList.remove('picked'));
+  const r = [...$('tree').querySelectorAll('.row')].find((x) => x._boxId === selId);
+  if (r) r.classList.add('picked');
 }
 function setHover(id) {
   _hoverId = id;
@@ -194,40 +248,97 @@ function readSelection() {
   return { file: curFile, s: a, e: b };
 }
 
-/* ================================================= create / select */
+/* ================================================= create / extend / select */
+// sort key for a box among siblings: its earliest piece (file then offset)
+function regionStart(b) {
+  const ps = pieces(b);
+  if (!ps.length) return ['', 0];
+  return ps.map((p) => [p.file, p.s]).sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] - y[1]))[0];
+}
+function sortChildren(n) { n.children.sort((a, b) => { const [fa, sa] = regionStart(a), [fb, sb] = regionStart(b); return fa < fb ? -1 : fa > fb ? 1 : sa - sb; }); }
+
+async function validateSel(file, s, e) {
+  try { return await fetch('/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file, s, e }) }).then((r) => r.json()); }
+  catch (_) { return { ok: false, reason: 'validate failed' }; }
+}
+
+// 'n' — create a NEW box from the current selection (one piece to start).
 async function makeBox() {
   if (mode !== 'create' || !curSel) return;
   const { file, s, e } = curSel;
-  // block-at-creation: server validity (well-formed span in this file)
-  let v;
-  try { v = await fetch('/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file, s, e }) }).then((r) => r.json()); }
-  catch (_) { v = { ok: false, reason: 'validate failed' }; }
+  const v = await validateSel(file, s, e);
   if (!v.ok) { flash('✗ invalid span: ' + v.reason); return; }
 
-  // parent = the active box IF it contains the selection; else the deepest box
-  // (in this file) that contains it; else root.
+  // parent = the active box if it contains the selection; else the deepest box
+  // that contains it; else root.
   let parent = find(activeId);
-  if (!(parent && (parent.id === 'root' || inside(parent, file, s, e)))) parent = null;
+  if (!(parent && (parent.id === 'root' || covers(parent, file, s, e)))) parent = null;
   if (!parent) {
     parent = ROOT;
-    walk(ROOT, (n) => { if (n !== ROOT && inside(n, file, s, e) && (n.e - n.s) <= (parent.e - parent.s || Infinity)) parent = n; });
+    walk(ROOT, (n) => { if (n !== ROOT && covers(n, file, s, e) && regionLen(n) <= (parent === ROOT ? Infinity : regionLen(parent))) parent = n; });
   }
-  // containment guard: child must be within parent (root always ok)
-  if (parent !== ROOT && !inside(parent, file, s, e)) { flash('✗ selection not inside the active box'); return; }
+  if (parent !== ROOT && !covers(parent, file, s, e)) { flash('✗ selection not inside the active box'); return; }
 
-  const box = { id: freshId(), file, s, e, children: [] };
-  // absorb existing siblings that fall within the new box
-  const abs = parent.children.filter((c) => inside(box, c.file, c.s, c.e));
-  parent.children = parent.children.filter((c) => !inside(box, c.file, c.s, c.e));
+  const box = { id: freshId(), pieces: [{ file, s, e }], children: [] };
+  // absorb existing siblings fully inside the new box's single piece
+  const abs = parent.children.filter((c) => pieces(c).every((p) => covers(box, p.file, p.s, p.e)));
+  parent.children = parent.children.filter((c) => !abs.includes(c));
   box.children = abs;
   parent.children.push(box);
-  parent.children.sort((a, b) => a.s - b.s);
-  // NOTE: the active level does NOT change on create — it stays wherever you set
-  // it, so repeated selections keep nesting under the same parent until you
-  // deliberately pick a new level in "select level" mode.
-  dirty = true;
+  sortChildren(parent);
+  selId = box.id;    // the new box becomes the BLUE selection (ready to extend)
+  // active level stays put (segment-within keeps nesting under the same parent).
+  markDirty();
   window.getSelection().removeAllRanges(); curSel = null;
   refreshAll();
+}
+
+// 'e' — EXTEND the SELECTED (blue) box: append the current selection as another
+// piece. Independent of the active level. May span files / be discontinuous.
+async function extendBox() {
+  if (mode !== 'create' || !curSel) return;
+  const box = selId ? find(selId) : null;
+  if (!box) { flash('click a box to select it (blue) first, then extend'); return; }
+  const { file, s, e } = curSel;
+  const v = await validateSel(file, s, e);
+  if (!v.ok) { flash('✗ invalid span: ' + v.reason); return; }
+  box.pieces.push({ file, s, e });
+  markDirty();
+  window.getSelection().removeAllRanges(); curSel = null;
+  refreshAll();
+}
+
+// 'r' — REMOVE the EXACT selected character range from the SELECTED (blue) box.
+// Mirror of extend: it subtracts [s,e) from whatever piece(s) overlap it. A
+// piece cut in the middle splits into two; a fully-covered piece disappears; a
+// partially-covered piece is trimmed. If the box ends up with no pieces, it's
+// deleted.
+async function removeFromCurrent() {
+  if (mode !== 'create' || !curSel) return;
+  const box = selId ? find(selId) : null;
+  if (!box) { flash('click a box to select it (blue) first'); return; }
+  const { file, s, e } = curSel;
+  const next = [];
+  const remainders = [];       // new pieces this remove would create (to validate)
+  let changed = false;
+  for (const p of box.pieces) {
+    if (p.file !== file || e <= p.s || s >= p.e) { next.push(p); continue; } // no overlap
+    changed = true;
+    if (s > p.s) { const r = { file, s: p.s, e: Math.min(s, p.e) }; next.push(r); remainders.push(r); }
+    if (e < p.e) { const r = { file, s: Math.max(e, p.s), e: p.e }; next.push(r); remainders.push(r); }
+    // the overlap [max(s,p.s), min(e,p.e)) is dropped
+  }
+  if (!changed) { flash('selection does not overlap this box'); return; }
+  // every remainder must itself be a clean span (so we never leave a dangling
+  // \begin/\end or broken brace that fails to compile).
+  for (const r of remainders) {
+    const v = await validateSel(r.file, r.s, r.e);
+    if (!v.ok) { flash('✗ can’t remove there — leaves a broken span: ' + v.reason); return; }
+  }
+  box.pieces = next;
+  window.getSelection().removeAllRanges(); curSel = null;
+  if (box.pieces.length === 0) { deleteBox(box.id); return; }
+  markDirty(); refreshAll();
 }
 
 function setActive(id) { activeId = id; refreshAll(); }
@@ -237,9 +348,10 @@ function deleteBox(id) {
   const i = p.children.findIndex((c) => c.id === id);
   const removed = p.children[i];
   p.children.splice(i, 1, ...removed.children);        // promote children
-  p.children.sort((a, b) => a.s - b.s);
+  sortChildren(p);
   if (activeId === id) activeId = p.id;
-  dirty = true; refreshAll();
+  if (selId === id) selId = null;
+  markDirty(); refreshAll();
 }
 
 /* ================================================= box tree panel */
@@ -254,31 +366,69 @@ function renderTree() {
   const txt = document.createElement('span'); txt.textContent = activeId === 'root' ? 'paper (top level)' : label(a);
   lab.appendChild(dot); lab.appendChild(txt);
 }
-function label(b) { const t = (SRC[b.file] || '').slice(b.s, b.e).replace(/\s+/g, ' ').trim(); return t.slice(0, 28) || '(span)'; }
+// label = text of the box's FIRST piece (+ "…" if it has more pieces)
+function label(b) {
+  const ps = pieces(b); if (!ps.length) return '(span)';
+  const p0 = ps[0];
+  const t = (SRC[p0.file] || '').slice(p0.s, p0.e).replace(/\s+/g, ' ').trim();
+  return (t.slice(0, 28) || '(span)') + (ps.length > 1 ? ` …+${ps.length - 1}` : '');
+}
 function treeRow(node, isRoot) {
   const wrap = document.createElement('div'); const row = document.createElement('div');
+  row._boxId = node.id;
   const kids = node.children.length > 0, collapsed = !!COLLAPSED[node.id];
-  row.className = 'row' + (node.id === activeId ? ' active' : '');
+  row.className = 'row' + (node.id === activeId ? ' active' : '') + (node.id === selId ? ' picked' : '');
   const tw = document.createElement('span'); tw.className = 'twist' + (kids ? '' : ' leaf');
   tw.textContent = kids ? (collapsed ? '▸' : '▾') : '·';
   if (kids) tw.onclick = (e) => { e.stopPropagation(); COLLAPSED[node.id] = !collapsed; renderTree(); };
   row.appendChild(tw);
   if (!isRoot) { const sw = document.createElement('span'); sw.className = 'rswatch'; sw.style.background = boxColor(node.id); row.appendChild(sw); }
   const name = document.createElement('span'); name.className = 'rname'; name.textContent = isRoot ? 'paper' : label(node); row.appendChild(name);
-  if (!isRoot) { const fl = document.createElement('span'); fl.className = 'rfile'; fl.textContent = node.file.replace('.tex', '').replace('-', '·').slice(0, 10); row.appendChild(fl); }
+  if (!isRoot) { const fl = document.createElement('span'); fl.className = 'rfile'; fl.textContent = boxFiles(node).map((f) => f.split('/').pop().replace('.tex', '')).join(',').slice(0, 14); row.appendChild(fl); }
   if (!isRoot) { const del = document.createElement('span'); del.className = 'rdel'; del.textContent = '✕'; del.onclick = (e) => { e.stopPropagation(); deleteBox(node.id); }; row.appendChild(del); }
   row.onclick = () => {
-    // jump the file view to this box either way
-    if (!isRoot && node.file !== curFile) { curFile = node.file; $('filesel').value = curFile; }
-    // select-level mode: clicking SETS the ambient active level. create mode:
-    // clicking only navigates/views — the active level is unchanged.
-    if (mode === 'select') setActive(node.id);
-    else { renderTree(); renderFile(); }
-    if (!isRoot) jumpTo(node.s);
+    // jump the file view to this box's first piece
+    const p0 = pieces(node)[0];
+    if (!isRoot && p0 && p0.file !== curFile) openFile(p0.file);
+    // clicking a box ALWAYS sets the BLUE selection (the extend target).
+    if (!isRoot) selId = node.id;
+    // in select-level mode it ALSO sets the AMBER active level.
+    if (mode === 'select') setActive(node.id); else renderTree();
+    renderFile(); updateSelUI();
+    if (!isRoot && p0) jumpTo(p0.s);
   };
   wrap.appendChild(row);
+
+  // piece sub-rows: each piece of this box is its own navigable item (same box
+  // colour). Click a piece -> jump to it; ✕ -> remove just that piece. Shown
+  // when a box has more than one piece (a single-piece box is its own row).
+  if (!isRoot && pieces(node).length > 1 && !collapsed) {
+    const pbox = document.createElement('div'); pbox.className = 'children';
+    pieces(node).forEach((p, pi) => {
+      const prow = document.createElement('div'); prow.className = 'row piecerow';
+      const pad = document.createElement('span'); pad.className = 'twist leaf'; pad.textContent = '·'; prow.appendChild(pad);
+      const dot = document.createElement('span'); dot.className = 'rswatch'; dot.style.background = boxColor(node.id); dot.style.opacity = '.6'; prow.appendChild(dot);
+      const nm = document.createElement('span'); nm.className = 'rname';
+      const txt = (SRC[p.file] || '').slice(p.s, p.e).replace(/\s+/g, ' ').trim();
+      nm.textContent = `${pi + 1}. ${txt.slice(0, 22) || '(span)'}`; prow.appendChild(nm);
+      const fl = document.createElement('span'); fl.className = 'rfile'; fl.textContent = p.file.split('/').pop().replace('.tex', '').slice(0, 10); prow.appendChild(fl);
+      const del = document.createElement('span'); del.className = 'rdel'; del.textContent = '✕'; del.title = 'remove this piece';
+      del.onclick = (e) => { e.stopPropagation(); removePiece(node.id, pi); }; prow.appendChild(del);
+      prow.onclick = () => { if (p.file !== curFile) openFile(p.file); selId = node.id; renderFile(); updateSelUI(); paintSelectedRow(); jumpTo(p.s); };
+      pbox.appendChild(prow);
+    });
+    wrap.appendChild(pbox);
+  }
+
   if (kids) { const box = document.createElement('div'); box.className = 'children' + (collapsed ? ' hidden' : ''); node.children.forEach((c) => box.appendChild(treeRow(c, false))); wrap.appendChild(box); }
   return wrap;
+}
+// remove a single piece from a box; if it was the last piece, remove the box.
+function removePiece(boxId, pieceIdx) {
+  const n = find(boxId); if (!n) return;
+  n.pieces.splice(pieceIdx, 1);
+  if (n.pieces.length === 0) { deleteBox(boxId); return; }   // no pieces left -> gone
+  markDirty(); refreshAll();
 }
 function jumpTo(offset) {
   const host = $('src');
@@ -289,12 +439,19 @@ function jumpTo(offset) {
 /* ================================================= modes + ui */
 function setMode(m) { mode = m; $('mode-create').classList.toggle('on', m === 'create'); $('mode-select').classList.toggle('on', m === 'select'); updateSelUI(); }
 function updateSelUI() {
-  const btn = $('mkbox'), info = $('selinfo');
+  const btn = $('mkbox'), ext = $('extendbox'), rem = $('removebox'), info = $('selinfo');
+  const selBox = selId ? find(selId) : null;         // BLUE selection = extend/remove target
   if (mode === 'create' && curSel) {
     btn.disabled = false;
-    const a = find(activeId);
-    info.textContent = `${curSel.file} [${curSel.s},${curSel.e}) → under ${activeId === 'root' ? 'paper' : label(a)}`;
-  } else { btn.disabled = true; info.textContent = mode === 'select' ? 'select mode — click a box in the tree' : ''; }
+    ext.disabled = !selBox;                           // need a selected (blue) box
+    // remove enabled if the selection OVERLAPS any piece of the blue box
+    const overlaps = selBox && selBox.pieces.some((p) => p.file === curSel.file && curSel.s < p.e && curSel.e > p.s);
+    rem.disabled = !overlaps;
+    const lvl = activeId === 'root' ? 'paper' : label(find(activeId));
+    info.textContent = `${curSel.file} [${curSel.s},${curSel.e}) · n=new in ${lvl}` +
+      (selBox ? ` · e=add to “${label(selBox)}”` : ' · (click a box to pick a target)') +
+      (overlaps ? ' · r=remove this selection' : '');
+  } else { btn.disabled = true; ext.disabled = true; rem.disabled = true; info.textContent = mode === 'select' ? 'select mode — click a box to set the level' : ''; }
 }
 function flash(msg) { $('status').textContent = msg; setTimeout(() => { $('status').textContent = ''; }, 3000); }
 function refreshAll() { renderFile(); renderTree(); updateSelUI(); }
@@ -324,47 +481,79 @@ function blendHexColors(hexes) {
 // colour every box. One path, no focus branching.
 function selectedSpans() {
   const active = (activeId !== 'root') ? find(activeId) : null;
-  const spans = [];   // {file,s,e,color}
+  // flatten boxes to coloured PIECES {file,s,e,color,len}; len = region length so
+  // narrower (inner) boxes win over the active black where they overlap.
+  const spans = [];
+  const add = (box, color) => pieces(box).forEach((p) => spans.push({ file: p.file, s: p.s, e: p.e, color, len: regionLen(box) }));
   if (active) {
-    spans.push({ file: active.file, s: active.s, e: active.e, color: '#000000' });   // level = black
-    active.children.forEach((c) => spans.push({ file: c.file, s: c.s, e: c.e, color: boxHexColor(c.id) }));
+    add(active, '#000000');                                  // level = black
+    active.children.forEach((c) => add(c, boxHexColor(c.id)));
   } else {
-    walk(ROOT, (n) => { if (n !== ROOT) spans.push({ file: n.file, s: n.s, e: n.e, color: boxHexColor(n.id) }); });
+    walk(ROOT, (n) => { if (n !== ROOT) add(n, boxHexColor(n.id)); });
   }
-  // cut into non-overlapping pieces; each piece = blend of the spans covering it
-  // (the active black blends with a child only in the sliver where they'd tie —
-  // but children sit strictly inside, so a child piece has no active overlap
-  // once we drop the active colour where a child covers).
+  // cut into non-overlapping pieces per file; each piece = blend of the narrowest
+  // boxes covering it (so a child beats the active black; equal-size overlaps blend).
   const byFile = {};
   spans.forEach((sp) => { (byFile[sp.file] = byFile[sp.file] || []).push(sp); });
   const out = [];
   for (const file of Object.keys(byFile)) {
-    const boxes = byFile[file];
+    const segs = byFile[file];
     const pts = new Set();
-    boxes.forEach((b) => { pts.add(b.s); pts.add(b.e); });
+    segs.forEach((b) => { pts.add(b.s); pts.add(b.e); });
     const sorted = [...pts].sort((x, y) => x - y);
     for (let k = 0; k < sorted.length - 1; k++) {
       const s = sorted[k], e = sorted[k + 1];
-      const cover = boxes.filter((b) => b.s <= s && e <= b.e);
+      const cover = segs.filter((b) => b.s <= s && e <= b.e);
       if (!cover.length) continue;
-      // narrower spans (children) win over the active box; same-width overlaps blend
-      const minW = Math.min(...cover.map((b) => b.e - b.s));
-      const win = cover.filter((b) => (b.e - b.s) === minW);
+      const minLen = Math.min(...cover.map((b) => b.len));
+      const win = cover.filter((b) => b.len === minLen);
       out.push({ file, s, e, color: blendHexColors(win.map((b) => b.color)) });
     }
   }
   return { boxes: out };
 }
+// snapshot of the last tree that COMPILED CLEANLY — the thing we revert to when
+// a new box/piece makes LaTeX fail. The compile is the real validator.
+let lastGoodTree = null;
+let _rendering = false;
+
+function latexErr(log) {
+  // pull the first "! ..." TeX error line for a readable message
+  const m = (log || '').split('\n').find((l) => l.startsWith('!'));
+  return (m || 'LaTeX compile failed').replace(/^!\s*/, '').slice(0, 120);
+}
+
 async function renderPdf() {
+  if (_rendering) return;                 // don't overlap compiles
+  _rendering = true;
   $('status').textContent = 'compiling…';
   let blob;
   try {
     const r = await fetch('/render', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(selectedSpans()) });
     const ct = r.headers.get('Content-Type') || '';
-    if (!ct.includes('pdf')) { const j = await r.json(); throw new Error((j.log || j.error || 'compile failed').slice(-240)); }
+    if (!ct.includes('pdf')) { const j = await r.json(); throw new Error(latexErr(j.log || j.error)); }
     blob = await r.blob();
-  } catch (e) { flash('render failed: ' + e.message); return; }
+  } catch (e) {
+    _rendering = false;
+    // COMPILE IS TRUTH: this tree doesn't build. Revert to the last good tree,
+    // tell the user why, and re-render that so the PDF stays valid.
+    if (lastGoodTree && JSON.stringify(ROOT) !== lastGoodTree) {
+      ROOT = JSON.parse(lastGoodTree);
+      selId = find(selId) ? selId : null;
+      flash('✗ that span breaks LaTeX — reverted. ' + e.message);
+      markDirty();                        // persist the reverted (valid) tree
+      refreshAll();
+      renderPdf();                         // re-render the good tree
+    } else {
+      flash('render failed: ' + e.message);
+    }
+    return;
+  }
+  // remember where the user was so a recompile doesn't jump them to the top
+  const scroller = $('pdfScroll');
+  const prevTop = scroller ? scroller.scrollTop : 0;
+  const prevLeft = scroller ? scroller.scrollLeft : 0;
   const url = URL.createObjectURL(blob);
   const lib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
   lib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
@@ -387,6 +576,10 @@ async function renderPdf() {
     wrap.addEventListener('click', onPdfCtrlClick);
   }
   URL.revokeObjectURL(url);
+  // restore the scroll position (page sizes are identical across recompiles)
+  if (scroller) scroller.scrollTo({ top: prevTop, left: prevLeft });
+  lastGoodTree = JSON.stringify(ROOT);     // this tree compiles — remember it
+  _rendering = false;
   $('status').textContent = 'rendered ✓'; setTimeout(() => { $('status').textContent = ''; }, 1200);
 }
 
@@ -423,9 +616,21 @@ function setupSplitters() {
 }
 
 /* ================================================= save/load */
-async function save() {
-  try { const r = await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ROOT) });
-    if (!r.ok) throw new Error('HTTP ' + r.status); dirty = false; flash('saved ✓');
+// Any change calls markDirty(), which AUTOSAVES (debounced). You never lose work
+// on reload; the Save button is just a manual "save now".
+let _saveTimer = null, _compileTimer = null;
+function markDirty() {
+  dirty = true;
+  clearTimeout(_saveTimer); _saveTimer = setTimeout(save, 600);
+  // auto-compile the PDF too (debounced; the Render button stays as a manual
+  // trigger). Rapid edits coalesce into one compile.
+  clearTimeout(_compileTimer); _compileTimer = setTimeout(() => renderPdf(), 800);
+}
+async function save(manual) {
+  try {
+    const r = await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ROOT) });
+    if (!r.ok) throw new Error('HTTP ' + r.status); dirty = false;
+    if (manual === true) flash('saved ✓'); else { $('status').textContent = 'autosaved'; setTimeout(() => { if (!dirty) $('status').textContent = ''; }, 800); }
   } catch (e) { flash('save failed: ' + e.message); }
 }
 
@@ -440,7 +645,19 @@ async function init() {
   const fl = await fetch('/files').then((r) => r.json());
   FILES = fl.files; TEXFILES = fl.tex;
   for (const f of FILES) SRC[f] = await fetch('src/' + f).then((r) => r.text());
-  try { const t = await fetch('tree.json').then((r) => r.ok ? r.json() : null); if (t && t.children) { ROOT = t; walk(ROOT, (n) => { const m = /^b(\d+)$/.exec(n.id || ''); if (m) idCounter = Math.max(idCounter, +m[1] + 1); }); } } catch (_) {}
+  try {
+    const t = await fetch('tree.json').then((r) => r.ok ? r.json() : null);
+    if (t && t.children) {
+      // migrate any legacy single-span boxes {file,s,e} -> {pieces:[...]}
+      (function mig(n) {
+        if (!n.pieces) n.pieces = (n.file != null) ? [{ file: n.file, s: n.s, e: n.e }] : [];
+        delete n.file; delete n.s; delete n.e;
+        (n.children || []).forEach(mig);
+      })(t);
+      ROOT = t;
+      walk(ROOT, (n) => { const m = /^b(\d+)$/.exec(n.id || ''); if (m) idCounter = Math.max(idCounter, +m[1] + 1); });
+    }
+  } catch (_) {}
 
   buildFileTree();
   $('curfilelab').textContent = curFile;
@@ -453,14 +670,22 @@ async function init() {
   $('mode-create').onclick = () => setMode('create');
   $('mode-select').onclick = () => setMode('select');
   $('mkbox').onclick = makeBox;
+  $('extendbox').onclick = extendBox;
+  $('removebox').onclick = removeFromCurrent;
   $('renderpdf').onclick = renderPdf;
-  $('save').onclick = save;
+  $('save').onclick = () => save(true);
   document.addEventListener('keydown', (e) => {
     const t = document.activeElement; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
     if (e.key === 'n' && mode === 'create' && curSel) { e.preventDefault(); makeBox(); }
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+    if (e.key === 'e' && mode === 'create' && curSel) { e.preventDefault(); extendBox(); }
+    if (e.key === 'r' && mode === 'create' && curSel) { e.preventDefault(); removeFromCurrent(); }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(true); }
     if (e.key === 'Escape' && activeId !== 'root') { const p = parentOf(activeId); if (p) setActive(p.id); }
   });
   window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  // initial render so the PDF pane isn't empty on load (one-off; edits still use
+  // the manual Render button).
+  renderPdf();
 }
 init();

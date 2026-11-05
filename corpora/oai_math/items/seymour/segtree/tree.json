@@ -1,0 +1,95 @@
+{
+  "id": "root",
+  "pieces": [],
+  "children": [
+    {
+      "id": "b2",
+      "pieces": [
+        {
+          "file": "00-introduction.tex",
+          "s": 0,
+          "e": 7255
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b3",
+      "pieces": [
+        {
+          "file": "01-reduction.tex",
+          "s": 0,
+          "e": 10190
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b8",
+      "pieces": [
+        {
+          "file": "02-pruning.tex",
+          "s": 0,
+          "e": 16260
+        }
+      ],
+      "children": [
+        {
+          "id": "b9",
+          "pieces": [
+            {
+              "file": "02-pruning.tex",
+              "s": 525,
+              "e": 1745
+            }
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "b5",
+      "pieces": [
+        {
+          "file": "03-incompatibility.tex",
+          "s": 0,
+          "e": 6273
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b6",
+      "pieces": [
+        {
+          "file": "04-weighted-consequences.tex",
+          "s": 0,
+          "e": 2796
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b7",
+      "pieces": [
+        {
+          "file": "05-directed-cycle-consequences.tex",
+          "s": 0,
+          "e": 2779
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b1",
+      "pieces": [
+        {
+          "file": "main.tex",
+          "s": 1141,
+          "e": 1356
+        }
+      ],
+      "children": []
+    }
+  ]
+}

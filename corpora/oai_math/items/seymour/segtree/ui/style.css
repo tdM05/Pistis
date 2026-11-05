@@ -67,6 +67,7 @@ body.resizing { cursor:col-resize; user-select:none; }
 .tree { padding:6px 0 40px; }
 .row { display:flex; align-items:center; gap:6px; padding:3px 10px 3px 0; cursor:pointer; border-left:3px solid transparent; }
 .row:hover { background:#eef1f5; }
+.row.picked { background:#e3edff; box-shadow:inset 0 0 0 1px var(--accent); }
 .row.active { background:#fff3cd; border-left-color:#e0a800; }
 .row.active .rname { font-weight:700; }
 .row.active::after { content:"◀ level"; margin-left:auto; font-size:10px; color:#8a6d00; font-weight:700; padding-right:8px; }
@@ -83,6 +84,8 @@ body.resizing { cursor:col-resize; user-select:none; }
 .twist.leaf { opacity:.25; }
 .rswatch { width:9px; height:9px; border-radius:2px; flex:none; }
 .rname { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.piecerow { font-size:12px; opacity:.85; }
+.piecerow .rname { font-style:italic; }
 .rfile { font:10px var(--mono); color:var(--dim); flex:none; }
 .rdel { color:var(--dim); flex:none; padding:0 4px; border-radius:4px; }
 .rdel:hover { color:#fff; background:#c0392b; }
