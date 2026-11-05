@@ -26,7 +26,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.path = "/ui/index.html"
         elif self.path in ("/app.js", "/style.css"):
             self.path = "/ui" + self.path
+        elif self.path == "/lean-files":
+            return self.send_lean_files()
         return super().do_GET()
+
+    def send_lean_files(self):
+        """List every .lean file under lean/ (relative paths), sorted."""
+        base = os.path.join(ROOT, "lean")
+        files = []
+        for dp, _dn, fn in os.walk(base):
+            for f in fn:
+                if f.endswith(".lean"):
+                    rel = os.path.relpath(os.path.join(dp, f), ROOT)
+                    files.append(rel.replace(os.sep, "/"))
+        files.sort()
+        body = json.dumps(files).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_POST(self):
         if self.path != "/save":

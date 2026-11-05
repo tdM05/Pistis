@@ -74,3 +74,25 @@ body.resizing{cursor:col-resize;user-select:none;}
 .btn.confirm{background:#1f9d55;color:#fff;border-color:#1f9d55;}
 .btn.confirm:hover:not(:disabled){border-color:#157a40;background:#188048;}
 .btn.confirm kbd{background:#ffffff33;border-color:#ffffff55;color:#fff;}
+
+/* Lean mapping badge on a tree row */
+.leanbadge{flex:none;font-size:10px;font-weight:700;padding:0 5px;border-radius:4px;}
+.leanbadge.unset{color:#777;}
+.leanbadge.ok{color:#fff;background:#1f9d55;}
+.leanbadge.notok{color:#fff;background:#c0392b;}
+
+/* Lean pane (third column) */
+.lean-pane{flex:1 1 0;min-width:200px;overflow:hidden;background:#fbfbfd;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--line);}
+.lean-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;text-transform:none;letter-spacing:0;}
+.leanfile{font:11px var(--mono);max-width:230px;border:1px solid var(--line);border-radius:5px;padding:2px 5px;background:#fff;color:var(--ink);}
+.lean-tools{display:flex;gap:5px;align-items:center;}
+.okbtn{color:#1f9d55;} .okbtn.on{background:#1f9d55;color:#fff;border-color:#1f9d55;}
+.notokbtn{color:#c0392b;} .notokbtn.on{background:#c0392b;color:#fff;border-color:#c0392b;}
+.lean-info{padding:5px 12px;font:11px var(--mono);color:#555;background:#f2f3f6;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lean-scroll{flex:1;overflow:auto;position:relative;}
+.lean-code{position:relative;font:12px/1.55 var(--mono);padding:8px 0 60px;min-width:max-content;}
+.lean-line{display:flex;align-items:flex-start;white-space:pre;position:relative;z-index:1;}
+.lean-gut{flex:none;width:40px;text-align:right;padding-right:10px;color:#bbb;user-select:none;}
+.lean-src{flex:1;white-space:pre;}
+.lean-src::selection{background:rgba(37,99,235,.35);}
+.lean-hl{position:absolute;pointer-events:none;border-radius:2px;z-index:0;}

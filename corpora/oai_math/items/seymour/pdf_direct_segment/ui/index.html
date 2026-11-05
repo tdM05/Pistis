@@ -49,6 +49,21 @@
     <div class="pane-head">PDF &middot; <span class="dimlab">select text, then n / e / r</span></div>
     <div id="pdfScroll" class="pdf-scroll"><div id="pages" class="pages"></div></div>
   </section>
+  <div class="splitter" data-left="pane2" data-right="pane3"></div>
+  <section class="lean-pane" id="pane3">
+    <div class="pane-head lean-head">
+      <select id="leanFile" class="leanfile" title="Lean file"></select>
+      <span class="lean-tools">
+        <button id="leanMap" class="minibtn" disabled title="map selected box to the Lean selection">map <kbd>m</kbd></button>
+        <button id="leanNone" class="minibtn" disabled title="map selected box to nothing">&empty; none</button>
+        <button id="leanClear" class="minibtn" disabled title="clear this box's Lean mapping">clear</button>
+        <button id="leanOk" class="minibtn okbtn" disabled title="mark mapping faithful">ok</button>
+        <button id="leanNotok" class="minibtn notokbtn" disabled title="mark mapping not faithful">not ok</button>
+      </span>
+    </div>
+    <div class="lean-info" id="leanInfo"></div>
+    <div id="leanScroll" class="lean-scroll"><div id="leanCode" class="lean-code"></div></div>
+  </section>
 </main>
 
 <script src="app.js"></script>

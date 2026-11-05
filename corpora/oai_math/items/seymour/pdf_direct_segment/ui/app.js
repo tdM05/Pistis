@@ -27,6 +27,18 @@ let linkFrom = null;       // when non-null we are in LINK MODE: node clicks
                            // STAGE a pending target (linkTo) rather than commit.
 let linkTo = null;         // pending target id (staged, not yet confirmed). Lets
                            // you scroll/search for the right node; confirm commits.
+// ── Lean mapping ───────────────────────────────────────────────────────────
+// Each NL box MAY carry box.lean describing how it maps to the Lean source:
+//   {file, start, end}  — a char span [start,end) into that .lean file's text
+//   {none:true}         — explicitly mapped to nothing
+//   (absent)            — not yet mapped
+// plus optional ok:true|false (the faithful / not-faithful judgement). The Lean
+// side mirrors the NL tree: the mapping hangs off each box, saved with the tree.
+let LEAN_FILES = [];       // list of 'lean/…/X.lean' paths (from /lean-files)
+let LEAN_FILE = null;      // path of the file currently shown in the Lean pane
+let LEAN_TEXT = '';        // raw text of LEAN_FILE (char offsets index into this)
+const LEAN_CACHE = {};     // path -> text
+let leanCurSel = null;     // {file,start,end} current selection inside Lean pane
 let dirty = false;
 let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
@@ -66,6 +78,84 @@ function stageLink(toId){ if(!linkFrom) return false; if(toId===linkFrom){ linkT
 function confirmLink(){ if(!linkFrom||!linkTo){flash('pick a target node first');return;}
   const ok=addLink(linkFrom,linkTo); const from=linkFrom, to=linkTo; linkFrom=null; linkTo=null;
   selId=from; flash(ok?'linked → “'+label(find(to))+'”':'that link already exists'); refreshAll(); }
+
+/* ───────────────── Lean mapping ───────────────── */
+// load the list of available .lean files, then show the first (or the saved
+// file of whatever box is selected). Char offsets index into each file's text.
+async function initLean(){
+  try{ LEAN_FILES=await fetch('/lean-files').then((r)=>r.ok?r.json():[]); }catch(_){ LEAN_FILES=[]; }
+  const sel=$('leanFile'); if(sel){ sel.innerHTML=''; LEAN_FILES.forEach((f)=>{ const o=document.createElement('option'); o.value=f; o.textContent=f.replace(/^lean\//,''); sel.appendChild(o); }); sel.onchange=()=>showLeanFile(sel.value); }
+  // prefer the item's main declaration file for the first view, else first file
+  const main=LEAN_FILES.find((f)=>/MaxSupportKernel\.lean$/.test(f))||LEAN_FILES[0];
+  if(main) await showLeanFile(main);
+}
+async function leanTextOf(path){ if(LEAN_CACHE[path]!=null) return LEAN_CACHE[path];
+  const t=await fetch('../'+path).then((r)=>r.ok?r.text():''); LEAN_CACHE[path]=t; return t; }
+// render one Lean file as selectable text; one span per line carrying its base
+// char offset, so a DOM selection maps back to [start,end) into LEAN_TEXT.
+async function showLeanFile(path){ if(!path) return; LEAN_FILE=path; LEAN_TEXT=await leanTextOf(path);
+  const sel=$('leanFile'); if(sel&&sel.value!==path) sel.value=path;
+  const host=$('leanCode'); host.innerHTML=''; let off=0; const lines=LEAN_TEXT.split('\n');
+  lines.forEach((ln,i)=>{ const row=document.createElement('div'); row.className='lean-line';
+    const gut=document.createElement('span'); gut.className='lean-gut'; gut.textContent=i+1; row.appendChild(gut);
+    const code=document.createElement('span'); code.className='lean-src'; code.dataset.start=off; code.textContent=ln.length?ln:'​';
+    row.appendChild(code); host.appendChild(row); off+=ln.length+1; });  // +1 for the '\n'
+  paintLeanHighlights();
+}
+// DOM selection in the Lean pane -> {file,start,end} into LEAN_TEXT.
+function readLeanSelection(){ const s=window.getSelection(); if(!s||s.rangeCount===0||s.isCollapsed) return null;
+  const r=s.getRangeAt(0); const aEl=leanSpanOf(r.startContainer), zEl=leanSpanOf(r.endContainer);
+  if(!aEl||!zEl) return null;
+  const a=+aEl.dataset.start+leanOff(r.startContainer,r.startOffset,aEl);
+  const b=+zEl.dataset.start+leanOff(r.endContainer,r.endOffset,zEl);
+  let lo=Math.min(a,b), hi=Math.max(a,b); if(lo>=hi) return null;
+  return {file:LEAN_FILE,start:lo,end:hi}; }
+function leanSpanOf(node){ let x=node.nodeType===3?node.parentElement:node; while(x&&!(x.dataset&&x.dataset.start!==undefined&&x.classList&&x.classList.contains('lean-src'))) x=x.parentElement; return x||null; }
+function leanOff(node,off,span){ if(node.nodeType===3) return Math.min(off, span.textContent.replace('​','').length); return off===0?0:span.textContent.replace('​','').length; }
+
+// set / clear / judge the selected box's Lean mapping
+function mapLean(){ const b=selId&&find(selId); if(!b){flash('select an NL box first');return;}
+  if(!leanCurSel){flash('select text in the Lean pane first');return;}
+  b.lean={file:leanCurSel.file,start:leanCurSel.start,end:leanCurSel.end}; markDirty();
+  window.getSelection().removeAllRanges(); leanCurSel=null; flash('mapped “'+label(b)+'” → Lean'); refreshAll(); }
+function mapLeanNone(){ const b=selId&&find(selId); if(!b){flash('select an NL box first');return;}
+  b.lean={none:true}; markDirty(); flash('“'+label(b)+'” → mapped to nothing'); refreshAll(); }
+function clearLean(){ const b=selId&&find(selId); if(!b)return; delete b.lean; markDirty(); refreshAll(); }
+function setLeanOk(v){ const b=selId&&find(selId); if(!b){flash('select an NL box first');return;}
+  if(!b.lean){flash('map this box to Lean (or to nothing) first');return;}
+  b.lean.ok=v; markDirty(); refreshAll(); }
+
+// jump the Lean pane to a box's mapped span and highlight it.
+async function jumpToLean(b){ if(!b||!b.lean||b.lean.none) return;
+  if(b.lean.file!==LEAN_FILE) await showLeanFile(b.lean.file);
+  paintLeanHighlights();
+  const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=b.lean.start);
+  if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); }
+
+// paint the Lean pane: strongly highlight the selected box's span (if in this
+// file); faintly highlight every other box's mapped span in this file.
+function paintLeanHighlights(){ const host=$('leanCode'); if(!host) return;
+  host.querySelectorAll('.lean-hl').forEach((e)=>e.remove());
+  const selBox=selId&&find(selId);
+  const spans=[]; walk(ROOT,(n)=>{ if(n.lean&&!n.lean.none&&n.lean.file===LEAN_FILE) spans.push({id:n.id,s:n.lean.start,e:n.lean.end,sel:n.id===selId}); });
+  spans.forEach((sp)=>paintLeanRange(sp.s,sp.e,boxHex(sp.id),sp.sel)); }
+// draw highlight boxes over the Lean char range [s,e) by wrapping affected line
+// spans with absolutely-positioned overlays measured from Range rects.
+function paintLeanRange(s,e,color,strong){ const host=$('leanCode');
+  const srcs=[...host.querySelectorAll('.lean-src')];
+  for(const code of srcs){ const base=+code.dataset.start; const tlen=code.textContent.replace('​','').length; const lineEnd=base+tlen;
+    if(e<=base||s>=lineEnd+1) continue;                 // no overlap with this line (+1 for newline)
+    const ls=Math.max(s,base)-base, le=Math.min(e,lineEnd)-base; if(le<ls) continue;
+    const tn=code.firstChild; if(!tn||tn.nodeType!==3){ continue; }
+    const rng=document.createRange();
+    try{ rng.setStart(tn,Math.max(0,Math.min(ls,tn.length))); rng.setEnd(tn,Math.max(0,Math.min(le,tn.length))); }catch(_){ continue; }
+    const rects=rng.getClientRects(); const hostBox=host.getBoundingClientRect();
+    for(const rc of rects){ const d=document.createElement('div'); d.className='lean-hl';
+      d.style.left=(rc.left-hostBox.left+host.scrollLeft)+'px'; d.style.top=(rc.top-hostBox.top+host.scrollTop)+'px';
+      d.style.width=rc.width+'px'; d.style.height=rc.height+'px';
+      d.style.background=color+(strong?'55':'22'); if(strong) d.style.boxShadow='inset 0 0 0 1.5px '+color;
+      host.appendChild(d); } }
+}
 
 /* ───────────────── render PDF + build char sequence ───────────────── */
 async function renderPdf(){
@@ -147,7 +237,9 @@ function readSelection(){
   if(lo>=hi) return null;
   return {start:lo,end:hi};
 }
-function spanOf(node){ let x=node.nodeType===3?node.parentElement:node; while(x&&!(x.dataset&&x.dataset.start!==undefined)) x=x.parentElement; return x||null; }
+// a PDF text-layer span only (NOT a Lean code span, which also carries
+// dataset.start) — so PDF and Lean selections never cross-contaminate.
+function spanOf(node){ let x=node.nodeType===3?node.parentElement:node; while(x&&!(x.dataset&&x.dataset.start!==undefined&&x.parentElement&&x.parentElement.classList.contains('textLayer'))) x=x.parentElement; return x||null; }
 
 // a box AT the current level (i.e. a direct child of levelId) whose region
 // covers character index `i`. Click-select is scoped to the level you're in:
@@ -165,7 +257,8 @@ function boxAtCharGlobal(i){ let best=null,bw=Infinity; walk(ROOT,(n)=>{ if(n===
   if(pieces(n).some((p)=>p.start<=i&&i<p.end)){ const w=regionLen(n); if(w<bw){bw=w;best=n;} } }); return best; }
 // select a box (blue) + reveal it in the tree (expand ancestors, scroll to row)
 function selectBox(id){ selId=id; let p=parentOf(id); while(p){COLLAPSED[p.id]=false;p=parentOf(p.id);} render();
-  const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.scrollIntoView({block:'nearest'}); }
+  const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.scrollIntoView({block:'nearest'});
+  const b=find(id); if(b&&b.lean&&!b.lean.none) jumpToLean(b); }
 // plain left-click on the PDF (no text selected) over a box -> select that box
 function onPdfClick(e){
   if(window.getSelection && !window.getSelection().isCollapsed) return;   // a drag-select -> leave it
@@ -301,7 +394,7 @@ function drawArrows(){ const svg=$('arrowLayer'); if(!svg) return; const host=$(
 }
 
 /* ───────────────── paint highlights on the PDF ───────────────── */
-function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); }
+function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); }
 
 // SINGLE SOURCE OF TRUTH for the focus view at the current level.
 //  - `level`    : the current level node (outline; ROOT = whole paper)
@@ -388,6 +481,11 @@ function treeRow(node,isRoot){
   if(!isRoot){ const out=linksFrom(node.id).length, inc=linksTo(node.id).length;
     if(out||inc){ const lb=document.createElement('span'); lb.className='linkbadge';
       lb.textContent=(out?'➜'+out:'')+(out&&inc?' ':'')+(inc?'⬅'+inc:''); lb.title='links'; row.appendChild(lb); } }
+  // Lean badge: shows the mapping state — λ (mapped), ∅ (none), tinted by ok/not-ok
+  if(!isRoot && node.lean){ const lb=document.createElement('span'); lb.className='leanbadge';
+    const ok=node.lean.ok; lb.classList.add(ok===true?'ok':ok===false?'notok':'unset');
+    lb.textContent=node.lean.none?'∅':'λ'; lb.title=node.lean.none?'mapped to nothing':('Lean: '+node.lean.file.replace(/^lean\//,''));
+    row.appendChild(lb); }
   // "enter" button: make this node the current level (new boxes nest under it)
   const ent=document.createElement('span'); ent.className='renter'; ent.textContent='⤵'; ent.title='enter: add segments inside this node';
   ent.onclick=(e)=>{e.stopPropagation();enterLevel(node.id);}; row.appendChild(ent);
@@ -396,7 +494,8 @@ function treeRow(node,isRoot){
   // while in LINK MODE, a click picks this node as the arrow target instead.
   row.onclick=()=>{ if(isRoot) return;
     if(linkFrom){ stageLink(node.id); return; }
-    selId=node.id; render(); scrollToChar(pieces(node)[0].start); };
+    selId=node.id; render(); scrollToChar(pieces(node)[0].start);
+    if(node.lean&&!node.lean.none) jumpToLean(node); };
   row.ondblclick=()=>{ enterLevel(node.id); };
   wrap.appendChild(row);
   // piece sub-rows (navigable) when >1 piece
@@ -447,11 +546,26 @@ function updateSelUI(){
     const overlaps=box&&pieces(box).some((p)=>curSel.start<p.end&&curSel.end>p.start); rm.disabled=!overlaps;
     const lvl=levelId==='root'?'paper':label(find(levelId));
     info.textContent=`“${CHARS.slice(curSel.start,curSel.end).replace(/\s+/g,' ').trim().slice(0,24)}” · n=new under ${lvl}`+(box?` · e=add to “${label(box)}”`:'');
-  } else { mk.disabled=true; ex.disabled=true; rm.disabled=true; info.textContent=selId?`selected “${label(box)}” · l=link from here`:''; }
+  } else { mk.disabled=true; ex.disabled=true; rm.disabled=true; info.textContent=selId?`selected “${label(box)}” · l=link from here · m=map to Lean`:''; }
+  updateLeanUI();
+}
+// Lean toolbar: map (needs a Lean selection), none, clear, ok/not-ok toggle.
+function updateLeanUI(){ const box=selId&&find(selId);
+  const map=$('leanMap'),none=$('leanNone'),clr=$('leanClear'),ok=$('leanOk'),notok=$('leanNotok'),info=$('leanInfo');
+  if(!map) return;
+  map.disabled=!box||!leanCurSel; none.disabled=!box; clr.disabled=!box||!box.lean;
+  const hasMap=box&&box.lean; ok.disabled=!hasMap; notok.disabled=!hasMap;
+  ok.classList.toggle('on',hasMap&&box.lean.ok===true); notok.classList.toggle('on',hasMap&&box.lean.ok===false);
+  if(!info) return;
+  if(!box){ info.textContent='select an NL box to map it to Lean'; return; }
+  if(leanCurSel){ info.textContent=`m → map “${label(box)}” to “${LEAN_TEXT.slice(leanCurSel.start,leanCurSel.end).replace(/\s+/g,' ').trim().slice(0,30)}”`; }
+  else if(box.lean&&box.lean.none){ info.textContent=`“${label(box)}” → ∅ (nothing)`; }
+  else if(box.lean){ info.textContent=`“${label(box)}” → ${box.lean.file.replace(/^lean\//,'')} [${box.lean.start}–${box.lean.end}]`; }
+  else { info.textContent=`“${label(box)}” — not mapped · select Lean text + m, or ∅ none`; }
 }
 function clearSel(){ window.getSelection().removeAllRanges(); curSel=null; }
 function flash(m){ $('status').textContent=m; setTimeout(()=>{if($('status').textContent===m)$('status').textContent='';},3000); }
-function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); }
+function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); }
 
 /* ───────────────── save ───────────────── */
 let _t=null; function markDirty(){dirty=true;clearTimeout(_t);_t=setTimeout(save,600);}
@@ -472,8 +586,14 @@ async function init(){
   try{ const t=await fetch('../tree.json').then((r)=>r.ok?r.json():null); if(t&&t.children){ ROOT=t; walk(ROOT,(n)=>{const m=/^b(\d+)$/.exec(n.id||'');if(m)idCounter=Math.max(idCounter,+m[1]+1);}); } }catch(_){}
   setupSplitters();
   await renderPdf();
-  document.addEventListener('selectionchange',()=>{ curSel=readSelection(); updateSelUI(); });
+  await initLean();
+  // a selection lives in exactly one pane: PDF text layer OR Lean code. Read
+  // both; whichever matches wins, the other is cleared — never stale.
+  document.addEventListener('selectionchange',()=>{ curSel=readSelection(); leanCurSel=readLeanSelection();
+    if(curSel) leanCurSel=null; updateSelUI(); });
   $('pages').addEventListener('click', onPdfClick);
+  $('leanMap').onclick=mapLean; $('leanNone').onclick=mapLeanNone; $('leanClear').onclick=clearLean;
+  $('leanOk').onclick=()=>setLeanOk(true); $('leanNotok').onclick=()=>setLeanOk(false);
   $('collapseAll').onclick=()=>{ walk(ROOT,(n)=>{ if(n.id!=='root') COLLAPSED[n.id]=true; }); renderTree(); };
   $('expandAll').onclick=()=>{ for(const k in COLLAPSED) delete COLLAPSED[k]; renderTree(); };
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
@@ -488,6 +608,7 @@ async function init(){
     if(e.key==='n'&&curSel){e.preventDefault();makeBox();}
     if(e.key==='e'&&curSel){e.preventDefault();extendBox();}
     if(e.key==='r'&&curSel){e.preventDefault();removeSel();}
+    if(e.key==='m'&&leanCurSel&&selId){e.preventDefault();mapLean();}
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save(true);}
   });
   window.addEventListener('beforeunload',(e)=>{if(dirty){e.preventDefault();e.returnValue='';}});
