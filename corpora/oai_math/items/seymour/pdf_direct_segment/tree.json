@@ -104,7 +104,26 @@
               ],
               "children": []
             }
-          ]
+          ],
+          "lean": {
+            "spans": [
+              {
+                "file": "lean/AugmentedRankBound.lean",
+                "start": 0,
+                "end": 2063
+              },
+              {
+                "file": "lean/CoverPruning.lean",
+                "start": 0,
+                "end": 5776
+              },
+              {
+                "file": "lean/Pruning.lean",
+                "start": 0,
+                "end": 575
+              }
+            ]
+          }
         },
         {
           "id": "b7",
@@ -133,7 +152,47 @@
                   "end": 16045
                 }
               ],
-              "children": []
+              "children": [
+                {
+                  "id": "b45",
+                  "pieces": [
+                    {
+                      "start": 15897,
+                      "end": 16009
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "b46",
+                  "pieces": [
+                    {
+                      "start": 16009,
+                      "end": 16010
+                    }
+                  ],
+                  "children": []
+                },
+                {
+                  "id": "b47",
+                  "pieces": [
+                    {
+                      "start": 16010,
+                      "end": 16045
+                    }
+                  ],
+                  "children": []
+                }
+              ],
+              "lean": {
+                "spans": [
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 218,
+                    "end": 312
+                  }
+                ]
+              }
             }
           ]
         },
@@ -286,7 +345,16 @@
                   ],
                   "children": []
                 }
-              ]
+              ],
+              "lean": {
+                "spans": [
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3666
+                  }
+                ]
+              }
             },
             {
               "id": "b10",
@@ -397,9 +465,32 @@
                   ],
                   "children": []
                 }
-              ]
+              ],
+              "lean": {
+                "spans": [
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 314,
+                    "end": 3338
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3667,
+                    "end": 3772
+                  }
+                ]
+              }
             }
-          ]
+          ],
+          "lean": {
+            "spans": [
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 0,
+                "end": 3844
+              }
+            ]
+          }
         }
       ]
     },

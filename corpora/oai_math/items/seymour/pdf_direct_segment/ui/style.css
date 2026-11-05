@@ -18,10 +18,18 @@ main{flex:1;display:flex;min-height:0;}
 .splitter::after{content:"";position:absolute;inset:0 -4px;}
 body.resizing{cursor:col-resize;user-select:none;}
 .pane-head{position:sticky;top:0;z-index:3;background:var(--panel);padding:9px 14px;font:11px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);border-bottom:1px solid var(--line);}
-.pdf-pane .pane-head{background:#3c4043;color:#cdd0d4;border-color:#2a2d30;}
+.pdf-pane .pane-head{background:#3c4043;color:#cdd0d4;border-color:#2a2d30;display:flex;align-items:center;gap:8px;}
+.pdf-pane .pane-head .spacer{flex:1;}
+#upLevelPdf{margin-left:0;display:flex;align-items:center;justify-content:center;width:26px;height:22px;padding:0;font-size:13px;}
 .dimlab{text-transform:none;letter-spacing:0;font-style:italic;}
-.levelbar{position:sticky;top:33px;z-index:2;padding:7px 12px;background:#fff8e1;border-bottom:1px solid #f0e2b0;font-size:12px;color:#6b5600;}
-.levelval{font-weight:700;color:#3a2f00;}
+.levelval{font-weight:700;color:#3a2f00;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;}
+.labelbar{position:sticky;top:33px;z-index:2;padding:5px 10px;background:#fff8e1;border-bottom:1px solid #f0e2b0;font-size:12px;color:#6b5600;display:flex;align-items:center;gap:6px;}
+.labelbar .spacer{flex:1;}
+.labelbar #upLevel{margin-left:0;display:flex;align-items:center;justify-content:center;width:26px;height:24px;padding:0;font-size:13px;border-radius:5px;}
+.labelsel{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:2px 5px;height:24px;background:#fff;color:var(--ink);max-width:170px;}
+.labelsel:disabled{opacity:.5;}
+/* small label chip on a tree row */
+.labeltag{flex:none;font-size:9.5px;font-weight:600;color:#3858a8;background:#e4ecff;border:1px solid #cdddff;border-radius:3px;padding:0 4px;letter-spacing:.01em;}
 
 /* tree */
 .tree{padding:6px 0 40px;}
@@ -31,8 +39,6 @@ body.resizing{cursor:col-resize;user-select:none;}
 .row.level{border-left-color:#e0a800;background:#fff8e1;}
 .row.level .rname{font-weight:700;}
 .row.level::after{content:"◀ here";margin-left:auto;font-size:10px;color:#8a6d00;font-weight:700;padding-right:6px;}
-.renter{color:var(--dim);flex:none;padding:0 4px;border-radius:4px;cursor:pointer;}
-.renter:hover{color:#fff;background:var(--accent);}
 .twist{width:14px;flex:none;text-align:center;color:var(--dim);user-select:none;}
 .twist.leaf{opacity:.25;}
 .rswatch{width:9px;height:9px;border-radius:2px;flex:none;}
@@ -56,9 +62,11 @@ body.resizing{cursor:col-resize;user-select:none;}
 .textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;}
 .textLayer span{position:absolute;color:transparent;white-space:pre;cursor:text;transform-origin:0 0;}
 .textLayer span::selection{background:rgba(37,99,235,.35);}
-/* box highlight rectangles (drawn under the text layer) */
+/* box highlight rectangles (drawn under the text layer). Edges are FEATHERED
+   via blur so fills never show a hard border — the text sits above, unblurred. */
 .hl-layer{position:absolute;inset:0;pointer-events:none;}
-.hl{position:absolute;border-radius:1px;}
+.hl{position:absolute;}                       /* non-selected: crisp hard edge */
+.hl.sel{border-radius:5px;filter:blur(4.5px);}  /* selected: bloomy soft edge */
 /* link arrows: one SVG over the whole pages stack, above canvases/highlights
    but click-through so text selection + box picking still work underneath */
 .arrow-layer{position:absolute;left:0;top:0;pointer-events:none;z-index:4;overflow:visible;}
@@ -75,19 +83,28 @@ body.resizing{cursor:col-resize;user-select:none;}
 .btn.confirm:hover:not(:disabled){border-color:#157a40;background:#188048;}
 .btn.confirm kbd{background:#ffffff33;border-color:#ffffff55;color:#fff;}
 
-/* Lean mapping badge on a tree row */
+/* Lean mapping badge on a tree row. The COLOR carries the verdict:
+   green=ok, red=not ok, grey=undecidable/unjudged. Leaves are solid-filled;
+   derived parents are outlined (hollow). */
 .leanbadge{flex:none;font-size:10px;font-weight:700;padding:0 5px;border-radius:4px;}
-.leanbadge.unset{color:#777;}
-.leanbadge.ok{color:#fff;background:#1f9d55;}
-.leanbadge.notok{color:#fff;background:#c0392b;}
+/* leaf (solid) */
+.leanbadge.leafv.ok{color:#fff;background:#1f9d55;}
+.leanbadge.leafv.notok{color:#fff;background:#c0392b;}
+.leanbadge.leafv.undecidable,.leanbadge.leafv.unset{color:#fff;background:#9aa0a6;}
+/* derived parent (outlined) */
+.leanbadge.derived.ok{color:#1f9d55;box-shadow:inset 0 0 0 1px #1f9d55;}
+.leanbadge.derived.notok{color:#c0392b;box-shadow:inset 0 0 0 1px #c0392b;}
+.leanbadge.derived.undecidable,.leanbadge.derived.unset{color:#9aa0a6;box-shadow:inset 0 0 0 1px #9aa0a6;}
 
 /* Lean pane (third column) */
 .lean-pane{flex:1 1 0;min-width:200px;overflow:hidden;background:#fbfbfd;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--line);}
 .lean-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;text-transform:none;letter-spacing:0;}
 .leanfile{font:11px var(--mono);max-width:230px;border:1px solid var(--line);border-radius:5px;padding:2px 5px;background:#fff;color:var(--ink);}
 .lean-tools{display:flex;gap:5px;align-items:center;}
+.vsep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
 .okbtn{color:#1f9d55;} .okbtn.on{background:#1f9d55;color:#fff;border-color:#1f9d55;}
 .notokbtn{color:#c0392b;} .notokbtn.on{background:#c0392b;color:#fff;border-color:#c0392b;}
+.undecbtn{color:#b8860b;} .undecbtn.on{background:#c89b1f;color:#fff;border-color:#c89b1f;}
 .lean-info{padding:5px 12px;font:11px var(--mono);color:#555;background:#f2f3f6;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .lean-scroll{flex:1;overflow:auto;position:relative;}
 .lean-code{position:relative;font:12px/1.55 var(--mono);padding:8px 0 60px;min-width:max-content;}
@@ -95,4 +112,24 @@ body.resizing{cursor:col-resize;user-select:none;}
 .lean-gut{flex:none;width:40px;text-align:right;padding-right:10px;color:#bbb;user-select:none;}
 .lean-src{flex:1;white-space:pre;}
 .lean-src::selection{background:rgba(37,99,235,.35);}
-.lean-hl{position:absolute;pointer-events:none;border-radius:2px;z-index:0;}
+.lean-hl{position:absolute;pointer-events:none;z-index:0;}                 /* non-selected: crisp */
+.lean-hl.sel{border-radius:5px;filter:blur(4.5px);}                        /* selected: bloomy */
+
+/* left-panel tabs (Boxes / Lean files) */
+.tabhead{display:flex;align-items:center;gap:4px;padding:5px 10px;}
+.tab{font:11px -apple-system,system-ui,sans-serif;text-transform:none;letter-spacing:0;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--dim);border-radius:6px;padding:3px 9px;}
+.tab:hover{border-color:var(--accent);}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tabhead .spacer{flex:1;}
+.tabview{min-height:0;}
+/* Lean file tree rows */
+.leantree{padding:6px 0 40px;}
+.leanfrow{white-space:nowrap;}
+.leanfrow .rname.folder{color:#6b5600;font-weight:600;}
+.leanfrow.picked{background:#e3edff;box-shadow:inset 0 0 0 1px var(--accent);}
+.leanfrow .rname{cursor:pointer;}
+.leanfilelabel{font:11px var(--mono);color:#cdd0d4;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Lean span sub-rows under a box in the Boxes tree */
+.leanrow{font-size:11px;color:#2c7a4b;}
+.leanrow .rname{font-family:var(--mono);font-size:10.5px;}
+.leanrow .twist{color:#2c7a4b;}

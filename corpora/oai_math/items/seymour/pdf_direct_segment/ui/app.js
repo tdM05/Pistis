@@ -44,6 +44,42 @@ let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
 const COLLAPSED = {};
 
+// ── LABELS ──────────────────────────────────────────────────────────────────
+// Each box MAY carry box.label (a function/grammar label). The allowed label of
+// a box is constrained by its PARENT box's label: valid children = the parent
+// label's decomposition. See doc/labels.md. LABEL_CHILDREN[x] = labels allowed
+// directly inside a box labelled x. A label absent here (or 'base' ones) admits
+// no children. ROOT (unlabelled) uses LABEL_ROOT.
+const LABEL_ROOT = ['commentary','definition','theorem','organizer-section'];
+const LABEL_CHILDREN = {
+  'organizer-section': ['commentary','definition','theorem','organizer-section'],
+  'definition':        ['term','formula'],
+  'theorem':           ['formula','proof'],
+  'proof':             ['formula','commentary','theorem','tactic'],
+  'formula':           ['external-citation','atomic-formula','compound-formula'],
+  'atomic-formula':    ['relation','equality'],
+  'relation':          ['relation-symbol','term'],
+  'equality':          ['equality-symbol','term'],
+  'compound-formula':  ['quantified','connective'],
+  'quantified':        ['universal','existential'],
+  'universal':         ['quantifier','variable-symbol','formula'],
+  'existential':       ['quantifier','variable-symbol','formula'],
+  'connective':        ['negation','implication','conjunction','disjunction'],
+  'negation':          ['connective-symbol','formula'],
+  'implication':       ['connective-symbol','formula'],
+  'conjunction':       ['connective-symbol','formula'],
+  'disjunction':       ['connective-symbol','formula'],
+  'term':              ['external-citation','implicit-external-reference','atomic-term','composite-term'],
+  'atomic-term':       ['variable','constant'],
+  'variable':          ['variable-symbol'],
+  'constant':          ['constant-symbol'],
+  'composite-term':    ['function-application'],
+  'function-application':['function-symbol','term'],
+};
+// labels valid for a box given its parent box (null parent → root set).
+function allowedLabels(parentBox){ if(!parentBox||!parentBox.label) return LABEL_ROOT;
+  return LABEL_CHILDREN[parentBox.label]||[]; }
+
 const $ = (x) => document.getElementById(x);
 function boxHue(id){const n=parseInt(String(id).replace(/\D/g,''),10)||0;return Math.round((n*137.508)%360);}
 function boxColor(id){return `hsl(${boxHue(id)} 72% 50%)`;}
@@ -80,21 +116,54 @@ function confirmLink(){ if(!linkFrom||!linkTo){flash('pick a target node first')
   selId=from; flash(ok?'linked → “'+label(find(to))+'”':'that link already exists'); refreshAll(); }
 
 /* ───────────────── Lean mapping ───────────────── */
-// load the list of available .lean files, then show the first (or the saved
-// file of whatever box is selected). Char offsets index into each file's text.
+// load the list of available .lean files, build a nested folder tree, render it
+// in the "Lean files" tab, and show the main declaration file first.
 async function initLean(){
   try{ LEAN_FILES=await fetch('/lean-files').then((r)=>r.ok?r.json():[]); }catch(_){ LEAN_FILES=[]; }
-  const sel=$('leanFile'); if(sel){ sel.innerHTML=''; LEAN_FILES.forEach((f)=>{ const o=document.createElement('option'); o.value=f; o.textContent=f.replace(/^lean\//,''); sel.appendChild(o); }); sel.onchange=()=>showLeanFile(sel.value); }
+  renderLeanTree();
   // prefer the item's main declaration file for the first view, else first file
   const main=LEAN_FILES.find((f)=>/MaxSupportKernel\.lean$/.test(f))||LEAN_FILES[0];
   if(main) await showLeanFile(main);
+}
+// build a nested {name, path, children:[], isFile} tree from the flat path list.
+// Robust to arbitrary folder depth; files with no folders just sit at the root.
+function leanFileTree(){ const root={name:'',path:'',children:[],isFile:false};
+  for(const full of LEAN_FILES){ const parts=full.split('/'); let node=root, acc='';
+    parts.forEach((part,i)=>{ acc=acc?acc+'/'+part:part; const isFile=(i===parts.length-1);
+      let child=node.children.find((c)=>c.name===part&&c.isFile===isFile);
+      if(!child){ child={name:part,path:acc,children:[],isFile}; node.children.push(child); }
+      node=child; }); }
+  // sort each level: folders first, then files, alphabetically
+  const sortRec=(n)=>{ n.children.sort((a,b)=> (a.isFile-b.isFile) || a.name.localeCompare(b.name)); n.children.forEach(sortRec); };
+  sortRec(root); return root; }
+const LEAN_FOLD={};   // folder path -> collapsed?
+function renderLeanTree(){ const host=$('leanTree'); if(!host) return; host.innerHTML='';
+  const root=leanFileTree();
+  const addNodes=(parent,el,depth)=>{ parent.children.forEach((n)=>{
+    const row=document.createElement('div'); row.className='row leanfrow'+(n.isFile&&n.path===LEAN_FILE?' picked':'');
+    row.style.paddingLeft=(6+depth*13)+'px';
+    if(n.isFile){
+      const ic=document.createElement('span'); ic.className='twist leaf'; ic.textContent='·'; row.appendChild(ic);
+      const nm=document.createElement('span'); nm.className='rname'; nm.textContent=n.name; row.appendChild(nm);
+      row.onclick=()=>showLeanFile(n.path);
+    } else {
+      const collapsed=!!LEAN_FOLD[n.path];
+      const tw=document.createElement('span'); tw.className='twist'; tw.textContent=collapsed?'▸':'▾'; row.appendChild(tw);
+      const nm=document.createElement('span'); nm.className='rname folder'; nm.textContent=n.name+'/'; row.appendChild(nm);
+      row.onclick=()=>{ LEAN_FOLD[n.path]=!collapsed; renderLeanTree(); };
+    }
+    el.appendChild(row);
+    if(!n.isFile && !LEAN_FOLD[n.path]) addNodes(n,el,depth+1);
+  }); };
+  addNodes(root,host,0);
 }
 async function leanTextOf(path){ if(LEAN_CACHE[path]!=null) return LEAN_CACHE[path];
   const t=await fetch('../'+path).then((r)=>r.ok?r.text():''); LEAN_CACHE[path]=t; return t; }
 // render one Lean file as selectable text; one span per line carrying its base
 // char offset, so a DOM selection maps back to [start,end) into LEAN_TEXT.
 async function showLeanFile(path){ if(!path) return; LEAN_FILE=path; LEAN_TEXT=await leanTextOf(path);
-  const sel=$('leanFile'); if(sel&&sel.value!==path) sel.value=path;
+  const lbl=$('leanFileLabel'); if(lbl) lbl.textContent=path.replace(/^lean\//,'');
+  renderLeanTree();   // refresh active-file highlight in the file tree
   const host=$('leanCode'); host.innerHTML=''; let off=0; const lines=LEAN_TEXT.split('\n');
   lines.forEach((ln,i)=>{ const row=document.createElement('div'); row.className='lean-line';
     const gut=document.createElement('span'); gut.className='lean-gut'; gut.textContent=i+1; row.appendChild(gut);
@@ -114,34 +183,94 @@ function leanSpanOf(node){ let x=node.nodeType===3?node.parentElement:node; whil
 function leanOff(node,off,span){ if(node.nodeType===3) return Math.min(off, span.textContent.replace('​','').length); return off===0?0:span.textContent.replace('​','').length; }
 
 // set / clear / judge the selected box's Lean mapping
+// A box's Lean mapping is a LIST of spans (possibly across several files), so
+// one NL box can cite multiple Lean locations. Helpers read it uniformly.
+function leanSpans(b){ return (b&&b.lean&&b.lean.spans)||[]; }
+function leanIsNone(b){ return !!(b&&b.lean&&b.lean.none); }
+// normalize legacy data: single-span mapping ({file,start,end}) -> list form,
+// and the old boolean lean.ok -> the new box.verdict ('ok'|'notok') on leaves.
+function normalizeLean(){ walk(ROOT,(n)=>{
+  if(n.lean&&!n.lean.none&&!n.lean.spans&&n.lean.file!=null){ const {file,start,end}=n.lean; n.lean={spans:[{file,start,end}]}; }
+  if(n.lean&&n.lean.ok!==undefined){ if(isLeaf(n)&&!n.verdict) n.verdict=n.lean.ok?'ok':'notok'; delete n.lean.ok; }
+}); }
+
+/* ───────── faithfulness verdict (ok / notok / undecidable) ───────── */
+// Leaves are judged MANUALLY; parents are DERIVED from their descendants.
+function isLeaf(n){ return !n.children||n.children.length===0; }
+// a node's verdict: 'ok' | 'notok' | 'undecidable' | 'unset'.
+//  leaf   → its stored n.verdict (unset if none)
+//  parent → rollup: any notok ⇒ notok; else all ok ⇒ ok; else undecidable
+//           (a parent only fails hard when a leaf genuinely fails; anything
+//            unjudged/ambiguous leaves it undecidable, not falsely notok)
+function verdictOf(n){ if(isLeaf(n)) return n.verdict||'unset';
+  let anyNotok=false, allOk=true;
+  for(const c of n.children){ const v=verdictOf(c); if(v==='notok')anyNotok=true; if(v!=='ok')allOk=false; }
+  if(anyNotok) return 'notok'; if(allOk) return 'ok'; return 'undecidable'; }
+// set/toggle a leaf's verdict. Clicking the active verdict again clears it.
+function setVerdict(v){ const b=selId&&find(selId); if(!b){flash('select a box first');return;}
+  if(!isLeaf(b)){flash('only leaf segments are judged — parents are derived from their children');return;}
+  if(b.verdict===v) delete b.verdict; else b.verdict=v; markDirty(); refreshAll(); }
+// set/clear the selected box's grammar label. '' clears. Enforced against the
+// parent's allowed set (the <select> only offers valid options anyway).
+function setLabel(v){ const b=selId&&find(selId); if(!b){flash('select a box first');return;}
+  if(!v){ delete b.label; } else { if(!allowedLabels(parentOf(b.id)).includes(v)){flash('“'+v+'” not allowed under this parent');return;} b.label=v; }
+  markDirty(); refreshAll(); }
+// sort + merge overlapping/adjacent spans WITHIN the same file.
+function mergeLeanSpans(b){ const sp=b.lean.spans; sp.sort((x,y)=> x.file<y.file?-1:x.file>y.file?1:x.start-y.start);
+  const out=[]; for(const p of sp){ const last=out[out.length-1];
+    if(last&&last.file===p.file&&p.start<=last.end){ last.end=Math.max(last.end,p.end); } else out.push({...p}); }
+  b.lean.spans=out; }
+
+// m: ADD the current Lean selection as another span of the selected box.
 function mapLean(){ const b=selId&&find(selId); if(!b){flash('select an NL box first');return;}
   if(!leanCurSel){flash('select text in the Lean pane first');return;}
-  b.lean={file:leanCurSel.file,start:leanCurSel.start,end:leanCurSel.end}; markDirty();
-  window.getSelection().removeAllRanges(); leanCurSel=null; flash('mapped “'+label(b)+'” → Lean'); refreshAll(); }
+  if(!b.lean||b.lean.none) b.lean={spans:[]}; if(!b.lean.spans) b.lean.spans=[];
+  b.lean.spans.push({file:leanCurSel.file,start:leanCurSel.start,end:leanCurSel.end}); mergeLeanSpans(b);
+  markDirty(); window.getSelection().removeAllRanges(); leanCurSel=null;
+  flash('added Lean span → “'+label(b)+'” ('+b.lean.spans.length+' total)'); refreshAll(); }
+// r (in the Lean pane): SUBTRACT the current Lean selection from the box's spans
+// — same splitting behavior as removeSel does for NL pieces.
+function removeLeanSel(){ const b=selId&&find(selId); if(!b){flash('select an NL box first');return;}
+  if(!leanCurSel){flash('select Lean text to remove first');return;}
+  const spans=leanSpans(b); if(!spans.length){flash('this box has no Lean spans');return;}
+  const {file,start:s,end:e}=leanCurSel; const next=[]; let changed=false;
+  for(const p of spans){ if(p.file!==file||e<=p.start||s>=p.end){ next.push(p); continue; }
+    changed=true; if(s>p.start) next.push({file:p.file,start:p.start,end:Math.min(s,p.end)});
+    if(e<p.end) next.push({file:p.file,start:Math.max(e,p.start),end:p.end}); }
+  if(!changed){flash('selection does not overlap a mapped Lean span');return;}
+  if(next.length){ b.lean.spans=next; } else { delete b.lean; }
+  markDirty(); window.getSelection().removeAllRanges(); leanCurSel=null; flash('removed Lean span from “'+label(b)+'”'); refreshAll(); }
+// remove one span by index (tree ✕).
+function removeLeanSpan(id,idx){ const b=find(id); if(!b||!b.lean||!b.lean.spans)return;
+  b.lean.spans.splice(idx,1); if(!b.lean.spans.length) delete b.lean; markDirty(); refreshAll(); }
 function mapLeanNone(){ const b=selId&&find(selId); if(!b){flash('select an NL box first');return;}
   b.lean={none:true}; markDirty(); flash('“'+label(b)+'” → mapped to nothing'); refreshAll(); }
 function clearLean(){ const b=selId&&find(selId); if(!b)return; delete b.lean; markDirty(); refreshAll(); }
-function setLeanOk(v){ const b=selId&&find(selId); if(!b){flash('select an NL box first');return;}
-  if(!b.lean){flash('map this box to Lean (or to nothing) first');return;}
-  b.lean.ok=v; markDirty(); refreshAll(); }
 
-// jump the Lean pane to a box's mapped span and highlight it.
-async function jumpToLean(b){ if(!b||!b.lean||b.lean.none) return;
-  if(b.lean.file!==LEAN_FILE) await showLeanFile(b.lean.file);
+// jump the Lean pane to a box's FIRST mapped span and highlight it.
+async function jumpToLean(b){ const spans=leanSpans(b); if(!spans.length) return; const first=spans[0];
+  if(first.file!==LEAN_FILE) await showLeanFile(first.file);
   paintLeanHighlights();
-  const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=b.lean.start);
+  const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=first.start);
   if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); }
 
-// paint the Lean pane: strongly highlight the selected box's span (if in this
-// file); faintly highlight every other box's mapped span in this file.
+// paint the Lean pane with the SAME focus view as the PDF: the current LEVEL
+// node's mapped spans show grey (like the level outline), and its DIRECT
+// CHILDREN's mapped spans show in their own colors. Spans outside the focus are
+// not drawn — identical scoping to paintHighlights.
 function paintLeanHighlights(){ const host=$('leanCode'); if(!host) return;
   host.querySelectorAll('.lean-hl').forEach((e)=>e.remove());
-  const selBox=selId&&find(selId);
-  const spans=[]; walk(ROOT,(n)=>{ if(n.lean&&!n.lean.none&&n.lean.file===LEAN_FILE) spans.push({id:n.id,s:n.lean.start,e:n.lean.end,sel:n.id===selId}); });
-  spans.forEach((sp)=>paintLeanRange(sp.s,sp.e,boxHex(sp.id),sp.sel)); }
+  const {level,self,children}=focusView();
+  // 1) the level node itself: grey (skip at root = whole paper)
+  if(self){ leanSpans(level).forEach((p)=>{ if(p.file===LEAN_FILE) paintLeanRange(p.start,p.end,null,{level:true}); }); }
+  // 2) its direct children: each in its own color
+  children.forEach((id)=>{ const n=find(id); leanSpans(n).forEach((p)=>{ if(p.file===LEAN_FILE)
+    paintLeanRange(p.start,p.end,boxHex(id),{sel:id===selId}); }); }); }
 // draw highlight boxes over the Lean char range [s,e) by wrapping affected line
 // spans with absolutely-positioned overlays measured from Range rects.
-function paintLeanRange(s,e,color,strong){ const host=$('leanCode');
+// opts.level => grey see-through (the current level node); opts.sel => stronger
+// fill + ring (the blue/own-color selected child); else normal child fill.
+function paintLeanRange(s,e,color,opts){ opts=opts||{}; const host=$('leanCode');
   const srcs=[...host.querySelectorAll('.lean-src')];
   for(const code of srcs){ const base=+code.dataset.start; const tlen=code.textContent.replace('​','').length; const lineEnd=base+tlen;
     if(e<=base||s>=lineEnd+1) continue;                 // no overlap with this line (+1 for newline)
@@ -150,10 +279,11 @@ function paintLeanRange(s,e,color,strong){ const host=$('leanCode');
     const rng=document.createRange();
     try{ rng.setStart(tn,Math.max(0,Math.min(ls,tn.length))); rng.setEnd(tn,Math.max(0,Math.min(le,tn.length))); }catch(_){ continue; }
     const rects=rng.getClientRects(); const hostBox=host.getBoundingClientRect();
-    for(const rc of rects){ const d=document.createElement('div'); d.className='lean-hl';
+    for(const rc of rects){ const d=document.createElement('div'); d.className='lean-hl'+(opts.sel?' sel':'');
       d.style.left=(rc.left-hostBox.left+host.scrollLeft)+'px'; d.style.top=(rc.top-hostBox.top+host.scrollTop)+'px';
       d.style.width=rc.width+'px'; d.style.height=rc.height+'px';
-      d.style.background=color+(strong?'55':'22'); if(strong) d.style.boxShadow='inset 0 0 0 1.5px '+color;
+      if(opts.level){ d.style.background='rgba(120,120,120,0.10)'; }  // level: faint grey, see-through
+      else { d.style.background=color+(opts.sel?'4d':'24'); }         // selected = stronger (soft) fill
       host.appendChild(d); } }
 }
 
@@ -271,6 +401,15 @@ function onPdfClick(e){
   if(linkFrom){ const tgt=boxAtCharGlobal(i); if(tgt) stageLink(tgt.id); return; }  // link: stage target (any node)
   const box=boxAtChar(i); if(box) selectBox(box.id);
 }
+// char index under a PDF pointer event (shared by click + dblclick).
+function charAtPdfEvent(e){ const sp=spanOf(e.target); if(!sp) return null; let i=+sp.dataset.start;
+  const cr=document.caretRangeFromPoint?document.caretRangeFromPoint(e.clientX,e.clientY):null;
+  if(cr && cr.startContainer && spanOf(cr.startContainer)===sp) i=+sp.dataset.start+clampOff(cr.startContainer,cr.startOffset,sp);
+  return i; }
+// double-click on the PDF over a box -> enter it as the current level (mirrors
+// double-click on a tree row).
+function onPdfDblClick(e){ const i=charAtPdfEvent(e); if(i==null) return;
+  const box=boxAtChar(i); if(box) enterLevel(box.id); }
 function clampOff(node,off,span){ if(node.nodeType===3) return Math.min(off, span.textContent.length); return off===0?0:span.textContent.length; }
 
 /* ───────────────── box ops ───────────────── */
@@ -438,17 +577,21 @@ function paintHighlights(){
     }
   }
 }
-// draw highlight rects for char range [s,e). opts.outline => just a border (no
-// fill); opts.sel => stronger fill + ring for the blue selection; opts.dep =>
-// faint link-dependent tint (a link target revealed at this level).
+// draw highlight rects for char range [s,e). Fills are kept LIGHT so glyphs
+// (esp. math) stay readable under overlaps; selection is shown with a soft
+// dashed outline (drawn at edges only, never a solid border over the text).
+// opts.outline => current level (grey, see-through); opts.sel => selected child;
+// opts.dep => link-dependent reveal.
 function drawRange(s,e,color,opts){
   opts=opts||{}; let run=null;
-  const flush=()=>{ if(!run)return; const pg=pageEls[run.page]; if(pg){ const d=document.createElement('div'); d.className='hl';
+  const flush=()=>{ if(!run)return; const pg=pageEls[run.page]; if(pg){ const d=document.createElement('div');
+    // selected => feathered/soft (.hl.sel has blur); others => crisp hard edge
+    d.className='hl'+(opts.sel?' sel':'');
     d.style.left=run.x0+'px'; d.style.top=run.y0+'px';
     d.style.width=(run.x1-run.x0)+'px'; d.style.height=(run.y1-run.y0)+'px';
-    if(opts.outline){ d.style.background='rgba(120,120,120,0.10)'; d.style.boxShadow='inset 0 0 0 1px rgba(120,120,120,0.35)'; }  // current level: light grey, see-through
-    else if(opts.dep){ d.style.background=color+'22'; d.style.boxShadow='inset 0 0 0 1px '+color+'66'; d.style.borderRadius='2px'; }  // link dependent: faint tint + thin colored edge
-    else { d.style.background=color+(opts.sel?'88':'44'); if(opts.sel) d.style.boxShadow='0 0 0 1.5px '+color; }
+    if(opts.outline){ d.style.background='rgba(120,120,120,0.09)'; }  // current level: faint grey, see-through
+    else if(opts.dep){ d.style.background=color+'22'; }              // link dependent: faint tint
+    else { d.style.background=color+(opts.sel?'4d':'24'); }          // selected = stronger (soft) fill
     pg.hl.appendChild(d);} run=null; };
   for(let i=s;i<e;i++){ const m=CHARMETA[i]; if(!m){flush();continue;}
     if(run && m.page===run.page && Math.abs(m.y-run.y0)<3){ run.x1=Math.max(run.x1,m.x+m.w); run.y1=Math.max(run.y1,m.y+m.h); }
@@ -459,11 +602,10 @@ function drawRange(s,e,color,opts){
 /* ───────────────── tree panel ───────────────── */
 function renderTree(){
   const host=$('tree'); host.innerHTML=''; host.appendChild(treeRow(ROOT,true));
-  // current-level bar: where new boxes will nest, + a way up
-  const bar=$('sellab'); bar.innerHTML='';
-  const cur=document.createElement('span'); cur.textContent = levelId==='root'?'paper (top level)':label(find(levelId));
-  bar.appendChild(cur);
-  if(levelId!=='root'){ const up=document.createElement('button'); up.className='btn'; up.style.cssText='margin-left:8px;padding:0 7px;font-size:11px'; up.textContent='↑ up'; up.onclick=upLevel; bar.appendChild(up); }
+  // up buttons (labelbar + PDF header); shown only when not at top level
+  const atRoot=levelId==='root';
+  const up=$('upLevel'); if(up) up.style.display = atRoot?'none':'';
+  const upP=$('upLevelPdf'); if(upP) upP.style.display = atRoot?'none':'';
 }
 function label(b){ if(!b) return '(none)'; const ps=pieces(b); if(!ps.length) return '(span)'; const t=CHARS.slice(ps[0].start,ps[0].end).replace(/\s+/g,' ').trim(); return (t.slice(0,30)||'(span)')+(ps.length>1?` …+${ps.length-1}`:''); }
 function treeRow(node,isRoot){
@@ -477,18 +619,24 @@ function treeRow(node,isRoot){
   row.appendChild(tw);
   if(!isRoot){const sw=document.createElement('span');sw.className='rswatch';sw.style.background=boxColor(node.id);row.appendChild(sw);}
   const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':label(node); row.appendChild(nm);
+  // label tag: small text chip of the box's grammar/function label
+  if(!isRoot && node.label){ const lt=document.createElement('span'); lt.className='labeltag'; lt.textContent=node.label; lt.title='label: '+node.label; row.appendChild(lt); }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
   if(!isRoot){ const out=linksFrom(node.id).length, inc=linksTo(node.id).length;
     if(out||inc){ const lb=document.createElement('span'); lb.className='linkbadge';
       lb.textContent=(out?'➜'+out:'')+(out&&inc?' ':'')+(inc?'⬅'+inc:''); lb.title='links'; row.appendChild(lb); } }
-  // Lean badge: shows the mapping state — λ (mapped), ∅ (none), tinted by ok/not-ok
-  if(!isRoot && node.lean){ const lb=document.createElement('span'); lb.className='leanbadge';
-    const ok=node.lean.ok; lb.classList.add(ok===true?'ok':ok===false?'notok':'unset');
-    lb.textContent=node.lean.none?'∅':'λ'; lb.title=node.lean.none?'mapped to nothing':('Lean: '+node.lean.file.replace(/^lean\//,''));
+  // Lean badge: λ (mapped, with count) or ∅ (none). Its COLOR carries the
+  // verdict — green=ok, red=not ok, grey=undecidable/unjudged. Leaves are solid,
+  // derived parents are outlined. Nothing shows on unmapped boxes.
+  if(!isRoot && node.lean){ const lb=document.createElement('span');
+    const v=verdictOf(node);
+    lb.className='leanbadge '+v+(isLeaf(node)?' leafv':' derived');
+    const nsp=leanSpans(node).length;
+    lb.textContent=node.lean.none?'∅':('λ'+(nsp>1?nsp:''));
+    const vtxt=v==='ok'?'faithful':v==='notok'?'not faithful':'undecidable';
+    lb.title=(node.lean.none?'mapped to nothing':(nsp+' Lean span'+(nsp>1?'s':'')+': '+[...new Set(leanSpans(node).map((p)=>p.file.replace(/^lean\//,'')))].join(', ')))+' · '+(isLeaf(node)?'':'derived — ')+vtxt;
     row.appendChild(lb); }
-  // "enter" button: make this node the current level (new boxes nest under it)
-  const ent=document.createElement('span'); ent.className='renter'; ent.textContent='⤵'; ent.title='enter: add segments inside this node';
-  ent.onclick=(e)=>{e.stopPropagation();enterLevel(node.id);}; row.appendChild(ent);
+  // (to make this node the current level for nesting, double-click the row)
   if(!isRoot){const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.onclick=(e)=>{e.stopPropagation();deleteBox(node.id);};row.appendChild(del);}
   // single click: select (blue). double click: enter level.
   // while in LINK MODE, a click picks this node as the arrow target instead.
@@ -523,6 +671,18 @@ function treeRow(node,isRoot){
         const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='delete link';del.onclick=(e)=>{e.stopPropagation();removeLink(l.from,l.to);refreshAll();};lr.appendChild(del);
         lr.onclick=()=>{ selId=other; render(); const o=find(other); if(o&&pieces(o).length)scrollToChar(pieces(o)[0].start); }; lbx.appendChild(lr); });
       wrap.appendChild(lbx); } }
+  // Lean span sub-rows: one per mapped span (λ marker), click jumps the Lean
+  // pane to it, ✕ removes just that span. Shown when the node is not collapsed.
+  if(!isRoot && !collapsed){ const sp=leanSpans(node);
+    if(sp.length){ const lbx=document.createElement('div'); lbx.className='children';
+      sp.forEach((p,si)=>{ const lr=document.createElement('div'); lr.className='row leanrow';
+        const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='λ';pad.style.opacity='.9';lr.appendChild(pad);
+        const t=document.createElement('span');t.className='rname';t.textContent=p.file.replace(/^lean\//,'')+` [${p.start}–${p.end}]`;lr.appendChild(t);
+        const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='remove this Lean span';del.onclick=(e)=>{e.stopPropagation();removeLeanSpan(node.id,si);};lr.appendChild(del);
+        lr.onclick=async()=>{ selId=node.id; render(); await showLeanFile(p.file); paintLeanHighlights();
+          const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=p.start); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); };
+        lbx.appendChild(lr); });
+      wrap.appendChild(lbx); } }
   if(kids && !collapsed){const box=document.createElement('div');box.className='children';node.children.forEach((c)=>box.appendChild(treeRow(c,false)));wrap.appendChild(box);}
   return wrap;
 }
@@ -547,21 +707,41 @@ function updateSelUI(){
     const lvl=levelId==='root'?'paper':label(find(levelId));
     info.textContent=`“${CHARS.slice(curSel.start,curSel.end).replace(/\s+/g,' ').trim().slice(0,24)}” · n=new under ${lvl}`+(box?` · e=add to “${label(box)}”`:'');
   } else { mk.disabled=true; ex.disabled=true; rm.disabled=true; info.textContent=selId?`selected “${label(box)}” · l=link from here · m=map to Lean`:''; }
-  updateLeanUI();
+  updateLeanUI(); updateLabelUI();
 }
-// Lean toolbar: map (needs a Lean selection), none, clear, ok/not-ok toggle.
+// Label dropdown: offers only labels valid under the selected box's PARENT.
+function updateLabelUI(){ const sel=$('labelSel'); if(!sel) return; const box=selId&&find(selId);
+  if(!box){ sel.disabled=true; sel.innerHTML='<option value="">(none)</option>'; return; }
+  sel.disabled=false;
+  const opts=allowedLabels(parentOf(box.id));
+  let html='<option value="">(none)</option>'+opts.map((o)=>`<option value="${o}">${o}</option>`).join('');
+  // if the stored label is no longer valid under the parent, still show it (flagged)
+  if(box.label && !opts.includes(box.label)) html+=`<option value="${box.label}">${box.label} (invalid here)</option>`;
+  sel.innerHTML=html; sel.value=box.label||'';
+}
+// Lean toolbar: add (m), remove (r), none, clear + the verdict buttons.
 function updateLeanUI(){ const box=selId&&find(selId);
-  const map=$('leanMap'),none=$('leanNone'),clr=$('leanClear'),ok=$('leanOk'),notok=$('leanNotok'),info=$('leanInfo');
+  const map=$('leanMap'),unmap=$('leanUnmap'),none=$('leanNone'),clr=$('leanClear'),info=$('leanInfo');
+  const ok=$('vOk'),notok=$('vNotok'),undec=$('vUndec');
   if(!map) return;
-  map.disabled=!box||!leanCurSel; none.disabled=!box; clr.disabled=!box||!box.lean;
-  const hasMap=box&&box.lean; ok.disabled=!hasMap; notok.disabled=!hasMap;
-  ok.classList.toggle('on',hasMap&&box.lean.ok===true); notok.classList.toggle('on',hasMap&&box.lean.ok===false);
+  const spans=leanSpans(box);
+  // does the current Lean selection overlap an existing span of this box?
+  const overlaps=box&&leanCurSel&&spans.some((p)=>p.file===leanCurSel.file&&leanCurSel.start<p.end&&leanCurSel.end>p.start);
+  map.disabled=!box||!leanCurSel; if(unmap) unmap.disabled=!overlaps;
+  none.disabled=!box; clr.disabled=!box||!box.lean;
+  // verdict buttons: only LEAVES are judged manually; parents are derived.
+  const leaf=box&&isLeaf(box); const cur=box?verdictOf(box):'unset';
+  [ok,notok,undec].forEach((btn)=>{ if(btn) btn.disabled=!leaf; });
+  if(ok){ ok.classList.toggle('on',leaf&&cur==='ok'); }
+  if(notok){ notok.classList.toggle('on',leaf&&cur==='notok'); }
+  if(undec){ undec.classList.toggle('on',leaf&&cur==='undecidable'); }
   if(!info) return;
   if(!box){ info.textContent='select an NL box to map it to Lean'; return; }
-  if(leanCurSel){ info.textContent=`m → map “${label(box)}” to “${LEAN_TEXT.slice(leanCurSel.start,leanCurSel.end).replace(/\s+/g,' ').trim().slice(0,30)}”`; }
-  else if(box.lean&&box.lean.none){ info.textContent=`“${label(box)}” → ∅ (nothing)`; }
-  else if(box.lean){ info.textContent=`“${label(box)}” → ${box.lean.file.replace(/^lean\//,'')} [${box.lean.start}–${box.lean.end}]`; }
-  else { info.textContent=`“${label(box)}” — not mapped · select Lean text + m, or ∅ none`; }
+  const vtag=leaf?'':` · verdict (derived): ${verdictOf(box)}`;
+  if(leanCurSel){ info.textContent=(overlaps?'r → remove · ':'m → add span · ')+`“${LEAN_TEXT.slice(leanCurSel.start,leanCurSel.end).replace(/\s+/g,' ').trim().slice(0,30)}”`; }
+  else if(box.lean&&box.lean.none){ info.textContent=`“${label(box)}” → ∅ (nothing)`+vtag; }
+  else if(spans.length){ info.textContent=`“${label(box)}” → ${spans.length} span${spans.length>1?'s':''}: `+spans.map((p)=>p.file.replace(/^lean\//,'')+` [${p.start}–${p.end}]`).join(', ')+vtag; }
+  else { info.textContent=`“${label(box)}” — not mapped · select Lean text + m, or ∅ none`+vtag; }
 }
 function clearSel(){ window.getSelection().removeAllRanges(); curSel=null; }
 function flash(m){ $('status').textContent=m; setTimeout(()=>{if($('status').textContent===m)$('status').textContent='';},3000); }
@@ -581,9 +761,16 @@ function setupSplitters(){ document.querySelectorAll('.splitter').forEach((sp)=>
     const up=(ev)=>{sp.releasePointerCapture(ev.pointerId);sp.classList.remove('drag');document.body.classList.remove('resizing');sp.removeEventListener('pointermove',mv);sp.removeEventListener('pointerup',up);};
     sp.addEventListener('pointermove',mv);sp.addEventListener('pointerup',up);}); }); }
 
+// switch the left panel between the Boxes tree and the Lean file tree.
+function switchTab(which){ const boxes=which==='boxes';
+  $('viewBoxes').style.display=boxes?'':'none'; $('viewLean').style.display=boxes?'none':'';
+  $('tabBoxes').classList.toggle('active',boxes); $('tabLean').classList.toggle('active',!boxes);
+  if(!boxes) renderLeanTree(); }
+
 /* ───────────────── init ───────────────── */
 async function init(){
   try{ const t=await fetch('../tree.json').then((r)=>r.ok?r.json():null); if(t&&t.children){ ROOT=t; walk(ROOT,(n)=>{const m=/^b(\d+)$/.exec(n.id||'');if(m)idCounter=Math.max(idCounter,+m[1]+1);}); } }catch(_){}
+  normalizeLean();   // migrate any old single-span lean mappings to the list form
   setupSplitters();
   await renderPdf();
   await initLean();
@@ -592,10 +779,12 @@ async function init(){
   document.addEventListener('selectionchange',()=>{ curSel=readSelection(); leanCurSel=readLeanSelection();
     if(curSel) leanCurSel=null; updateSelUI(); });
   $('pages').addEventListener('click', onPdfClick);
-  $('leanMap').onclick=mapLean; $('leanNone').onclick=mapLeanNone; $('leanClear').onclick=clearLean;
-  $('leanOk').onclick=()=>setLeanOk(true); $('leanNotok').onclick=()=>setLeanOk(false);
-  $('collapseAll').onclick=()=>{ walk(ROOT,(n)=>{ if(n.id!=='root') COLLAPSED[n.id]=true; }); renderTree(); };
-  $('expandAll').onclick=()=>{ for(const k in COLLAPSED) delete COLLAPSED[k]; renderTree(); };
+  $('pages').addEventListener('dblclick', onPdfDblClick);
+  $('leanMap').onclick=mapLean; $('leanUnmap').onclick=removeLeanSel; $('leanNone').onclick=mapLeanNone; $('leanClear').onclick=clearLean;
+  $('vOk').onclick=()=>setVerdict('ok'); $('vNotok').onclick=()=>setVerdict('notok'); $('vUndec').onclick=()=>setVerdict('undecidable');
+  $('tabBoxes').onclick=()=>switchTab('boxes'); $('tabLean').onclick=()=>switchTab('lean');
+  $('labelSel').onchange=(e)=>setLabel(e.target.value);
+  $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
   // link button toggles link mode: arm when idle, cancel when already armed
   $('linkbox').onclick=()=>{ if(linkFrom) cancelLink(); else startLink(); };
@@ -607,7 +796,9 @@ async function init(){
     if(e.key==='l'){e.preventDefault(); if(linkFrom) cancelLink(); else startLink(); return;}
     if(e.key==='n'&&curSel){e.preventDefault();makeBox();}
     if(e.key==='e'&&curSel){e.preventDefault();extendBox();}
+    // r removes from whichever pane has the active selection: NL piece or Lean span
     if(e.key==='r'&&curSel){e.preventDefault();removeSel();}
+    if(e.key==='r'&&leanCurSel&&selId){e.preventDefault();removeLeanSel();}
     if(e.key==='m'&&leanCurSel&&selId){e.preventDefault();mapLean();}
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save(true);}
   });
