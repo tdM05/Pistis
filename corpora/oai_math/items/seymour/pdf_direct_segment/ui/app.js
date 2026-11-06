@@ -57,7 +57,7 @@ const COLLAPSED = {};
 // The last element is the actual (concrete) label; path[0] is the top (what the
 // tree tag shows). A leaf label (judgeable) = concrete and not in HASA.
 const ISA = {
-  'definition':       ['term','formula'],
+  'body':             ['term','formula'],   // a definition's body (the `:=` meaning) IS a term or formula
   'formula':          ['external-citation','atomic-formula','compound-formula'],
   'atomic-formula':   ['relation','equality'],
   'compound-formula': ['quantified','connective'],
@@ -76,7 +76,12 @@ const ISA = {
 // meta-prose) can occur between any box's children. Leaves get no children.
 const HASA = {
   'organizer-section':   ['definition','theorem','organizer-section'],
-  'definition':          [],   // definition is-a term/formula; its only extra child is commentary (auto)
+  // a definition HAS: a name (the definiendum), inputs (the bound objects),
+  // conditions (typing/constraints), and a body (the `:=` meaning).
+  'definition':          ['name','inputs','conditions','body'],
+  'name':                [],                 // base leaf: the symbol being defined
+  'inputs':              ['term'],           // the bound objects (G, D, T, …) — each a term
+  'conditions':          ['formula'],        // typing/constraints (finite graph, ⊆ I×J, …)
   'theorem':             ['formula','proof'],
   'proof':               ['formula','theorem','tactic'],
   'relation':            ['relation-symbol','term'],
@@ -87,8 +92,8 @@ const HASA = {
   'implication':         ['connective-symbol','formula'],
   'conjunction':         ['connective-symbol','formula'],
   'disjunction':         ['connective-symbol','formula'],
-  'variable':            ['variable-symbol'],
-  'constant':            ['constant-symbol'],
+  // variable / constant are LEAVES: a variable term IS the symbol, no child
+  // (a bare bound symbol like the x in ∀x is variable-symbol, in the symbol tree).
   'function-application':['function-symbol','term'],
 };
 const ROOT_SLOTS = ['commentary','definition','theorem','organizer-section'];
@@ -97,6 +102,7 @@ const ROOT_SLOTS = ['commentary','definition','theorem','organizer-section'];
 const LABEL_SHORT = {
   'commentary':'comm','external-citation':'cite','implicit-external-reference':'ext',
   'organizer-section':'org','definition':'def','theorem':'thm','proof':'proof','tactic':'tac',
+  'name':'name','inputs':'inputs','conditions':'conds','body':'body',
   'formula':'form','atomic-formula':'atom','compound-formula':'cmpd',
   'quantified':'quant','universal':'univ','existential':'exist',
   'connective':'conn','negation':'neg','implication':'impl','conjunction':'conj','disjunction':'disj',
@@ -167,6 +173,7 @@ function allowedLabelPaths(parentBox){
 // "counts as slot" if its is-a path HEAD subtypes the slot. commentary is never
 // counted. max:null = unbounded. Labels absent here impose no arity condition.
 const CONDITIONS = {
+  'definition':          [{slot:'name',min:1,max:1},{slot:'body',min:1,max:1}],  // inputs/conditions unconstrained (0+)
   'theorem':             [{slot:'formula',min:1,max:1},{slot:'proof',min:1,max:1}],
   'relation':            [{slot:'relation-symbol',min:1,max:1},{slot:'term',min:1,max:null}],
   'equality':            [{slot:'equality-symbol',min:1,max:1},{slot:'term',min:2,max:2}],
@@ -177,8 +184,6 @@ const CONDITIONS = {
   'conjunction':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
   'disjunction':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
   'function-application':[{slot:'function-symbol',min:1,max:1},{slot:'term',min:1,max:null}],
-  'variable':            [{slot:'variable-symbol',min:1,max:1}],
-  'constant':            [{slot:'constant-symbol',min:1,max:1}],
 };
 // is label `l` the slot, or an is-a subtype of it?
 function labelSubtypes(l, slot){ if(l===slot) return true;
@@ -380,6 +385,9 @@ function normalizeLean(){ walk(ROOT,(n)=>{
   // only when not already rooted at 'symbol' (don't touch formula/term paths).
   if(Array.isArray(n.label)&&n.label.length){ const leaf=n.label[n.label.length-1];
     const canon=canonPath(leaf); if(canon[0]==='symbol' && n.label[0]!=='symbol') n.label=canon; }
+  // old is-a definition labels (['definition','formula',…]) are invalid now that
+  // definition is has-a — reset to 'definition' so the body/parts can be re-added.
+  if(Array.isArray(n.label)&&n.label[0]==='definition'&&n.label.length>1){ n.label=['definition']; delete n.verdict; }
 }); }
 
 /* ───────── faithfulness verdict (ok / notok / undecidable) ───────── */
@@ -646,6 +654,13 @@ async function makeBox(){
   selId=box.id; markDirty(); if(!JUNK_MODE) clearSel(); refreshAll();
   if(JUNK_MODE) flash('boxed '+newPieces.length+' junk fragment'+(newPieces.length>1?'s':'')+' — label it commentary');
 }
+// make an IMPLICIT box (no text span) under the current level — for symbols with
+// no glyph, like the ∧ hidden in "sets I, J". It has pieces:[] + implicit:true,
+// draws no PDF highlight, and is excluded from coverage.
+function makeImplicitBox(){ const parent=find(levelId)||ROOT;
+  const box={id:freshId(),pieces:[],implicit:true,children:[]};
+  parent.children.push(box); sortKids(parent);
+  selId=box.id; markDirty(); refreshAll(); flash('added implicit (no-span) box — label it (e.g. the missing ∧)'); }
 // "junk" = whitespace or punctuation (connective glue like , . ; ' ( ) etc.).
 const JUNK_RE=/[\s.,;:!?'"`´’‘“”«»()\[\]{}\-–—…·|/\\]/;
 // all JUNK chars in the current level's region NOT already inside a direct child,
@@ -694,11 +709,42 @@ function mergePieces(b){ b.pieces.sort((x,y)=>x.start-y.start); const out=[]; fo
 // merge contiguous/overlapping pieces on EVERY box (cheap: O(total pieces)). Any
 // path that leaves adjacent pieces (remove, junk, undo, load) is normalized.
 function simplifyAllPieces(){ walk(ROOT,(n)=>{ if(n.pieces&&n.pieces.length>1) mergePieces(n); }); }
+// intersect a list of pieces with a clamp region (list of intervals).
+function clampPieces(ps,region){ const out=[];
+  for(const p of ps) for(const r of region){ const a=Math.max(p.start,r.start), b=Math.min(p.end,r.end); if(b>a) out.push({start:a,end:b}); }
+  return out; }
+// CLEAN: restore structural invariants after messy edits. Top-down, each box's
+// pieces are clamped to its parent's region (so nothing sits outside its parent),
+// pieces merged, and any box emptied by clamping is deleted (subtree too). Returns
+// a short summary. One undoable step.
+function cleanTree(){ let clamped=0, removed=0;
+  const visit=(node, region)=>{
+    // region = parent's covering intervals (null at root = whole paper)
+    for(const c of [...node.children]){
+      if(c.implicit){ visit(c, region); continue; }   // implicit: no span to clamp/remove; children clamp to parent region
+      let ps=pieces(c);
+      if(region){ const cl=clampPieces(ps,region); if(cl.length!==ps.length || cl.some((q,k)=>!ps[k]||q.start!==ps[k].start||q.end!==ps[k].end)){ clamped++; } ps=cl; c.pieces=ps; }
+      if(!c.pieces.length){ // nothing left → remove subtree
+        const i=node.children.indexOf(c); const gone=new Set(); walk(c,(x)=>gone.add(x.id));
+        node.children.splice(i,1); ROOT.links=links().filter((l)=>!gone.has(l.from)&&!gone.has(l.to));
+        if(gone.has(selId))selId=null; if(gone.has(levelId))levelId='root'; removed++; continue; }
+      mergePieces(c);
+      visit(c, mergeIntervals(pieces(c)));   // children clamp to THIS box's region
+    }
+    sortKids(node);
+  };
+  visit(ROOT, null);
+  markDirty(); refreshAll();
+  flash(`cleaned · ${clamped} clamped, ${removed} removed`); }
 function regionStart(b){ const ps=pieces(b); return ps.length?Math.min(...ps.map((p)=>p.start)):0; }
 function sortKids(n){ n.children.sort((a,b)=>regionStart(a)-regionStart(b)); }
-function deleteBox(id){ const p=parentOf(id); if(!p) return; const i=p.children.findIndex((c)=>c.id===id); const rm=p.children[i]; p.children.splice(i,1,...rm.children); sortKids(p);
-  ROOT.links=links().filter((l)=>l.from!==id&&l.to!==id);   // drop any links touching the deleted node
-  if(selId===id)selId=null; if(levelId===id)levelId=p.id; if(linkFrom===id)linkFrom=null; if(linkTo===id)linkTo=null; markDirty(); refreshAll(); }
+function deleteBox(id){ const p=parentOf(id); if(!p) return; const i=p.children.findIndex((c)=>c.id===id); const rm=p.children[i];
+  // delete the box AND its whole subtree (not re-parenting its children)
+  const gone=new Set(); walk(rm,(n)=>gone.add(n.id));
+  p.children.splice(i,1); sortKids(p);
+  ROOT.links=links().filter((l)=>!gone.has(l.from)&&!gone.has(l.to));   // drop links touching anything removed
+  if(gone.has(selId))selId=null; if(gone.has(levelId))levelId=p.id; if(gone.has(linkFrom))linkFrom=null; if(gone.has(linkTo))linkTo=null;
+  markDirty(); refreshAll(); }
 function removePiece(id,idx){ const n=find(id); if(!n)return; n.pieces.splice(idx,1); if(!n.pieces.length){deleteBox(id);return;} markDirty(); refreshAll(); }
 
 /* ───────────────── link arrows on the PDF ───────────────── */
@@ -808,9 +854,11 @@ function toggleJunk(){ JUNK_MODE=!JUNK_MODE; const b=$('junkbox'); if(b) b.class
   flash(JUNK_MODE?'junk mode ON — n = box all junk, e = add junk to selected':'junk mode off'); }
 // draw temporary flash rects of class `cls` over char ranges, auto-removed.
 function flashRuns(ranges,cls,ms){ document.querySelectorAll('.'+cls).forEach((e)=>e.remove());
+  const MINW=6;   // whitespace/newline gaps are ~0px wide → floor so they're visible
   ranges.forEach((gp)=>{ for(const run of charRuns(gp.start,gp.end)){ const pg=pageEls[run.page]; if(!pg) continue;
+    let w=run.x1-run.x0, left=run.x0; if(w<MINW){ left=run.x0-(MINW-w)/2; w=MINW; }   // widen + center thin gaps
     const d=document.createElement('div'); d.className='hl '+cls;
-    d.style.left=run.x0+'px'; d.style.top=run.y0+'px'; d.style.width=(run.x1-run.x0)+'px'; d.style.height=(run.y1-run.y0)+'px';
+    d.style.left=left+'px'; d.style.top=run.y0+'px'; d.style.width=w+'px'; d.style.height=(run.y1-run.y0)+'px';
     pg.hl.appendChild(d); } });
   return setTimeout(()=>document.querySelectorAll('.'+cls).forEach((e)=>e.remove()), ms); }
 // flash ONE piece's region on the PDF (distinct from the blue selection), fade.
@@ -914,9 +962,10 @@ function treeRow(node,isRoot){
   row.className='row'+(node.id===selId?' picked':'')+(node.id===levelId?' level':'');
   const tw=document.createElement('span'); tw.className='twist'+(expandable?'':' leaf'); tw.textContent=expandable?(collapsed?'▸':'▾'):'·';
   if(expandable) tw.onclick=(e)=>{e.stopPropagation();COLLAPSED[node.id]=!collapsed;renderTree();};
+  if(node.implicit) row.classList.add('implicit');
   row.appendChild(tw);
   if(!isRoot){const sw=document.createElement('span');sw.className='rswatch';sw.style.background=boxColor(node.id);row.appendChild(sw);}
-  const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':label(node); row.appendChild(nm);
+  const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':(node.implicit?'∅ implicit':label(node)); row.appendChild(nm);
   // label tag: ONE chip, first.last of the is-a path (symbol token inline if auto-derived).
   if(!isRoot && node.label&&node.label.length){ const lt=document.createElement('span'); lt.className='labeltag';
     lt.textContent=labelTag(node); const ds=derivedSymbol(node);
@@ -944,7 +993,7 @@ function treeRow(node,isRoot){
   // while in LINK MODE, a click picks this node as the arrow target instead.
   row.onclick=()=>{ if(isRoot) return;
     if(linkFrom){ stageLink(node.id); return; }
-    selId=node.id; render(); scrollToChar(pieces(node)[0].start);
+    selId=node.id; render(); if(pieces(node).length) scrollToChar(pieces(node)[0].start);
     if(node.lean&&!node.lean.none) jumpToLean(node); };
   row.ondblclick=()=>{ enterLevel(node.id); };
   wrap.appendChild(row);
@@ -1168,12 +1217,13 @@ async function init(){
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
   $('wireBtn').onclick=toggleWireframe;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
+  $('mkimplicit').onclick=makeImplicitBox;
   // link button toggles link mode: arm when idle, cancel when already armed
   $('linkbox').onclick=()=>{ if(linkFrom) cancelLink(); else startLink(); };
   $('confirmlink').onclick=()=>confirmLink();
   $('junkbox').onclick=toggleJunk;
   $('save').onclick=()=>save(true);
-  $('undoBtn').onclick=undo; $('redoBtn').onclick=redo;
+  $('undoBtn').onclick=undo; $('redoBtn').onclick=redo; $('cleanBtn').onclick=cleanTree;
   document.addEventListener('keydown',(e)=>{ const t=document.activeElement; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'))return;
     // undo/redo (Ctrl/Cmd+Z, Shift for redo; also Ctrl+Y)
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault(); if(e.shiftKey) redo(); else undo(); return;}

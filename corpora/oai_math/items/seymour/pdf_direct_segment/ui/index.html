@@ -25,12 +25,14 @@
 <header>
   <div class="brand">PDF&#8209;direct seg</div>
   <button id="mkbox" class="btn" disabled>+ box <kbd>n</kbd></button>
+  <button id="mkimplicit" class="btn" title="add an implicit (no-span) box under the current level — e.g. a missing ∧">+ ∅ implicit</button>
   <button id="extendbox" class="btn" disabled>+ add to current <kbd>e</kbd></button>
   <button id="removebox" class="btn" disabled>&minus; remove selection <kbd>r</kbd></button>
   <button id="linkbox" class="btn" disabled>&#10137; link <kbd>l</kbd></button>
   <button id="junkbox" class="btn" title="junk mode: n/e act on all uncovered whitespace/punctuation under this level">⌫ junk mode</button>
   <button id="confirmlink" class="btn confirm" style="display:none" disabled>&#10003; confirm (pick a target)</button>
   <div class="spacer"></div>
+  <button id="cleanBtn" class="btn" title="clean: clamp boxes to their parent region, merge pieces, drop emptied boxes">⊡ clean</button>
   <button id="undoBtn" class="btn" disabled title="undo (Ctrl/Cmd+Z)">↶ undo</button>
   <button id="redoBtn" class="btn" disabled title="redo (Ctrl/Cmd+Shift+Z)">↷ redo</button>
   <button id="save" class="btn primary">Save</button>

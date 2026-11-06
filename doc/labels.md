@@ -9,6 +9,10 @@
 Markers: indented = child. `[isa]`/`[hasa]` = relation to its children.
 `(base)` = leaf (has-a base; judged ok/not-ok). `→X` = subtype expands per X above.
 
+A box may be IMPLICIT (no text span, `pieces:[]`, `implicit:true`) — for symbols
+with no glyph, e.g. the ∧ hidden in "sets I, J". Implicit boxes are labelled like
+any box, draw no highlight, and are excluded from coverage.
+
 `commentary` is auto-allowed as a child of EVERY composite (non-leaf) box — any
 span with no formal role (whitespace, glue punctuation, meta-prose) is commentary
 — so it is NOT listed under each node below.
@@ -21,7 +25,14 @@ span with no formal role (whitespace, glue punctuation, meta-prose) is commentar
   - →definition
   - →theorem
   - →organizer-section
-- definition [isa]
+- definition [hasa]
+  - name (base)              (the definiendum — symbol being defined)
+  - inputs [hasa]
+    - →term                  (the bound objects: G, D, T, …)
+  - conditions [hasa]
+    - →formula               (typing/constraints: finite graph, ⊆ I×J, …)
+  - →body
+- body [isa]                 (the `:=` meaning)
   - →term
   - →formula
 - theorem [hasa]
@@ -67,10 +78,8 @@ span with no formal role (whitespace, glue punctuation, meta-prose) is commentar
   - external-citation (base)
   - implicit-external-reference (base)
   - atomic-term [isa]
-    - variable [hasa]
-      - →variable-symbol
-    - constant [hasa]
-      - →constant-symbol
+    - variable (base)        (the term IS the variable — no child)
+    - constant (base)
   - composite-term [isa]
     - function-application [hasa]
       - →function-symbol

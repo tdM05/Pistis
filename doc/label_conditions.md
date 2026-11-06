@@ -10,6 +10,7 @@ Labels not listed here impose no condition (any/empty children), except leaves
 
 | label | required children |
 |---|---|
+| definition | exactly 1 name, exactly 1 body (inputs/conditions 0+) |
 | theorem | exactly 1 formula, exactly 1 proof |
 | relation | exactly 1 relation-symbol, 1+ term |
 | equality | exactly 1 equality-symbol, exactly 2 term |
@@ -20,12 +21,11 @@ Labels not listed here impose no condition (any/empty children), except leaves
 | conjunction | exactly 1 connective-symbol, exactly 2 formula |
 | disjunction | exactly 1 connective-symbol, exactly 2 formula |
 | function-application | exactly 1 function-symbol, 1+ term |
-| variable | exactly 1 variable-symbol |
-| constant | exactly 1 constant-symbol |
 
 Notes:
-- definition: no structural condition (it IS-A a term/formula; its content box is
-  that term/formula; may carry optional commentary).
+- definition HAS-A: name (definiendum), inputs (bound objects, each a term),
+  conditions (typing/constraints, each a formula), body (the `:=` meaning, is-a
+  term/formula). name + body required; inputs/conditions optional (0+).
 - the symbol child's identity (∧ for conjunction, = for equality, …) is implied
   by the parent label and not separately checked.
 - a composite label with missing/incomplete required children = loose end.
