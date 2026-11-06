@@ -28,9 +28,11 @@
   <button id="extendbox" class="btn" disabled>+ add to current <kbd>e</kbd></button>
   <button id="removebox" class="btn" disabled>&minus; remove selection <kbd>r</kbd></button>
   <button id="linkbox" class="btn" disabled>&#10137; link <kbd>l</kbd></button>
+  <button id="junkbox" class="btn" title="junk mode: n/e act on all uncovered whitespace/punctuation under this level">⌫ junk mode</button>
   <button id="confirmlink" class="btn confirm" style="display:none" disabled>&#10003; confirm (pick a target)</button>
-  <span id="selinfo" class="selinfo"></span>
   <div class="spacer"></div>
+  <button id="undoBtn" class="btn" disabled title="undo (Ctrl/Cmd+Z)">↶ undo</button>
+  <button id="redoBtn" class="btn" disabled title="redo (Ctrl/Cmd+Shift+Z)">↷ redo</button>
   <button id="save" class="btn primary">Save</button>
   <span id="status" class="status"></span>
 </header>
@@ -46,7 +48,7 @@
       <div class="labelbar">
         <button id="upLevel" class="minibtn" title="go up a level" style="display:none">↑ up</button>
         <span class="spacer"></span>
-        <span id="labelPick" class="labelpick"></span>
+        <button id="labelChip" class="labelchip" disabled>label…</button>
       </div>
       <div id="tree" class="tree"></div>
     </div>
@@ -61,6 +63,7 @@
   <section class="pdf-pane" id="pane2">
     <div class="pane-head">PDF &middot; <span class="dimlab">select text, then n / e / r · double-click a box to enter it</span>
       <span class="spacer"></span>
+      <button id="wireBtn" class="minibtn" title="wireframe: outlines only">▢ wireframe</button>
       <button id="upLevelPdf" class="minibtn" title="go up a level" style="display:none">↑ up</button>
     </div>
     <div id="pdfScroll" class="pdf-scroll"><div id="pages" class="pages"></div></div>
@@ -80,11 +83,17 @@
         <button id="vUndec" class="minibtn undecbtn" disabled title="leaf verdict: undecidable / working on it (click again to clear)">? undecidable</button>
       </span>
     </div>
-    <div class="lean-info" id="leanInfo"></div>
     <div id="leanScroll" class="lean-scroll"><div id="leanCode" class="lean-code"></div></div>
   </section>
 </main>
+<footer id="statusbar" class="statusbar">
+  <span id="levelStats" class="sb-seg"></span>
+  <span id="selinfo" class="sb-seg"></span>
+  <span id="leanInfo" class="sb-seg"></span>
+  <span id="labelStatus" class="sb-seg"></span>
+</footer>
 
+<div id="labelPop" class="labelpop" style="display:none"></div>
 <script src="app.js"></script>
 </body>
 </html>

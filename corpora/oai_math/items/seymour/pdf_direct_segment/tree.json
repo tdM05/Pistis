@@ -161,20 +161,143 @@
                       "end": 16009
                     }
                   ],
-                  "children": [],
+                  "children": [
+                    {
+                      "id": "b49",
+                      "pieces": [
+                        {
+                          "start": 15897,
+                          "end": 15900
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "symbol",
+                        "logical",
+                        "quantifier"
+                      ]
+                    },
+                    {
+                      "id": "b52",
+                      "pieces": [
+                        {
+                          "start": 15897,
+                          "end": 15918
+                        },
+                        {
+                          "start": 15922,
+                          "end": 15923
+                        },
+                        {
+                          "start": 15925,
+                          "end": 16009
+                        }
+                      ],
+                      "children": [
+                        {
+                          "id": "b55",
+                          "pieces": [
+                            {
+                              "start": 15897,
+                              "end": 15900
+                            }
+                          ],
+                          "children": []
+                        },
+                        {
+                          "id": "b56",
+                          "pieces": [
+                            {
+                              "start": 15901,
+                              "end": 15918
+                            },
+                            {
+                              "start": 15922,
+                              "end": 15923
+                            },
+                            {
+                              "start": 15925,
+                              "end": 16009
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "formula",
+                            "compound-formula",
+                            "connective",
+                            "conjunction"
+                          ]
+                        }
+                      ],
+                      "label": [
+                        "formula",
+                        "compound-formula",
+                        "quantified",
+                        "universal"
+                      ]
+                    },
+                    {
+                      "id": "b51",
+                      "pieces": [
+                        {
+                          "start": 15919,
+                          "end": 15920
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "symbol",
+                        "logical",
+                        "variable-symbol"
+                      ]
+                    },
+                    {
+                      "id": "b54",
+                      "pieces": [
+                        {
+                          "start": 15900,
+                          "end": 15901
+                        },
+                        {
+                          "start": 15918,
+                          "end": 15919
+                        },
+                        {
+                          "start": 15920,
+                          "end": 15922
+                        },
+                        {
+                          "start": 15923,
+                          "end": 15925
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "commentary"
+                      ]
+                    }
+                  ],
                   "label": [
-                    "formula"
+                    "formula",
+                    "compound-formula",
+                    "quantified",
+                    "universal"
                   ]
                 },
                 {
-                  "id": "b46",
+                  "id": "b48",
                   "pieces": [
                     {
                       "start": 16009,
                       "end": 16010
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "label": [
+                    "symbol",
+                    "logical",
+                    "connective-symbol"
+                  ]
                 },
                 {
                   "id": "b47",
@@ -184,7 +307,12 @@
                       "end": 16045
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "label": [
+                    "formula",
+                    "atomic-formula",
+                    "relation"
+                  ]
                 }
               ],
               "lean": {

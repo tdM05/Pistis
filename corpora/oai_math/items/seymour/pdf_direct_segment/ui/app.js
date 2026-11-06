@@ -40,6 +40,8 @@ let LEAN_TEXT = '';        // raw text of LEAN_FILE (char offsets index into thi
 const LEAN_CACHE = {};     // path -> text
 let leanCurSel = null;     // {file,start,end} current selection inside Lean pane
 let dirty = false;
+let WIREFRAME = false;     // wireframe mode: draw highlights as own-color outlines, no fill
+let JUNK_MODE = false;     // junk mode: n/e operate on all uncovered whitespace/punctuation
 let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
 const COLLAPSED = {};
@@ -64,12 +66,19 @@ const ISA = {
   'term':             ['external-citation','implicit-external-reference','atomic-term','composite-term'],
   'atomic-term':      ['variable','constant'],
   'composite-term':   ['function-application'],
+  // symbols of a first-order language (Def 5.1): logical vs non-logical.
+  'symbol':           ['logical','non-logical'],
+  'logical':          ['parenthesis','connective-symbol','quantifier','variable-symbol','equality-symbol'],
+  'non-logical':      ['constant-symbol','function-symbol','relation-symbol'],
 };
+// NOTE: 'commentary' is NOT listed here — it is auto-allowed on EVERY composite
+// box (see hasaSlotsOf), since filler/no-formal-role spans (whitespace, glue,
+// meta-prose) can occur between any box's children. Leaves get no children.
 const HASA = {
-  'organizer-section':   ['commentary','definition','theorem','organizer-section'],
-  'definition':          ['commentary'],   // definition is-a term/formula AND has-a optional commentary
-  'theorem':             ['formula','proof','commentary'],
-  'proof':               ['formula','theorem','commentary','tactic'],
+  'organizer-section':   ['definition','theorem','organizer-section'],
+  'definition':          [],   // definition is-a term/formula; its only extra child is commentary (auto)
+  'theorem':             ['formula','proof'],
+  'proof':               ['formula','theorem','tactic'],
   'relation':            ['relation-symbol','term'],
   'equality':            ['equality-symbol','term'],
   'universal':           ['quantifier','variable-symbol','formula'],
@@ -83,21 +92,66 @@ const HASA = {
   'function-application':['function-symbol','term'],
 };
 const ROOT_SLOTS = ['commentary','definition','theorem','organizer-section'];
-const LABEL_SHORT = {definition:'def','external-citation':'cite','implicit-external-reference':'ext'};
+// short forms for compact display; the tree tag shows FIRST.LAST of the is-a path
+// (e.g. form.univ, def.conj), so you can read both the top kind and the concrete.
+const LABEL_SHORT = {
+  'commentary':'comm','external-citation':'cite','implicit-external-reference':'ext',
+  'organizer-section':'org','definition':'def','theorem':'thm','proof':'proof','tactic':'tac',
+  'formula':'form','atomic-formula':'atom','compound-formula':'cmpd',
+  'quantified':'quant','universal':'univ','existential':'exist',
+  'connective':'conn','negation':'neg','implication':'impl','conjunction':'conj','disjunction':'disj',
+  'relation':'rel','equality':'eq',
+  'term':'term','atomic-term':'atom','composite-term':'cmpt','function-application':'fnapp',
+  'variable':'var','constant':'const',
+  'symbol':'sym','logical':'log','non-logical':'nonlog','parenthesis':'paren',
+  'relation-symbol':'rel','equality-symbol':'eq','quantifier':'quant',
+  'connective-symbol':'conn','variable-symbol':'var','constant-symbol':'const','function-symbol':'fn',
+};
+const lblShort=(l)=>LABEL_SHORT[l]||l;
+// compact tag for a box: first.last of its is-a path, EXCEPT when the concrete
+// label has an auto-derived symbol (∀, ∧, =) — then the last component is that
+// symbol itself (e.g. sym.∀), so the token shows inline as ONE tag.
+function labelTag(box){ const path=box&&box.label; if(!path||!path.length) return '';
+  const a=lblShort(path[0]); if(path.length===1) return a;
+  const ds=box.id?derivedSymbol(box):null;
+  return a+'.'+(ds?ds.sym:lblShort(path[path.length-1])); }
+
+// Some symbol leaves have an identity FULLY DETERMINED by their parent label, so
+// it's auto-derived (not picked): e.g. a connective-symbol under `conjunction`
+// is necessarily ∧. DERIVED_SYM[symbolLabel][parentConcrete] = {sym, from}.
+const DERIVED_SYM = {
+  'connective-symbol': { conjunction:'∧', implication:'→', disjunction:'∨', negation:'¬' },
+  'quantifier':        { universal:'∀', existential:'∃' },
+  'equality-symbol':   { equality:'=' },
+};
+// auto-derived symbol identity for a box, from its concrete label + parent label.
+// returns {sym, reason} or null.
+function derivedSymbol(box){ const c=labelConcrete(box.label); const map=c&&DERIVED_SYM[c]; if(!map) return null;
+  const par=parentOf(box.id); const pc=par&&par.label?labelConcrete(par.label):null; const sym=pc&&map[pc];
+  return sym?{sym, reason:`${c} inside ${pc} ⇒ ${sym}`}:null; }
 
 function isAbstract(l){ return l in ISA; }
 function isComposite(l){ return l in HASA; }
 function isLeafLabel(l){ return !isAbstract(l) && !isComposite(l); }  // has-a base
 // concrete label of a stored path (last element), or null.
 function labelConcrete(path){ return path&&path.length?path[path.length-1]:null; }
-// all full paths of CONCRETE labels reachable by refining `slot` via is-a.
-function pathsUnder(slot, prefix){ const p=[...(prefix||[]),slot];
+// is-a parent map (child → its is-a parent) + canonical full path for any label.
+const ISA_PARENT={}; for(const k in ISA) for(const c of ISA[k]) ISA_PARENT[c]=k;
+function canonPath(label){ const p=[label]; let x=label; while(ISA_PARENT[x]){ x=ISA_PARENT[x]; p.unshift(x); } return p; }
+// all full paths of CONCRETE labels reachable by refining `slot`. The slot STARTS
+// the path (so a `formula` slot gives formula→…, not definition→formula→…), EXCEPT
+// symbol leaves, which carry their canonical symbol→logical/non-logical→ ancestry.
+function pathsUnder(slot, prefix){ let base=prefix&&prefix.length?prefix:[];
+  if(!base.length){ const c=canonPath(slot); if(c[0]==='symbol') base=c.slice(0,-1); }
+  const p=[...base,slot];
   if(!isAbstract(slot)) return [p];
   return ISA[slot].flatMap((c)=>pathsUnder(c,p)); }
 // has-a slots of a box = union of HASA over EVERY label in its is-a path (the box
-// is-a each of them, so it has-a all their children). e.g. a definition→…→relation
-// box has relation's {relation-symbol,term} AND definition's {commentary}.
-function hasaSlotsOf(box){ const out=[]; for(const l of (box.label||[])){ (HASA[l]||[]).forEach((s)=>{ if(!out.includes(s)) out.push(s); }); } return out; }
+// is-a each of them, so it has-a all their children), PLUS 'commentary' which is
+// auto-allowed on any composite box (filler/no-role spans go anywhere).
+function hasaSlotsOf(box){ const out=[]; let composite=false;
+  for(const l of (box.label||[])){ if(l in HASA) composite=true; (HASA[l]||[]).forEach((s)=>{ if(!out.includes(s)) out.push(s); }); }
+  if(composite && !out.includes('commentary')) out.push('commentary'); return out; }
 // valid label-paths for a box given its PARENT box. root → ROOT_SLOTS; a labelled
 // parent → its has-a slots (subtype-expanded); unlabelled non-root parent → none
 // (label the parent first — keeps labelling top-down and the tree well-formed).
@@ -131,6 +185,20 @@ function labelSubtypes(l, slot){ if(l===slot) return true;
   const kids=ISA[l]; return kids? kids.some((k)=>labelSubtypes(k,slot)) : false; }
 // a child box counts as `slot` if its path head subtypes slot (commentary never).
 function childCountsAs(child, slot){ const head=child.label&&child.label[0]; return head? labelSubtypes(head,slot) : false; }
+// merge a list of {start,end} into disjoint sorted intervals.
+function mergeIntervals(ivs){ const s=ivs.slice().sort((a,b)=>a.start-b.start); const out=[];
+  for(const iv of s){ const last=out[out.length-1]; if(last&&iv.start<=last.end){ last.end=Math.max(last.end,iv.end); } else out.push({start:iv.start,end:iv.end}); } return out; }
+// COVERAGE of a box by its children: do the children's pieces cover ALL of the
+// box's own pieces? Returns {covered, total, gaps:[{start,end}]}. total/covered
+// are in chars. Overlap is allowed (not a partition); only gaps matter.
+function coverageOf(box){ const own=mergeIntervals(pieces(box)); const total=own.reduce((t,p)=>t+(p.end-p.start),0);
+  const kid=mergeIntervals((box.children||[]).flatMap((c)=>pieces(c)));
+  let covered=0; const gaps=[];
+  for(const p of own){ let cur=p.start;
+    for(const k of kid){ if(k.end<=cur||k.start>=p.end) continue; const a=Math.max(k.start,cur), b=Math.min(k.end,p.end);
+      if(a>cur) gaps.push({start:cur,end:a}); covered+=Math.max(0,b-a); cur=Math.max(cur,b); }
+    if(cur<p.end){ gaps.push({start:cur,end:p.end}); } }
+  return {covered, total, gaps}; }
 // loose-end issues for ONE box (not recursive). [] = clean.
 function boxIssues(box){ const out=[];
   if(!box.label||!box.label.length){ out.push('unlabelled'); return out; }
@@ -145,6 +213,11 @@ function boxIssues(box){ const out=[];
   const slots=hasaSlotsOf(box);
   for(const ch of (box.children||[])){ const head=ch.label&&ch.label[0];
     if(head && !slots.some((s)=>labelSubtypes(head,s))) out.push(`child “${head}” not allowed here`); }
+  // COVERAGE: a non-leaf-label box with children must have them cover its whole
+  // region (leaf-label boxes need no children, so no coverage requirement).
+  if(box.children&&box.children.length && !isLeafLabel(concrete)){
+    const cov=coverageOf(box); if(cov.gaps.length){ const pct=cov.total?Math.round(100*cov.covered/cov.total):100;
+      out.push(`children cover ${pct}% (${cov.gaps.length} gap${cov.gaps.length>1?'s':''})`); } }
   return out; }
 // whole-subtree: does this box or any descendant have an issue?
 function subtreeHasIssue(box){ if(box!==ROOT && boxIssues(box).length) return true;
@@ -182,7 +255,7 @@ function renderErrors(){ const list=$('errList'); if(!list) return;
     list.appendChild(gh);
     if(collapsed) return;
     rows.forEach(({id,box,msg})=>{ const row=document.createElement('div'); row.className='errrow';
-      const nm=document.createElement('span'); nm.className='errname'; nm.textContent=(box.label?box.label[0]:'(unlabelled)')+': '+label(box); row.appendChild(nm);
+      const nm=document.createElement('span'); nm.className='errname'; nm.textContent=(box.label?labelTag(box):'(unlabelled)')+': '+label(box); row.appendChild(nm);
       const ms=document.createElement('span'); ms.className='errmsg'; ms.textContent=msg; row.appendChild(ms);
       row.onclick=()=>{ selectBox(id); const b=find(id); if(b&&pieces(b).length) scrollToChar(pieces(b)[0].start); };
       list.appendChild(row); }); });
@@ -278,6 +351,7 @@ async function showLeanFile(path){ if(!path) return; LEAN_FILE=path; LEAN_TEXT=a
     const code=document.createElement('span'); code.className='lean-src'; code.dataset.start=off; code.textContent=ln.length?ln:'​';
     row.appendChild(code); host.appendChild(row); off+=ln.length+1; });  // +1 for the '\n'
   paintLeanHighlights();
+  if(typeof scheduleViewSave==='function') scheduleViewSave();
 }
 // DOM selection in the Lean pane -> {file,start,end} into LEAN_TEXT.
 function readLeanSelection(){ const s=window.getSelection(); if(!s||s.rangeCount===0||s.isCollapsed) return null;
@@ -301,6 +375,11 @@ function normalizeLean(){ walk(ROOT,(n)=>{
   if(n.lean&&!n.lean.none&&!n.lean.spans&&n.lean.file!=null){ const {file,start,end}=n.lean; n.lean={spans:[{file,start,end}]}; }
   if(n.lean&&n.lean.ok!==undefined){ delete n.lean.ok; }   // legacy boolean dropped (verdict now label-gated)
   if(typeof n.label==='string'){ delete n.label; delete n.verdict; }  // legacy flat label dropped (now path-based)
+  // migrate old flat SYMBOL labels to the canonical symbol ancestry, e.g.
+  // ['quantifier'] → ['symbol','logical','quantifier']. Only symbol leaves, and
+  // only when not already rooted at 'symbol' (don't touch formula/term paths).
+  if(Array.isArray(n.label)&&n.label.length){ const leaf=n.label[n.label.length-1];
+    const canon=canonPath(leaf); if(canon[0]==='symbol' && n.label[0]!=='symbol') n.label=canon; }
 }); }
 
 /* ───────── faithfulness verdict (ok / notok / undecidable) ───────── */
@@ -385,11 +464,14 @@ function paintLeanRange(s,e,color,opts){ opts=opts||{}; const host=$('leanCode')
     const rng=document.createRange();
     try{ rng.setStart(tn,Math.max(0,Math.min(ls,tn.length))); rng.setEnd(tn,Math.max(0,Math.min(le,tn.length))); }catch(_){ continue; }
     const rects=rng.getClientRects(); const hostBox=host.getBoundingClientRect();
-    for(const rc of rects){ const d=document.createElement('div'); d.className='lean-hl'+(opts.sel?' sel':'');
+    for(const rc of rects){ const d=document.createElement('div'); d.className='lean-hl';
       d.style.left=(rc.left-hostBox.left+host.scrollLeft)+'px'; d.style.top=(rc.top-hostBox.top+host.scrollTop)+'px';
       d.style.width=rc.width+'px'; d.style.height=rc.height+'px';
-      if(opts.level){ d.style.background='rgba(120,120,120,0.10)'; }  // level: faint grey, see-through
-      else { d.style.background=color+(opts.sel?'4d':'24'); }         // selected = stronger (soft) fill
+      if(opts.level){ d.style.background='rgba(120,120,120,0.10)'; }        // level: faint grey
+      else { d.style.background=color+'3d'; }                              // normal: light fill
+      const rings=[]; if(WIREFRAME && !opts.level) rings.push('inset 0 0 0 1px '+color+'cc');
+      if(opts.sel) rings.push('inset 0 0 0 2px '+SEL_OUTLINE+'cc');
+      if(rings.length) d.style.boxShadow=rings.join(', ');
       host.appendChild(d); } }
 }
 
@@ -414,11 +496,34 @@ async function renderPdf(){
     const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr); wrap.appendChild(canvas);
     const hl=document.createElement('div'); hl.className='hl-layer'; wrap.appendChild(hl);
     const tl=document.createElement('div'); tl.className='textLayer'; wrap.appendChild(tl);
-    host.appendChild(wrap); pageEls[p]={wrap,hl};
+    host.appendChild(wrap); pageEls[p]={page:p,wrap,hl,tl,spans:[]};
     await page.render({canvasContext:ctx,viewport:vp}).promise;
     await buildTextLayer(page,vp,tl,p);
   }
+  // after the per-span scaleX transforms settle (they run in rAF), measure the
+  // EXACT glyph rects once and bake them into CHARMETA, then draw.
+  await new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  bakeCharMeta();
   render();
+}
+
+// Measure exact per-character rects once (via Range.getClientRects on the real
+// glyphs) and overwrite CHARMETA[i] with page-relative pixel coords. One reflow
+// total, not one per highlight — so drawRange stays fast but pixel-accurate.
+function bakeCharMeta(){
+  for(const pg of Object.values(pageEls)){
+    const base=pg.wrap.getBoundingClientRect();
+    for(const span of pg.spans){
+      const ss=+span.dataset.start, se=+span.dataset.end; const tn=span.firstChild;
+      if(!tn||tn.nodeType!==3){ continue; }
+      const n=se-ss;
+      for(let k=0;k<n;k++){ const rng=document.createRange();
+        try{ rng.setStart(tn,k); rng.setEnd(tn,Math.min(k+1,tn.length)); }catch(_){ continue; }
+        const rc=rng.getBoundingClientRect(); if(rc.width<=0&&rc.height<=0) continue;
+        CHARMETA[ss+k]={page:pg.page, x:rc.left-base.left, y:rc.top-base.top, w:rc.width, h:rc.height};
+      }
+    }
+  }
 }
 
 // Build the selectable text layer for one page AND append its glyphs to the
@@ -445,6 +550,7 @@ async function buildTextLayer(page,vp,tl,pno){
     // scale the span horizontally so its rendered width matches the PDF item
     span.dataset.start=CHARS.length;
     tl.appendChild(span);
+    pageEls[pno].spans.push(span);   // register for exact glyph-rect highlighting
     // after layout, scaleX to fit w (so transparent text aligns with glyphs)
     requestAnimationFrame(()=>{ const natural=span.getBoundingClientRect().width/ (span._sx||1);
       if(natural>0){ const sx=w/natural; span._sx=sx; span.style.transform=`scaleX(${sx})`; } });
@@ -494,18 +600,20 @@ function boxAtCharGlobal(i){ let best=null,bw=Infinity; walk(ROOT,(n)=>{ if(n===
 // select a box (blue) + reveal it in the tree (expand ancestors, scroll to row)
 function selectBox(id){ selId=id; let p=parentOf(id); while(p){COLLAPSED[p.id]=false;p=parentOf(p.id);} render();
   const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.scrollIntoView({block:'nearest'});
-  const b=find(id); if(b&&b.lean&&!b.lean.none) jumpToLean(b); }
-// plain left-click on the PDF (no text selected) over a box -> select that box
+  const b=find(id); if(b&&b.lean&&!b.lean.none) jumpToLean(b); scheduleViewSave(); }
+// plain left-click on the PDF (no text selected) over a box -> select that box;
+// clicking empty space (not over any box) DESELECTS.
 function onPdfClick(e){
   if(window.getSelection && !window.getSelection().isCollapsed) return;   // a drag-select -> leave it
-  const sp=spanOf(e.target); if(!sp) return;
+  const sp=spanOf(e.target);
+  if(!sp){ if(!linkFrom && selId){ selId=null; render(); } return; }      // clicked away → deselect
   // char index at the click: start of the span + offset into its text by x
   let i=+sp.dataset.start;
   // refine within the span using caretRangeFromPoint if available
   const cr=document.caretRangeFromPoint?document.caretRangeFromPoint(e.clientX,e.clientY):null;
   if(cr && cr.startContainer && spanOf(cr.startContainer)===sp) i=+sp.dataset.start+clampOff(cr.startContainer,cr.startOffset,sp);
   if(linkFrom){ const tgt=boxAtCharGlobal(i); if(tgt) stageLink(tgt.id); return; }  // link: stage target (any node)
-  const box=boxAtChar(i); if(box) selectBox(box.id);
+  const box=boxAtChar(i); if(box) selectBox(box.id); else if(selId){ selId=null; render(); }  // over text but no box here → deselect
 }
 // char index under a PDF pointer event (shared by click + dblclick).
 function charAtPdfEvent(e){ const sp=spanOf(e.target); if(!sp) return null; let i=+sp.dataset.start;
@@ -519,22 +627,51 @@ function onPdfDblClick(e){ const i=charAtPdfEvent(e); if(i==null) return;
 function clampOff(node,off,span){ if(node.nodeType===3) return Math.min(off, span.textContent.length); return off===0?0:span.textContent.length; }
 
 /* ───────────────── box ops ───────────────── */
+// is [s,e) fully inside the current level's region? (root = whole paper → always)
+function withinLevel(s,e){ const level=find(levelId); if(!level||level===ROOT) return true;
+  const reg=mergeIntervals(pieces(level)); return reg.some((p)=>p.start<=s&&e<=p.end); }
 async function makeBox(){
-  if(!curSel) return;
+  // JUNK mode: new box = all uncovered whitespace/punctuation under this level.
+  let newPieces;
+  if(JUNK_MODE){ const jp=junkPieces(); if(!jp.length){flash('no uncovered whitespace/punctuation here');return;} newPieces=jp; }
+  else { if(!curSel) return;
+    if(!withinLevel(curSel.start,curSel.end)){ flash('selection extends outside the current level — denied'); return; }
+    newPieces=[{start:curSel.start,end:curSel.end}]; }
   // The new node is added as a CHILD OF THE CURRENT NODE (levelId) — explicit
   // tree authoring. Three boxes over the same text are unambiguous: each lands
   // wherever you currently are in the tree, not inferred from overlap.
   const parent=find(levelId)||ROOT;
-  const box={id:freshId(),pieces:[{start:curSel.start,end:curSel.end}],children:[]};
+  const box={id:freshId(),pieces:newPieces,children:[]};
   parent.children.push(box); sortKids(parent);
-  selId=box.id; markDirty(); clearSel(); refreshAll();
+  selId=box.id; markDirty(); if(!JUNK_MODE) clearSel(); refreshAll();
+  if(JUNK_MODE) flash('boxed '+newPieces.length+' junk fragment'+(newPieces.length>1?'s':'')+' — label it commentary');
 }
+// "junk" = whitespace or punctuation (connective glue like , . ; ' ( ) etc.).
+const JUNK_RE=/[\s.,;:!?'"`´’‘“”«»()\[\]{}\-–—…·|/\\]/;
+// all JUNK chars in the current level's region NOT already inside a direct child,
+// grouped into contiguous pieces. [] if none. Used by n/e when JUNK mode is on.
+function junkPieces(){ const level=find(levelId)||ROOT;
+  const region = level===ROOT ? [{start:0,end:CHARS.length}] : mergeIntervals(pieces(level));
+  const covered = mergeIntervals(level.children.flatMap((c)=>pieces(c)));
+  const isCovered=(i)=>covered.some((k)=>k.start<=i&&i<k.end);
+  const out=[]; let run=null;
+  for(const seg of region){ for(let i=seg.start;i<seg.end;i++){
+    const junk = JUNK_RE.test(CHARS[i]) && !isCovered(i);
+    if(junk){ if(run&&run.end===i) run.end=i+1; else { run&&out.push(run); run={start:i,end:i+1}; } }
+    else if(run){ out.push(run); run=null; } }
+    run&&out.push(run); run=null; }
+  return out; }
 // enter a node: it becomes the current level (new boxes nest under it).
-function enterLevel(id){ levelId=id; refreshAll(); }
+function enterLevel(id){ levelId=id; refreshAll(); scheduleViewSave(); }
 // go up to the current node's parent.
-function upLevel(){ if(levelId==='root')return; const p=parentOf(levelId); levelId=p?p.id:'root'; refreshAll(); }
+function upLevel(){ if(levelId==='root')return; const p=parentOf(levelId); levelId=p?p.id:'root'; refreshAll(); scheduleViewSave(); }
 function extendBox(){
-  if(!curSel) return; const box=selId&&find(selId); if(!box){flash('select a box first');return;}
+  const box=selId&&find(selId); if(!box){flash('select a box first');return;}
+  if(JUNK_MODE){ const jp=junkPieces(); if(!jp.length){flash('no uncovered whitespace/punctuation here');return;}
+    jp.forEach((p)=>box.pieces.push(p)); mergePieces(box); markDirty(); refreshAll();
+    flash('added '+jp.length+' junk fragment'+(jp.length>1?'s':'')+' to “'+label(box)+'”'); return; }
+  if(!curSel) return;
+  if(!withinLevel(curSel.start,curSel.end)){ flash('selection extends outside the current level — denied'); return; }
   box.pieces.push({start:curSel.start,end:curSel.end}); mergePieces(box);
   markDirty(); clearSel(); refreshAll();
 }
@@ -554,6 +691,9 @@ function removeSel(){
 }
 function pieceContains(b,s,e){ return pieces(b).some((p)=>p.start<=s&&e<=p.end); }
 function mergePieces(b){ b.pieces.sort((x,y)=>x.start-y.start); const out=[]; for(const p of b.pieces){ const last=out[out.length-1]; if(last&&p.start<=last.end) last.end=Math.max(last.end,p.end); else out.push({...p}); } b.pieces=out; }
+// merge contiguous/overlapping pieces on EVERY box (cheap: O(total pieces)). Any
+// path that leaves adjacent pieces (remove, junk, undo, load) is normalized.
+function simplifyAllPieces(){ walk(ROOT,(n)=>{ if(n.pieces&&n.pieces.length>1) mergePieces(n); }); }
 function regionStart(b){ const ps=pieces(b); return ps.length?Math.min(...ps.map((p)=>p.start)):0; }
 function sortKids(n){ n.children.sort((a,b)=>regionStart(a)-regionStart(b)); }
 function deleteBox(id){ const p=parentOf(id); if(!p) return; const i=p.children.findIndex((c)=>c.id===id); const rm=p.children[i]; p.children.splice(i,1,...rm.children); sortKids(p);
@@ -639,7 +779,46 @@ function drawArrows(){ const svg=$('arrowLayer'); if(!svg) return; const host=$(
 }
 
 /* ───────────────── paint highlights on the PDF ───────────────── */
-function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); }
+function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); }
+// status-bar stats for the CURRENT LEVEL box: coverage of its region by children
+// + its own structural warnings. (Root = whole paper → children-vs-paper coverage.)
+function renderLevelStats(){ const el=$('levelStats'); if(!el) return; el.innerHTML='';
+  const lvl=find(levelId)||ROOT; let gaps=[], txt='', warn=false;
+  if(lvl===ROOT){
+    const cov=coverageOf({pieces:[{start:0,end:CHARS.length}],children:lvl.children});
+    const pct=cov.total?Math.round(100*cov.covered/cov.total):0; gaps=cov.gaps;
+    txt=`paper · ${lvl.children.length} blocks · ${pct}% covered`;
+  } else {
+    const concrete=labelConcrete(lvl.label);
+    if(lvl.children.length && concrete && !isLeafLabel(concrete)){
+      const cov=coverageOf(lvl); const pct=cov.total?Math.round(100*cov.covered/cov.total):100; gaps=cov.gaps;
+      txt=`${lvl.children.length} children · ${pct}% covered`;
+    } else if(concrete && isLeafLabel(concrete)){ txt='leaf label — no children needed'; }
+    else { txt=`${lvl.children.length} children`; }
+    const iss=boxIssues(lvl); if(iss.length){ warn=true; txt+='  ·  ⚠ '+iss.join('; '); }
+  }
+  el.appendChild(document.createTextNode(txt));
+  if(gaps.length){ const g=document.createElement('span'); g.className='gaplink';
+    g.textContent=`  ·  ${gaps.length} gap${gaps.length>1?'s':''} (show)`; g.title='click to flash the uncovered regions';
+    g.onclick=()=>flashGaps(gaps); el.appendChild(g); }
+  el.classList.toggle('warn', warn); }
+
+function toggleWireframe(){ WIREFRAME=!WIREFRAME; const b=$('wireBtn'); if(b) b.classList.toggle('on',WIREFRAME); refreshAll(); }
+function toggleJunk(){ JUNK_MODE=!JUNK_MODE; const b=$('junkbox'); if(b) b.classList.toggle('armed',JUNK_MODE); updateSelUI();
+  flash(JUNK_MODE?'junk mode ON — n = box all junk, e = add junk to selected':'junk mode off'); }
+// draw temporary flash rects of class `cls` over char ranges, auto-removed.
+function flashRuns(ranges,cls,ms){ document.querySelectorAll('.'+cls).forEach((e)=>e.remove());
+  ranges.forEach((gp)=>{ for(const run of charRuns(gp.start,gp.end)){ const pg=pageEls[run.page]; if(!pg) continue;
+    const d=document.createElement('div'); d.className='hl '+cls;
+    d.style.left=run.x0+'px'; d.style.top=run.y0+'px'; d.style.width=(run.x1-run.x0)+'px'; d.style.height=(run.y1-run.y0)+'px';
+    pg.hl.appendChild(d); } });
+  return setTimeout(()=>document.querySelectorAll('.'+cls).forEach((e)=>e.remove()), ms); }
+// flash ONE piece's region on the PDF (distinct from the blue selection), fade.
+let _pieceT=null;
+function flashPiece(p){ clearTimeout(_pieceT); _pieceT=flashRuns([p],'pieceflash',2000); }
+// temporarily draw + scroll to the uncovered gap regions on the PDF, then fade.
+let _gapT=null;
+function flashGaps(gaps){ clearTimeout(_gapT); _gapT=flashRuns(gaps,'gapflash',2500); if(gaps.length) scrollToChar(gaps[0].start); }
 
 // SINGLE SOURCE OF TRUTH for the focus view at the current level.
 //  - `level`    : the current level node (outline; ROOT = whole paper)
@@ -688,21 +867,34 @@ function paintHighlights(){
 // dashed outline (drawn at edges only, never a solid border over the text).
 // opts.outline => current level (grey, see-through); opts.sel => selected child;
 // opts.dep => link-dependent reveal.
-function drawRange(s,e,color,opts){
-  opts=opts||{}; let run=null;
-  const flush=()=>{ if(!run)return; const pg=pageEls[run.page]; if(pg){ const d=document.createElement('div');
-    // selected => feathered/soft (.hl.sel has blur); others => crisp hard edge
-    d.className='hl'+(opts.sel?' sel':'');
+// Exact per-character rects are BAKED into CHARMETA once after render (see
+// bakeCharMeta), so drawing is the fast run-merge: consecutive chars on the same
+// line/page coalesce into one rectangle. No per-call layout measurement → fast.
+const SEL_OUTLINE='#2563eb';   // same blue as the tree selection (var --accent)
+// coalesce chars [s,e) into line-runs: {page,x0,y0,x1,y1}. Chars join the current
+// run when they're on the same page AND vertically OVERLAP it (same text line) —
+// NOT by "top within 3px", which wrongly split caps/subscripts into many boxes.
+function charRuns(s,e){ const runs=[]; let run=null;
+  const push=()=>{ if(run){runs.push(run);run=null;} };
+  for(let i=s;i<e;i++){ const m=CHARMETA[i]; if(!m){ push(); continue; }
+    const top=m.y, bot=m.y+m.h;
+    const overlaps = run && m.page===run.page && top<run.y1 && bot>run.y0;   // vertical overlap
+    if(overlaps){ run.x0=Math.min(run.x0,m.x); run.x1=Math.max(run.x1,m.x+m.w); run.y0=Math.min(run.y0,top); run.y1=Math.max(run.y1,bot); }
+    else { push(); run={page:m.page,x0:m.x,y0:top,x1:m.x+m.w,y1:bot}; } }
+  push(); return runs; }
+function drawRange(s,e,color,opts){ opts=opts||{};
+  for(const run of charRuns(s,e)){ const pg=pageEls[run.page]; if(!pg) continue;
+    const d=document.createElement('div'); d.className='hl';
     d.style.left=run.x0+'px'; d.style.top=run.y0+'px';
     d.style.width=(run.x1-run.x0)+'px'; d.style.height=(run.y1-run.y0)+'px';
-    if(opts.outline){ d.style.background='rgba(120,120,120,0.09)'; }  // current level: faint grey, see-through
-    else if(opts.dep){ d.style.background=color+'22'; }              // link dependent: faint tint
-    else { d.style.background=color+(opts.sel?'4d':'24'); }          // selected = stronger (soft) fill
-    pg.hl.appendChild(d);} run=null; };
-  for(let i=s;i<e;i++){ const m=CHARMETA[i]; if(!m){flush();continue;}
-    if(run && m.page===run.page && Math.abs(m.y-run.y0)<3){ run.x1=Math.max(run.x1,m.x+m.w); run.y1=Math.max(run.y1,m.y+m.h); }
-    else { flush(); run={page:m.page,x0:m.x,y0:m.y,x1:m.x+m.w,y1:m.y+m.h}; } }
-  flush();
+    if(opts.outline){ d.style.background='rgba(120,120,120,0.09)'; }
+    else if(opts.dep){ d.style.background=color+'2e'; }
+    else { d.style.background=color+'3d'; }
+    const rings=[];
+    if(WIREFRAME){ rings.push(opts.outline ? 'inset 0 0 0 1px rgba(120,120,120,0.75)' : 'inset 0 0 0 1px '+color+'cc'); }
+    if(opts.sel) rings.push('inset 0 0 0 2px '+SEL_OUTLINE+'cc');
+    if(rings.length) d.style.boxShadow=rings.join(', ');
+    pg.hl.appendChild(d); }
 }
 
 /* ───────────────── tree panel ───────────────── */
@@ -725,9 +917,10 @@ function treeRow(node,isRoot){
   row.appendChild(tw);
   if(!isRoot){const sw=document.createElement('span');sw.className='rswatch';sw.style.background=boxColor(node.id);row.appendChild(sw);}
   const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':label(node); row.appendChild(nm);
-  // label tag: shows the TOP of the is-a path (click/hover for the full path).
+  // label tag: ONE chip, first.last of the is-a path (symbol token inline if auto-derived).
   if(!isRoot && node.label&&node.label.length){ const lt=document.createElement('span'); lt.className='labeltag';
-    const top=node.label[0]; lt.textContent=LABEL_SHORT[top]||top; lt.title=node.label.join(' → '); row.appendChild(lt); }
+    lt.textContent=labelTag(node); const ds=derivedSymbol(node);
+    lt.title=node.label.join(' → ')+(ds?`  (${ds.reason} — auto)`:''); row.appendChild(lt); }
   // loose-end marker: ⚠ if this box violates a structural condition (soft flag)
   if(!isRoot){ const iss=boxIssues(node); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
@@ -757,7 +950,7 @@ function treeRow(node,isRoot){
   wrap.appendChild(row);
   // piece sub-rows (navigable) when >1 piece
   if(!isRoot && pieces(node).length>1 && !collapsed){
-    const pb=document.createElement('div'); pb.className='children';
+    const pb=document.createElement('div'); pb.className='modrows';
     pieces(node).forEach((p,pi)=>{ const pr=document.createElement('div'); pr.className='row piecerow';
       const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='◦';pr.appendChild(pad);
       // pieces use a hollow diamond marker (not a filled box swatch) to read as
@@ -765,17 +958,17 @@ function treeRow(node,isRoot){
       const dot=document.createElement('span');dot.className='pcmark';dot.style.color=boxColor(node.id);dot.textContent='◇';pr.appendChild(dot);
       const t=document.createElement('span');t.className='rname';t.textContent=`piece ${pi+1}: ${CHARS.slice(p.start,p.end).replace(/\s+/g,' ').trim().slice(0,20)||'(span)'}`;pr.appendChild(t);
       const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='remove this piece';del.onclick=(e)=>{e.stopPropagation();removePiece(node.id,pi);};pr.appendChild(del);
-      pr.onclick=()=>{selId=node.id;render();scrollToChar(p.start);}; pb.appendChild(pr); });
+      pr.onclick=()=>{selId=node.id;render();scrollToChar(p.start);flashPiece(p);}; pb.appendChild(pr); });
     wrap.appendChild(pb);
   }
   // link sub-rows: outgoing (➜ target) then incoming (⬅ source), each jumps to
   // the other node and can be deleted. Shown when the node is not collapsed.
   if(!isRoot && !collapsed){ const ls=[...linksFrom(node.id).map((l)=>({l,dir:'out',other:l.to})),
                                         ...linksTo(node.id).map((l)=>({l,dir:'in',other:l.from}))];
-    if(ls.length){ const lbx=document.createElement('div'); lbx.className='children';
+    if(ls.length){ const lbx=document.createElement('div'); lbx.className='modrows';
       ls.forEach(({l,dir,other})=>{ const lr=document.createElement('div'); lr.className='row linkrow'+(dir==='in'?' incoming':'');
-        const pad=document.createElement('span');pad.className='twist leaf';pad.textContent=dir==='out'?'➜':'⬅';pad.style.opacity='.9';lr.appendChild(pad);
-        const sw=document.createElement('span');sw.className='rswatch';sw.style.background=boxColor(l.from);lr.appendChild(sw);
+        const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='·';lr.appendChild(pad);
+        const dot=document.createElement('span');dot.className='pcmark';dot.style.color=boxColor(l.from);dot.textContent=dir==='out'?'➜':'⬅';lr.appendChild(dot);
         const t=document.createElement('span');t.className='rname';t.textContent=(dir==='out'?'to ':'from ')+label(find(other));lr.appendChild(t);
         const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='delete link';del.onclick=(e)=>{e.stopPropagation();removeLink(l.from,l.to);refreshAll();};lr.appendChild(del);
         lr.onclick=()=>{ selId=other; render(); const o=find(other); if(o&&pieces(o).length)scrollToChar(pieces(o)[0].start); }; lbx.appendChild(lr); });
@@ -783,9 +976,10 @@ function treeRow(node,isRoot){
   // Lean span sub-rows: one per mapped span (λ marker), click jumps the Lean
   // pane to it, ✕ removes just that span. Shown when the node is not collapsed.
   if(!isRoot && !collapsed){ const sp=leanSpans(node);
-    if(sp.length){ const lbx=document.createElement('div'); lbx.className='children';
+    if(sp.length){ const lbx=document.createElement('div'); lbx.className='modrows';
       sp.forEach((p,si)=>{ const lr=document.createElement('div'); lr.className='row leanrow';
-        const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='λ';pad.style.opacity='.9';lr.appendChild(pad);
+        const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='·';lr.appendChild(pad);
+        const dot=document.createElement('span');dot.className='pcmark';dot.style.color='#2c7a4b';dot.textContent='λ';lr.appendChild(dot);
         const t=document.createElement('span');t.className='rname';t.textContent=p.file.replace(/^lean\//,'')+` [${p.start}–${p.end}]`;lr.appendChild(t);
         const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='remove this Lean span';del.onclick=(e)=>{e.stopPropagation();removeLeanSpan(node.id,si);};lr.appendChild(del);
         lr.onclick=async()=>{ selId=node.id; render(); await showLeanFile(p.file); paintLeanHighlights();
@@ -811,47 +1005,78 @@ function updateSelUI(){
       ? `link “${label(find(linkFrom))}” → “${label(find(linkTo))}” · ↵ confirm · click another to change · Esc cancel`
       : `linking from “${label(find(linkFrom))}” · click/scroll to a target node · Esc cancel`;
     mk.disabled=true; ex.disabled=true; rm.disabled=true; return; }
-  if(curSel){ mk.disabled=false; ex.disabled=!box;
+  if(curSel){ const inLvl=withinLevel(curSel.start,curSel.end);     // selection must stay inside the level
+    mk.disabled=!inLvl; ex.disabled=!box||!inLvl;
     const overlaps=box&&pieces(box).some((p)=>curSel.start<p.end&&curSel.end>p.start); rm.disabled=!overlaps;
-    const lvl=levelId==='root'?'paper':label(find(levelId));
-    info.textContent=`“${CHARS.slice(curSel.start,curSel.end).replace(/\s+/g,' ').trim().slice(0,24)}” · n=new under ${lvl}`+(box?` · e=add to “${label(box)}”`:'');
-  } else { mk.disabled=true; ex.disabled=true; rm.disabled=true; info.textContent=selId?`selected “${label(box)}” · l=link from here · m=map to Lean`:''; }
+    info.textContent=inLvl?'':'selection is outside the current level';
+  } else if(JUNK_MODE){ mk.disabled=false; ex.disabled=!box; rm.disabled=true;  // junk mode: n/e act without a text selection
+  } else { mk.disabled=true; ex.disabled=true; rm.disabled=true; info.textContent=''; }
   updateLeanUI(); updateLabelUI();
 }
-// Label picker: a CASCADE of dropdowns. The first offers the box's top-level
-// slots; choosing an abstract one (e.g. definition / formula) reveals the next
-// dropdown for its is-a children, and so on until a concrete label is reached.
-// The committed label (box.label) = the full path so far, valid only once it
-// bottoms out at a concrete label (isAbstract(last)==false).
+// Label picker. The labelbar holds a FIXED-SIZE chip (never changes row height);
+// clicking it opens an OVERLAY popover with the cascade of dropdowns. The chip
+// shows the top-level label (or "label…"); issues go to the bottom status bar.
 function topSlots(parentBox){ const paths=allowedLabelPaths(parentBox); if(!paths) return null;
   return [...new Set(paths.map((p)=>p[0]))]; }   // distinct first-level choices
-function updateLabelUI(){ const host=$('labelPick'); if(!host) return; host.innerHTML='';
-  const box=selId&&find(selId); if(!box){ return; }
-  const slots=topSlots(parentOf(box.id));
-  if(!slots){ const s=document.createElement('span'); s.className='labelhint'; s.textContent='label parent first'; host.appendChild(s); return; }
-  // walk the current path level by level, emitting one <select> per level, plus
-  // one trailing <select> for the next level if the path isn't concrete yet.
-  const path=box.label?[...box.label]:[];
-  let choices=slots, lvl=0;
-  for(;;){
-    const chosen=path[lvl]||'';
-    const sel=document.createElement('select'); sel.className='labelsel';
-    let html='<option value="">'+(lvl===0?'label…':'…')+'</option>'
-      +choices.map((c)=>`<option value="${c}"${c===chosen?' selected':''}>${LABEL_SHORT[c]||c}${isAbstract(c)?' ▸':''}</option>`).join('');
-    sel.innerHTML=html;
-    sel.onchange=(e)=>{ const v=e.target.value; const np=path.slice(0,lvl); if(v) np.push(v); setLabelPath(np); };
-    host.appendChild(sel);
-    if(!chosen) break;                         // nothing picked at this level → stop
-    if(!isAbstract(chosen)) break;             // concrete → done, no further level
-    choices=ISA[chosen]; lvl++;                // abstract → descend
-  }
-  // trailing loose-end note for the selected box
-  const iss=boxIssues(box); if(iss.length){ const w=document.createElement('span'); w.className='labelissue'; w.textContent='⚠ '+iss.join('; '); host.appendChild(w); }
+function updateLabelUI(){ const chip=$('labelChip'); if(!chip) return;
+  const box=selId&&find(selId);
+  const slots=box?topSlots(parentOf(box.id)):null;
+  chip.disabled=!box||!slots;
+  if(!box){ chip.textContent='label…'; chip.classList.remove('set'); }
+  else if(!slots){ chip.textContent='label parent first'; chip.classList.remove('set'); }
+  else if(box.label&&box.label.length){ chip.textContent=labelTag(box); chip.classList.add('set'); chip.title=box.label.join(' → '); }
+  else { chip.textContent='label…'; chip.classList.remove('set'); chip.title=''; }
+  // status-bar issue note for the selected box
+  const ls=$('labelStatus'); if(ls){ const iss=box?boxIssues(box):[]; ls.textContent=iss.length?('⚠ '+iss.join('; ')):''; ls.classList.toggle('warn',!!iss.length); }
+  if(labelPopOpen) buildLabelPop();            // keep an open popover in sync
 }
-// commit a (possibly partial) path. Stored only when it ends concrete; a partial
-// (ends abstract) is held so the cascade can continue, but clears verdict.
+// ── label popover (overlay cascade) ──
+let labelPopOpen=false;
+function openLabelPop(){ const box=selId&&find(selId); if(!box) return; if(!topSlots(parentOf(box.id))) return;
+  labelPopOpen=true; buildLabelPop(); }
+function closeLabelPop(){ labelPopOpen=false; const pop=$('labelPop'); if(pop) pop.style.display='none'; }
+function buildLabelPop(){ const pop=$('labelPop'); const chip=$('labelChip'); const box=selId&&find(selId);
+  if(!pop||!chip||!box){ closeLabelPop(); return; }
+  const slots=topSlots(parentOf(box.id)); if(!slots){ closeLabelPop(); return; }
+  pop.innerHTML=''; pop.style.display='';
+  // position under the chip, right-aligned
+  const r=chip.getBoundingClientRect();
+  pop.style.top=(r.bottom+4)+'px'; pop.style.left='auto'; pop.style.right=(window.innerWidth-r.right)+'px';
+  // cascade is driven by the parent's ALLOWED PATHS (not free ISA), so a shared
+  // subtree like `symbol` only offers the symbols valid in this slot.
+  const allowed=allowedLabelPaths(parentOf(box.id))||[];
+  const path=box.label?[...box.label]:[];
+  for(let lvl=0;;lvl++){
+    // paths still consistent with what's chosen so far
+    const consistent=allowed.filter((p)=>path.slice(0,lvl).every((x,k)=>p[k]===x));
+    const choices=[...new Set(consistent.map((p)=>p[lvl]).filter(Boolean))];
+    if(!choices.length) break;
+    const chosen=path[lvl]||'';
+    const forced = choices.length===1 && chosen;   // only one option & already set → auto (grey, locked)
+    const sel=document.createElement('select'); sel.className='labelsel'+(forced?' autolvl':''); sel.disabled=!!forced;
+    sel.title=forced?'auto (only possible choice)':'';
+    sel.innerHTML=(forced?'':'<option value="">'+(lvl===0?'label…':'…')+'</option>')
+      +choices.map((c)=>`<option value="${c}"${c===chosen?' selected':''}>${c}${isAbstract(c)?' ▸':''}</option>`).join('');
+    if(!forced) sel.onchange=((L)=>(e)=>{ const v=e.target.value; const np=path.slice(0,L); if(v) np.push(v); setLabelPath(np); })(lvl);
+    pop.appendChild(sel);
+    if(!chosen) break; if(!isAbstract(chosen)) break; }
+  // auto-derived symbol identity: a LOCKED row (looks like a select but disabled)
+  const ds=derivedSymbol(box);
+  if(ds){ const lock=document.createElement('div'); lock.className='labellock';
+    lock.innerHTML=`<span class="lk">${ds.sym}</span><span class="lkq" title="${ds.reason} — auto-derived, locked">?</span>`;
+    pop.appendChild(lock); }
+}
+// commit a (possibly partial) path. Any FORCED suffix auto-completes: if from the
+// chosen point only one path continues (e.g. symbol → logical → quantifier is the
+// sole descent), extend straight to the concrete leaf — no redundant clicks.
 function setLabelPath(path){ const b=selId&&find(selId); if(!b) return;
   if(!path.length){ delete b.label; delete b.verdict; markDirty(); refreshAll(); return; }
+  const allowed=allowedLabelPaths(parentOf(b.id))||[];
+  let cands=allowed.filter((p)=>path.every((x,k)=>p[k]===x));
+  if(cands.length===1){ path=cands[0]; }                 // unique descent → auto-complete
+  else { // extend through any levels where all candidates agree (forced prefix)
+    while(true){ const nx=path.length; const set=[...new Set(cands.map((p)=>p[nx]).filter(Boolean))];
+      if(set.length===1){ path=[...path,set[0]]; cands=cands.filter((p)=>p[nx]===set[0]); } else break; } }
   b.label=path; if(!isJudgeable(b)) delete b.verdict; markDirty(); refreshAll(); }
 // Lean toolbar: add (m), remove (r), none, clear + the verdict buttons.
 function updateLeanUI(){ const box=selId&&find(selId);
@@ -869,20 +1094,34 @@ function updateLeanUI(){ const box=selId&&find(selId);
   if(ok){ ok.classList.toggle('on',leaf&&cur==='ok'); }
   if(notok){ notok.classList.toggle('on',leaf&&cur==='notok'); }
   if(undec){ undec.classList.toggle('on',leaf&&cur==='undecidable'); }
-  if(!info) return;
-  if(!box){ info.textContent='select an NL box to map it to Lean'; return; }
-  const vtag=leaf?'':` · verdict (derived): ${verdictOf(box)}`;
-  if(leanCurSel){ info.textContent=(overlaps?'r → remove · ':'m → add span · ')+`“${LEAN_TEXT.slice(leanCurSel.start,leanCurSel.end).replace(/\s+/g,' ').trim().slice(0,30)}”`; }
-  else if(box.lean&&box.lean.none){ info.textContent=`“${label(box)}” → ∅ (nothing)`+vtag; }
-  else if(spans.length){ info.textContent=`“${label(box)}” → ${spans.length} span${spans.length>1?'s':''}: `+spans.map((p)=>p.file.replace(/^lean\//,'')+` [${p.start}–${p.end}]`).join(', ')+vtag; }
-  else { info.textContent=`“${label(box)}” — not mapped · select Lean text + m, or ∅ none`+vtag; }
+  if(info) info.textContent='';   // mapping state is shown in the tree (λ sub-rows + badge), no bloat here
 }
 function clearSel(){ window.getSelection().removeAllRanges(); curSel=null; }
 function flash(m){ $('status').textContent=m; setTimeout(()=>{if($('status').textContent===m)$('status').textContent='';},3000); }
-function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); }
+function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); }
+
+/* ───────────────── undo / redo ───────────────── */
+// snapshot stack of ROOT JSON. HIST[HISTi] is the CURRENT state; undo moves the
+// pointer back, redo forward. Every committed mutation (markDirty) pushes a new
+// snapshot, truncating any redo tail.
+let HIST=[], HISTi=-1, HIST_RESTORING=false;
+function histSnapshot(){ return JSON.stringify(ROOT); }
+function histInit(){ HIST=[histSnapshot()]; HISTi=0; updateUndoUI(); }
+function histPush(){ if(HIST_RESTORING) return; const s=histSnapshot();
+  if(HIST[HISTi]===s) return;                 // no actual change
+  HIST=HIST.slice(0,HISTi+1); HIST.push(s); HISTi=HIST.length-1;
+  if(HIST.length>200){ HIST.shift(); HISTi--; }   // cap history
+  updateUndoUI(); }
+function histRestore(){ HIST_RESTORING=true; ROOT=JSON.parse(HIST[HISTi]);
+  // selection/level may point at deleted ids → clamp to valid
+  if(selId&&!find(selId)) selId=null; if(levelId!=='root'&&!find(levelId)) levelId='root';
+  linkFrom=null; linkTo=null; HIST_RESTORING=false; dirty=true; clearTimeout(_t); _t=setTimeout(save,600); refreshAll(); updateUndoUI(); }
+function undo(){ if(HISTi<=0) return; HISTi--; histRestore(); }
+function redo(){ if(HISTi>=HIST.length-1) return; HISTi++; histRestore(); }
+function updateUndoUI(){ const u=$('undoBtn'), r=$('redoBtn'); if(u) u.disabled=HISTi<=0; if(r) r.disabled=HISTi>=HIST.length-1; }
 
 /* ───────────────── save ───────────────── */
-let _t=null; function markDirty(){dirty=true;clearTimeout(_t);_t=setTimeout(save,600);}
+let _t=null; function markDirty(){dirty=true;simplifyAllPieces();histPush();clearTimeout(_t);_t=setTimeout(save,600);}
 async function save(manual){ try{ const r=await fetch('/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ROOT)});
   if(!r.ok)throw new Error('HTTP '+r.status); dirty=false; $('status').textContent=manual===true?'saved ✓':'autosaved'; setTimeout(()=>{if(!dirty)$('status').textContent='';},900);
 }catch(e){flash('save failed: '+e.message);} }
@@ -903,12 +1142,14 @@ function switchTab(which){
   $('tabBoxes').classList.toggle('active',which==='boxes');
   $('tabLean').classList.toggle('active',which==='lean');
   $('tabErrors').classList.toggle('active',which==='errors');
-  if(which==='lean') renderLeanTree(); if(which==='errors') renderErrors(); }
+  if(which==='lean') renderLeanTree(); if(which==='errors') renderErrors(); scheduleViewSave(); }
 
 /* ───────────────── init ───────────────── */
 async function init(){
   try{ const t=await fetch('../tree.json').then((r)=>r.ok?r.json():null); if(t&&t.children){ ROOT=t; walk(ROOT,(n)=>{const m=/^b(\d+)$/.exec(n.id||'');if(m)idCounter=Math.max(idCounter,+m[1]+1);}); } }catch(_){}
   normalizeLean();   // migrate any old single-span lean mappings to the list form
+  simplifyAllPieces(); // normalize any contiguous pieces left by older edits
+  histInit();        // baseline snapshot for undo/redo
   setupSplitters();
   await renderPdf();
   await initLean();
@@ -921,24 +1162,60 @@ async function init(){
   $('leanMap').onclick=mapLean; $('leanUnmap').onclick=removeLeanSel; $('leanNone').onclick=mapLeanNone; $('leanClear').onclick=clearLean;
   $('vOk').onclick=()=>setVerdict('ok'); $('vNotok').onclick=()=>setVerdict('notok'); $('vUndec').onclick=()=>setVerdict('undecidable');
   $('tabBoxes').onclick=()=>switchTab('boxes'); $('tabLean').onclick=()=>switchTab('lean'); $('tabErrors').onclick=()=>switchTab('errors');
+  $('labelChip').onclick=(e)=>{ e.stopPropagation(); if(labelPopOpen) closeLabelPop(); else openLabelPop(); };
+  // close the label popover on any outside click (but not clicks within it)
+  document.addEventListener('mousedown',(e)=>{ if(!labelPopOpen) return; const pop=$('labelPop'); if(pop&&!pop.contains(e.target)&&e.target!==$('labelChip')) closeLabelPop(); });
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
+  $('wireBtn').onclick=toggleWireframe;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
   // link button toggles link mode: arm when idle, cancel when already armed
   $('linkbox').onclick=()=>{ if(linkFrom) cancelLink(); else startLink(); };
   $('confirmlink').onclick=()=>confirmLink();
+  $('junkbox').onclick=toggleJunk;
   $('save').onclick=()=>save(true);
-  document.addEventListener('keydown',(e)=>{ const t=document.activeElement; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'))return;
+  $('undoBtn').onclick=undo; $('redoBtn').onclick=redo;
+  document.addEventListener('keydown',(e)=>{ const t=document.activeElement; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'))return;
+    // undo/redo (Ctrl/Cmd+Z, Shift for redo; also Ctrl+Y)
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault(); if(e.shiftKey) redo(); else undo(); return;}
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='y'){e.preventDefault(); redo(); return;}
     if(e.key==='Escape'&&linkFrom){e.preventDefault();cancelLink();return;}
     if(e.key==='Enter'&&linkFrom&&linkTo){e.preventDefault();confirmLink();return;}
     if(e.key==='l'){e.preventDefault(); if(linkFrom) cancelLink(); else startLink(); return;}
-    if(e.key==='n'&&curSel){e.preventDefault();makeBox();}
-    if(e.key==='e'&&curSel){e.preventDefault();extendBox();}
+    if(e.key==='n'&&(curSel||JUNK_MODE)){e.preventDefault();makeBox();}
+    if(e.key==='e'&&(curSel||JUNK_MODE)){e.preventDefault();extendBox();}
     // r removes from whichever pane has the active selection: NL piece or Lean span
     if(e.key==='r'&&curSel){e.preventDefault();removeSel();}
     if(e.key==='r'&&leanCurSel&&selId){e.preventDefault();removeLeanSel();}
     if(e.key==='m'&&leanCurSel&&selId){e.preventDefault();mapLean();}
+    if(e.key==='w'){e.preventDefault();toggleWireframe();}
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save(true);}
   });
-  window.addEventListener('beforeunload',(e)=>{if(dirty){e.preventDefault();e.returnValue='';}});
+  window.addEventListener('beforeunload',(e)=>{ saveViewState(); if(dirty){e.preventDefault();e.returnValue='';}});
+  // persist scroll positions as they change (throttled)
+  $('pdfScroll').addEventListener('scroll', scheduleViewSave, {passive:true});
+  $('leanScroll').addEventListener('scroll', scheduleViewSave, {passive:true});
+  restoreViewState();
+}
+
+/* ───────────────── view state (per-item, localStorage) ───────────────── */
+// Remember where you were — current level, selection, tab, wireframe, and both
+// scroll positions — so a refresh drops you back in place. Client-only.
+const VIEW_KEY='pdfseg:view:'+location.pathname;
+let _vt=null; function scheduleViewSave(){ clearTimeout(_vt); _vt=setTimeout(saveViewState,300); }
+function currentTab(){ return $('viewLean').style.display!=='none'?'lean':$('viewErrors').style.display!=='none'?'errors':'boxes'; }
+function saveViewState(){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify({
+  levelId, selId, tab:currentTab(), wire:WIREFRAME,
+  pdf:$('pdfScroll').scrollTop, lean:$('leanScroll').scrollTop, leanFile:LEAN_FILE,
+})); }catch(_){} }
+async function restoreViewState(){ let v; try{ v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); }catch(_){ v=null; }
+  if(!v) return;
+  if(v.wire&&!WIREFRAME) toggleWireframe();
+  if(v.levelId&&v.levelId!=='root'&&find(v.levelId)) levelId=v.levelId;
+  if(v.selId&&find(v.selId)) selId=v.selId;
+  if(v.leanFile&&v.leanFile!==LEAN_FILE&&LEAN_FILES.includes(v.leanFile)) await showLeanFile(v.leanFile);
+  if(v.tab&&v.tab!=='boxes') switchTab(v.tab);
+  refreshAll();
+  // scroll after layout settles
+  requestAnimationFrame(()=>{ if(v.pdf!=null)$('pdfScroll').scrollTop=v.pdf; if(v.lean!=null)$('leanScroll').scrollTop=v.lean; });
 }
 init();

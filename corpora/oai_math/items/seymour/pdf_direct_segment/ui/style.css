@@ -7,7 +7,11 @@ header{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(
 .btn:hover:not(:disabled){border-color:var(--accent);} .btn:disabled{opacity:.4;cursor:default;}
 .btn.primary{background:#111;color:#fff;border-color:#111;}
 kbd{font:11px var(--mono);background:#eee;border:1px solid #ccc;border-radius:4px;padding:0 4px;}
-.selinfo{font:12px var(--mono);color:var(--dim);white-space:nowrap;overflow:hidden;max-width:420px;text-overflow:ellipsis;}
+/* bottom status bar: transient info (selection / lean / label) — one fixed line */
+.statusbar{flex:none;display:flex;align-items:center;gap:16px;height:22px;padding:0 12px;background:#f2f3f6;border-top:1px solid var(--line);font:11px var(--mono);color:#555;overflow:hidden;white-space:nowrap;}
+.sb-seg{overflow:hidden;text-overflow:ellipsis;}
+.sb-seg:empty{display:none;}
+.sb-seg.warn{color:#c0392b;}
 .spacer{flex:1;} .status{font:12px -apple-system,system-ui,sans-serif;color:var(--dim);}
 
 main{flex:1;display:flex;min-height:0;}
@@ -20,17 +24,22 @@ body.resizing{cursor:col-resize;user-select:none;}
 .pane-head{position:sticky;top:0;z-index:3;background:var(--panel);padding:9px 14px;font:11px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);border-bottom:1px solid var(--line);}
 .pdf-pane .pane-head{background:#3c4043;color:#cdd0d4;border-color:#2a2d30;display:flex;align-items:center;gap:8px;}
 .pdf-pane .pane-head .spacer{flex:1;}
-#upLevelPdf{margin-left:0;display:flex;align-items:center;justify-content:center;width:26px;height:22px;padding:0;font-size:13px;}
+#upLevelPdf{margin-left:0;display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;padding:0;font-size:12px;line-height:1;}
 .dimlab{text-transform:none;letter-spacing:0;font-style:italic;}
 .levelval{font-weight:700;color:#3a2f00;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;}
 .labelbar{position:sticky;top:33px;z-index:2;padding:5px 10px;background:#fff8e1;border-bottom:1px solid #f0e2b0;font-size:12px;color:#6b5600;display:flex;align-items:center;gap:6px;}
 .labelbar .spacer{flex:1;}
-.labelbar #upLevel{margin-left:0;display:flex;align-items:center;justify-content:center;width:26px;height:24px;padding:0;font-size:13px;border-radius:5px;}
-.labelpick{display:flex;align-items:center;gap:3px;flex-wrap:wrap;justify-content:flex-end;}
-.labelsel{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:2px 4px;height:24px;background:#fff;color:var(--ink);max-width:150px;}
+.labelbar #upLevel{margin-left:0;display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;padding:0;font-size:12px;line-height:1;border-radius:5px;}
+/* fixed-size label chip in the labelbar (never changes row height) */
+.labelchip{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 8px;height:24px;background:#fff;color:#888;cursor:pointer;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
+.labelchip:hover:not(:disabled){border-color:var(--accent);}
+.labelchip:disabled{opacity:.5;cursor:default;}
+.labelchip.set{color:#3858a8;background:#e4ecff;border-color:#cdddff;font-weight:600;}
+/* label popover: overlay cascade, grows WITHOUT affecting layout */
+.labelpop{position:fixed;z-index:50;display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:8px;}
+.labelsel{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:3px 5px;background:#fff;color:var(--ink);min-width:200px;}
 .labelsel:disabled{opacity:.5;}
-.labelhint{font:11px var(--mono);color:#b08900;}
-.labelissue{font:10px var(--mono);color:#c0392b;white-space:normal;flex-basis:100%;text-align:right;}
+.labelsel.autolvl{opacity:.55;background:#f0f0f3;font-style:italic;}  /* forced/auto level */
 .issuemark{flex:none;font-size:11px;color:#e08600;cursor:help;padding:0 2px;}
 /* Errors tab: issues grouped by type, collapsible groups */
 .errlist{padding:4px 0 40px;}
@@ -46,6 +55,13 @@ body.resizing{cursor:col-resize;user-select:none;}
 .errmsg{display:block;font:10px var(--mono);color:#c0392b;}
 /* small label chip on a tree row */
 .labeltag{flex:none;font-size:9.5px;font-weight:600;color:#3858a8;background:#e4ecff;border:1px solid #cdddff;border-radius:3px;padding:0 4px;letter-spacing:.01em;}
+/* auto-derived symbol identity: locked chip + ? reason */
+.symtag{flex:none;font:10px var(--mono);font-weight:700;color:#555;background:#eee;border:1px solid #d5d5d5;border-radius:3px;padding:0 4px;}
+.symq{flex:none;font-size:9px;color:#999;cursor:help;}
+/* locked identity row in the label popover */
+.labellock{display:flex;align-items:center;gap:6px;padding:3px 5px;border:1px dashed #ccc;border-radius:5px;background:#f6f6f6;color:#555;font:11px var(--mono);}
+.labellock .lk{font-weight:700;}
+.labellock .lkq{margin-left:auto;color:#999;cursor:help;}
 
 /* tree */
 .tree{padding:6px 0 40px;}
@@ -54,7 +70,6 @@ body.resizing{cursor:col-resize;user-select:none;}
 .row.picked{background:#e3edff;box-shadow:inset 0 0 0 1px var(--accent);}
 .row.level{border-left-color:#e0a800;background:#fff8e1;}
 .row.level .rname{font-weight:700;}
-.row.level::after{content:"◀ here";margin-left:auto;font-size:10px;color:#8a6d00;font-weight:700;padding-right:6px;}
 .twist{width:14px;flex:none;text-align:center;color:var(--dim);user-select:none;}
 .twist.leaf{opacity:.25;}
 .rswatch{width:9px;height:9px;border-radius:2px;flex:none;}
@@ -66,8 +81,13 @@ body.resizing{cursor:col-resize;user-select:none;}
 .pcmark{width:11px;flex:none;text-align:center;font-size:10px;}
 .minibtn{font:10px -apple-system,system-ui,sans-serif;border:1px solid var(--line);background:#fff;border-radius:5px;padding:1px 6px;margin-left:6px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--ink);}
 .minibtn:hover{border-color:var(--accent);}
+.minibtn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
 .rdel{color:var(--dim);flex:none;padding:0 4px;border-radius:4px;} .rdel:hover{color:#fff;background:#c0392b;}
 .children{margin-left:15px;border-left:1px solid var(--line);}
+/* modifier/metadata rows (pieces, links, Lean spans) — NOT structural children.
+   Pushed further right with a dashed, muted edge so they read as attachments. */
+.modrows{margin-left:30px;border-left:1px dashed #d0d0d8;}
+.modrows .row{padding-top:2px;padding-bottom:2px;}
 
 /* pdf */
 .pdf-scroll{flex:1;overflow:auto;position:relative;background:#525659;}
@@ -81,8 +101,14 @@ body.resizing{cursor:col-resize;user-select:none;}
 /* box highlight rectangles (drawn under the text layer). Edges are FEATHERED
    via blur so fills never show a hard border — the text sits above, unblurred. */
 .hl-layer{position:absolute;inset:0;pointer-events:none;}
-.hl{position:absolute;}                       /* non-selected: crisp hard edge */
-.hl.sel{border-radius:5px;filter:blur(4.5px);}  /* selected: bloomy soft edge */
+.hl{position:absolute;}   /* fill/outline set inline; selection adds a blue ring */
+/* flashed coverage gaps: pulsing red-orange, obvious, auto-removed */
+.gapflash{background:rgba(224,70,32,.30);box-shadow:inset 0 0 0 2px rgba(224,70,32,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
+@keyframes gappulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+.gaplink{color:#c0392b;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.gaplink:hover{color:#e04620;}
+/* flashed single piece: pulsing amber, distinct from blue selection + red gaps */
+.pieceflash{background:rgba(217,119,6,.28);box-shadow:inset 0 0 0 2px rgba(217,119,6,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
 /* link arrows: one SVG over the whole pages stack, above canvases/highlights
    but click-through so text selection + box picking still work underneath */
 .arrow-layer{position:absolute;left:0;top:0;pointer-events:none;z-index:4;overflow:visible;}
@@ -121,15 +147,13 @@ body.resizing{cursor:col-resize;user-select:none;}
 .okbtn{color:#1f9d55;} .okbtn.on{background:#1f9d55;color:#fff;border-color:#1f9d55;}
 .notokbtn{color:#c0392b;} .notokbtn.on{background:#c0392b;color:#fff;border-color:#c0392b;}
 .undecbtn{color:#b8860b;} .undecbtn.on{background:#c89b1f;color:#fff;border-color:#c89b1f;}
-.lean-info{padding:5px 12px;font:11px var(--mono);color:#555;background:#f2f3f6;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .lean-scroll{flex:1;overflow:auto;position:relative;}
 .lean-code{position:relative;font:12px/1.55 var(--mono);padding:8px 0 60px;min-width:max-content;}
 .lean-line{display:flex;align-items:flex-start;white-space:pre;position:relative;z-index:1;}
 .lean-gut{flex:none;width:40px;text-align:right;padding-right:10px;color:#bbb;user-select:none;}
 .lean-src{flex:1;white-space:pre;}
 .lean-src::selection{background:rgba(37,99,235,.35);}
-.lean-hl{position:absolute;pointer-events:none;z-index:0;}                 /* non-selected: crisp */
-.lean-hl.sel{border-radius:5px;filter:blur(4.5px);}                        /* selected: bloomy */
+.lean-hl{position:absolute;pointer-events:none;z-index:0;}   /* fill/outline set inline */
 
 /* left-panel tabs (Boxes / Lean files) */
 .tabhead{display:flex;align-items:center;gap:4px;padding:5px 10px;}

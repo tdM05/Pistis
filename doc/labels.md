@@ -9,72 +9,80 @@
 Markers: indented = child. `[isa]`/`[hasa]` = relation to its children.
 `(base)` = leaf (has-a base; judged ok/not-ok). `→X` = subtype expands per X above.
 
+`commentary` is auto-allowed as a child of EVERY composite (non-leaf) box — any
+span with no formal role (whitespace, glue punctuation, meta-prose) is commentary
+— so it is NOT listed under each node below.
+
 - root [hasa]
-  - commentary (base)
   - definition
   - theorem
   - organizer-section
 - organizer-section [hasa]
-  - →commentary
   - →definition
   - →theorem
   - →organizer-section
-- definition
-  - [isa]
-    - →term
-    - →formula
-  - [hasa]
-    - →commentary
+- definition [isa]
+  - →term
+  - →formula
 - theorem [hasa]
   - →formula
   - →proof
-  - →commentary
 - proof [hasa]
   - →formula
   - →theorem
-  - →commentary
   - tactic (base)
 - formula [isa]
   - external-citation (base)
   - atomic-formula [isa]
     - relation [hasa]
-      - relation-symbol (base)
+      - →relation-symbol
       - →term
     - equality [hasa]
-      - equality-symbol (base)
+      - →equality-symbol
       - →term
   - compound-formula [isa]
     - quantified [isa]
       - universal [hasa]
-        - quantifier (base)
-        - variable-symbol (base)
+        - →quantifier
+        - →variable-symbol
         - →formula
       - existential [hasa]
-        - quantifier (base)
-        - variable-symbol (base)
+        - →quantifier
+        - →variable-symbol
         - →formula
     - connective [isa]
       - negation [hasa]
-        - connective-symbol (base)
+        - →connective-symbol
         - →formula
       - implication [hasa]
-        - connective-symbol (base)
+        - →connective-symbol
         - →formula
       - conjunction [hasa]
-        - connective-symbol (base)
+        - →connective-symbol
         - →formula
       - disjunction [hasa]
-        - connective-symbol (base)
+        - →connective-symbol
         - →formula
 - term [isa]
   - external-citation (base)
   - implicit-external-reference (base)
   - atomic-term [isa]
     - variable [hasa]
-      - variable-symbol (base)
+      - →variable-symbol
     - constant [hasa]
-      - constant-symbol (base)
+      - →constant-symbol
   - composite-term [isa]
     - function-application [hasa]
-      - function-symbol (base)
+      - →function-symbol
       - →term
+- symbol [isa]              (Def 5.1 — the symbols of a first-order language)
+  - logical [isa]          (shared by every first-order language)
+    - parenthesis (base)
+    - connective-symbol (base)
+    - quantifier (base)
+    - variable-symbol (base)
+    - equality-symbol (base)
+  - non-logical [isa]      (depend on the language)
+    - constant-symbol (base)
+    - function-symbol (base)
+    - relation-symbol (base)
