@@ -744,6 +744,23 @@ function flashRuns(ranges,cls,ms){ document.querySelectorAll('.'+cls).forEach((e
 // flash ONE piece's region on the PDF (distinct from the blue selection), fade.
 let _pieceT=null;
 function flashPiece(p){ clearTimeout(_pieceT); _pieceT=flashRuns([p],'pieceflash',2000); }
+// flash ALL occurrences of variable `name` within `scopeBox` — on the PDF (var
+// color) and the tree rows — so you can eyeball that coreference is complete.
+let _varT=null;
+function flashVar(name, scopeBox){ clearTimeout(_varT);
+  document.querySelectorAll('.tree .row.varrow').forEach((r)=>r.classList.remove('varrow'));
+  const boxes=[]; walk(scopeBox,(n)=>{ if(CORE.isVariable(n)&&n.var===name) boxes.push(n); });
+  // PDF: flash each occurrence's spans (implicit boxes have none → skipped).
+  // NOTE: flashRuns cleanup does .remove() on all '.'+cls, so the PDF class
+  // (varflash) MUST differ from the tree-row class (varrow) — else it would
+  // delete the tree row DOM elements.
+  const ranges=boxes.flatMap((b)=>pieces(b));
+  _varT=flashRuns(ranges,'varflash',2600);
+  // tree: outline the rows of all occurrences (class toggled, never removed from DOM)
+  boxes.forEach((b)=>{ const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===b.id); if(r) r.classList.add('varrow'); });
+  setTimeout(()=>document.querySelectorAll('.tree .row.varrow').forEach((r)=>r.classList.remove('varrow')), 2600);
+  const n=boxes.length, impl=boxes.filter((b)=>b.implicit).length;
+  flash(`${name}: ${n} occurrence${n>1?'s':''}${impl?` (${impl} implicit, no span)`:''}`); }
 // temporarily draw + scroll to the uncovered gap regions on the PDF, then fade.
 let _gapT=null;
 function flashGaps(gaps){ clearTimeout(_gapT); _gapT=flashRuns(gaps,'gapflash',2500); if(gaps.length) scrollToChar(gaps[0].start); }
@@ -854,7 +871,8 @@ function treeRow(node,isRoot){
     lt.textContent=labelTag(node); const ds=derivedSymbol(node);
     lt.title=node.label.join(' → ')+(ds?`  (${ds.reason} — auto)`:''); row.appendChild(lt); }
   // variable name chip (coreference marker) — e.g. v0
-  if(!isRoot && CORE.isVariable(node) && node.var!=null){ const vt=document.createElement('span'); vt.className='vartag'; vt.textContent=sub(node.var); vt.title='variable '+node.var; row.appendChild(vt); }
+  if(!isRoot && CORE.isVariable(node) && node.var!=null){ const vt=document.createElement('span'); vt.className='vartag'; vt.textContent=sub(node.var); vt.title='variable '+node.var+' — click to flash all occurrences';
+    vt.onclick=(e)=>{ e.stopPropagation(); flashVar(node.var, CORE.scopeOf(ROOT,node)); }; row.appendChild(vt); }
   // loose-end marker: ⚠ if this box violates a structural condition (soft flag)
   if(!isRoot){ const iss=boxIssues(node); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
