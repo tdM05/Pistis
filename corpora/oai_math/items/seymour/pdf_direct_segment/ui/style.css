@@ -119,7 +119,7 @@ body.resizing{cursor:col-resize;user-select:none;}
 .pieceflash{background:rgba(217,119,6,.28);box-shadow:inset 0 0 0 2px rgba(217,119,6,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
 /* variable occurrences flash: purple (var color), pulsing — PDF + tree row */
 .varflash{background:rgba(122,79,208,.26);box-shadow:inset 0 0 0 2px rgba(122,79,208,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
-.tree .row.varflash{background:#f1ebff;box-shadow:inset 0 0 0 2px #7a4fd0;border-radius:3px;animation:gappulse 0.7s ease-in-out infinite;}
+.tree .row.varrow{background:#f1ebff;box-shadow:inset 0 0 0 2px #7a4fd0;border-radius:3px;animation:gappulse 0.7s ease-in-out infinite;}
 /* link arrows: one SVG over the whole pages stack, above canvases/highlights
    but click-through so text selection + box picking still work underneath */
 .arrow-layer{position:absolute;left:0;top:0;pointer-events:none;z-index:4;overflow:visible;}
