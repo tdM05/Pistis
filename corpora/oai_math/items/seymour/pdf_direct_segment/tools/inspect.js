@@ -69,8 +69,17 @@ const printNode = (n, d) => {
       const lean = n.lean ? (n.lean.none ? ' [lean:∅]' : ` [lean:${(n.lean.spans || []).length}]`) : '';
       const lk = linkmap[n.id] ? ' ' + linkmap[n.id].join(' ') : '';
       const im = n.implicit ? ' ∅impl' : '';
+      // derived-symbol reason (why this symbol token is what it is)
+      const ds = n.label ? C.derivedSymbol(ROOT, n) : null;
+      const dsn = ds ? ` {${ds.reason}}` : '';
+      // coverage % for non-leaf boxes with children (how well children tile it)
+      let cov = '';
+      const concrete = n.label && C.labelConcrete(n.label);
+      if (n.children && n.children.length && concrete && !C.isLeafLabel(concrete)) {
+        const cv = C.coverageOf(n); if (cv.total) cov = ` [cov:${Math.round(100 * cv.covered / cv.total)}%${cv.gaps.length ? ',' + cv.gaps.length + 'gap' : ''}]`;
+      }
       const warn = iss.length ? '  ⚠ ' + iss.join('; ') : '';
-      out.push(`${'  '.repeat(d)}${n.id} [${tag}]${cnt}${im}${lean}${lk}  "${snippet(boxText(n))}"${warn}`);
+      out.push(`${'  '.repeat(d)}${n.id} [${tag}]${cnt}${im}${lean}${cov}${lk}${dsn}  "${snippet(boxText(n))}"${warn}`);
     }
   }
   (n.children || []).forEach((c) => printNode(c, d + 1));
