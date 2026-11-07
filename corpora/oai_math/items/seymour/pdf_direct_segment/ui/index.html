@@ -78,6 +78,11 @@
   <div class="splitter" data-left="pane2" data-right="pane3"></div>
   <section class="lean-pane" id="pane3">
     <div class="pane-head lean-head">
+      <button id="rtabLean" class="tab active">Lean</button>
+      <button id="rtabFol" class="tab">∀ FOL</button>
+      <button id="folPin" class="minibtn" style="display:none" title="pin this box (selection won’t change the FOL)">📍 pin</button>
+      <span class="vsep"></span>
+      <span id="rightLeanTools">
       <span id="leanFileLabel" class="leanfilelabel" title="current Lean file">(no file)</span>
       <span class="lean-tools">
         <button id="leanMap" class="minibtn" disabled title="add the Lean selection as a span of the selected box">+ map <kbd>m</kbd></button>
@@ -89,8 +94,11 @@
         <button id="vNotok" class="minibtn notokbtn" disabled title="leaf verdict: not faithful (click again to clear)">&cross; not ok</button>
         <button id="vUndec" class="minibtn undecbtn" disabled title="leaf verdict: undecidable / working on it (click again to clear)">? undecidable</button>
       </span>
+      </span>
+      <span id="rightFolTitle" class="leanfilelabel" style="display:none" title="FOL view of the selected box">(select a box)</span>
     </div>
     <div id="leanScroll" class="lean-scroll"><div id="leanCode" class="lean-code"></div></div>
+    <div id="folScroll" class="fol-scroll" style="display:none"><div id="folView" class="fol-view"></div></div>
   </section>
 </main>
 <footer id="statusbar" class="statusbar">

@@ -46,6 +46,8 @@ let dirty = false;
 let WIREFRAME = false;     // wireframe mode: draw highlights as own-color outlines, no fill
 let JUNK_MODE = false;     // junk mode: n/e operate on all uncovered whitespace/punctuation
 let DRAG_ID = null;        // id of the tree row currently being dragged (reparent)
+let RIGHT_TAB = 'lean';    // right pane: 'lean' (code+mapping) | 'fol' (FOL view)
+let FOL_PIN = null;        // if set, the FOL tab shows THIS box id regardless of selection
 let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
 const COLLAPSED = {};
@@ -728,7 +730,7 @@ function drawArrows(){ const svg=$('arrowLayer'); if(!svg) return; const host=$(
 }
 
 /* ───────────────── paint highlights on the PDF ───────────────── */
-function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); }
+function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); renderFol(); }
 // status-bar stats for the CURRENT LEVEL box: coverage of its region by children
 // + its own structural warnings. (Root = whole paper → children-vs-paper coverage.)
 function renderLevelStats(){ const el=$('levelStats'); if(!el) return; el.innerHTML='';
@@ -1078,19 +1080,100 @@ function updateLabelUI(){ const chip=$('labelChip'); if(!chip) return;
 }
 // is a box renderable to a formula (used for the FOL button). mirrors core.
 function isFormulaish(box){ const c=labelConcrete(box&&box.label); return c && (c==='formula'||c==='body'||canonPath(c).includes('formula')); }
-// show the FOL rendering of the selected box in a popover.
-function showFol(){ const box=selId&&find(selId); if(!box) return;
-  const symText=(x)=>{ const ps=pieces(x); if(!ps.length) return '∅'; return CHARS.slice(ps[0].start,ps[0].end).replace(/\s+/g,' ').trim().replace(/ /g,'_'); };
-  const {str,sig}=CORE.toFOL(ROOT,box,symText);
-  const fmt=(o)=>Object.entries(o).map(([k,n])=>`${k}/${n}`).join(', ')||'—';
-  const pop=$('labelPop'); pop.innerHTML=''; pop.style.display='';
-  const b=$('folBtn').getBoundingClientRect(); pop.style.top=(b.bottom+4)+'px'; pop.style.left='auto'; pop.style.right=(innerWidth-b.right)+'px'; pop.style.maxWidth='520px';
-  const H=(t,cls)=>{ const d=document.createElement('div'); d.className=cls; d.textContent=t; pop.appendChild(d); };
-  H('FOL','follabel'); const f=document.createElement('div'); f.className='folformula'; f.textContent=str; pop.appendChild(f);
-  H('signature','follabel');
-  H('relations: '+fmt(sig.rel),'folsig'); H('functions: '+fmt(sig.fn),'folsig'); H('constants: '+fmt(sig.con),'folsig'); H('variables: '+([...sig.vars].join(', ')||'—'),'folsig');
-  labelPopOpen=false;   // reuse the labelPop element but it's not the cascade
-  setTimeout(()=>document.addEventListener('mousedown',(e)=>{ if(!pop.contains(e.target)&&e.target!==$('folBtn')) pop.style.display='none'; },{once:true}),0); }
+
+/* ───────────────── FOL view (right pane, shares Lean's slot) ───────────────── */
+// a symbol box's printed name: its highlighted span text, slugified (spaces →
+// underscores). Implicit boxes have no span → core substitutes ∅.
+function folSymText(x){ const ps=pieces(x); if(!ps.length) return '∅'; return CHARS.slice(ps[0].start,ps[0].end).replace(/\s+/g,' ').trim().replace(/ /g,'_'); }
+// render a token list (from core.toFOL) to a DOM fragment: one <span.ftok.KIND>
+// per token, variables carry a real <sub> subscript. `impl` tokens get a dotted
+// underline (implicit ∅ symbol).
+function folTokensEl(tokens){ const frag=document.createDocumentFragment();
+  tokens.forEach((t)=>{ const sp=document.createElement('span'); sp.className='ftok '+t.t+(t.impl?' impl':'');
+    if(t.t==='var'){ const m=/^([A-Za-z]+)(\d+)$/.exec(t.s);
+      if(m){ sp.appendChild(document.createTextNode(m[1])); const su=document.createElement('sub'); su.textContent=m[2]; sp.appendChild(su); }
+      else sp.textContent=t.s; }
+    else sp.textContent=t.s;
+    frag.appendChild(sp); });
+  return frag; }
+// a colored formula block from tokens
+function folFormulaBlock(tokens){ const d=document.createElement('div'); d.className='folformula'; d.appendChild(folTokensEl(tokens)); return d; }
+// signature block: a legend + one row per kind (relations/functions/constants/
+// variables), each entry a colored chip "name/arity".
+function folSigBlock(sig){ const wrap=document.createElement('div');
+  const legend=document.createElement('div'); legend.className='follegend';
+  [['rel','relation'],['fn','function'],['con','constant'],['var','variable'],['logic','logical']].forEach(([k,lab])=>{
+    const s=document.createElement('span'); const i=document.createElement('i'); i.className='ftok '+k;
+    i.style.background={rel:'#2563eb',fn:'#0e8a5f',con:'#c2740a',var:'#7a4fd0',logic:'#111'}[k];
+    s.appendChild(i); s.appendChild(document.createTextNode(lab)); legend.appendChild(s); });
+  wrap.appendChild(legend);
+  const rows=[['relations',sig.rel,'rel'],['functions',sig.fn,'fn'],['constants',sig.con,'con']];
+  rows.forEach(([lab,obj,kind])=>{ const row=document.createElement('div'); row.className='folsigrow';
+    const k=document.createElement('span'); k.className='k'; k.textContent=lab; row.appendChild(k);
+    const v=document.createElement('span'); v.className='v';
+    const ents=Object.entries(obj);
+    if(!ents.length){ const e=document.createElement('span'); e.className='folsigchip'; e.style.opacity='.5'; e.textContent='—'; v.appendChild(e); }
+    else ents.forEach(([nm,ar])=>{ const c=document.createElement('span'); c.className='folsigchip';
+      const nmel=document.createElement('span'); nmel.className='ftok '+kind; nmel.textContent=nm; c.appendChild(nmel);
+      const a=document.createElement('span'); a.className='ar'; a.textContent='/'+ar; c.appendChild(a); v.appendChild(c); });
+    row.appendChild(v); wrap.appendChild(row); });
+  // variables row (no arity)
+  const vr=document.createElement('div'); vr.className='folsigrow';
+  const vk=document.createElement('span'); vk.className='k'; vk.textContent='variables'; vr.appendChild(vk);
+  const vv=document.createElement('span'); vv.className='v'; const vars=[...sig.vars];
+  if(!vars.length){ const e=document.createElement('span'); e.className='folsigchip'; e.style.opacity='.5'; e.textContent='—'; vv.appendChild(e); }
+  else vars.forEach((nm)=>{ const c=document.createElement('span'); c.className='folsigchip';
+    c.appendChild(folTokensEl([{t:'var',s:nm}])); vv.appendChild(c); });
+  vr.appendChild(vv); wrap.appendChild(vr);
+  return wrap; }
+// which box the FOL tab is showing: the pinned box if pinned, else the selection.
+function folTargetId(){ return FOL_PIN || selId; }
+// one rendered-formula item: colored tokens, optionally click-to-select its box.
+function folItemBlock(item){ const d=document.createElement('div'); d.className='folformula';
+  d.appendChild(folTokensEl(item.tokens));
+  if(item.id){ d.style.cursor='pointer'; d.title='select '+item.id; d.onclick=()=>selectBox(item.id); }
+  return d; }
+// a list of items under a part label (members shown separately — NOT conjoined)
+function folPartBlock(label,items){ const blk=document.createElement('div'); blk.className='folpart';
+  const pl=document.createElement('div'); pl.className='pl'; pl.textContent=label+(items.length>1?' ('+items.length+')':''); blk.appendChild(pl);
+  items.forEach((it)=>blk.appendChild(folItemBlock(it))); return blk; }
+// render the FOL-tab target box into #folView (only when the FOL tab is active).
+function renderFol(){ if(RIGHT_TAB!=='fol') return; const host=$('folView'); if(!host) return;
+  host.innerHTML=''; const box=folTargetId()&&find(folTargetId());
+  const title=$('rightFolTitle');
+  const pinBtn=$('folPin'); if(pinBtn){ pinBtn.classList.toggle('on',!!FOL_PIN); pinBtn.disabled=!FOL_PIN&&!selId;
+    pinBtn.textContent=FOL_PIN?'📌 pinned':'📍 pin'; pinBtn.title=FOL_PIN?'unpin — follow selection again':'pin this box (selection won’t change the FOL)'; }
+  if(!box){ if(title) title.textContent='(select a box)';
+    const n=document.createElement('div'); n.className='folnone'; n.textContent='Select a box to see its FOL.'; host.appendChild(n); return; }
+  if(title) title.textContent=(FOL_PIN?'📌 ':'')+(box.label?labelTag(box):box.id)+' · '+label(box);
+  const v=CORE.folView(ROOT,box,folSymText);
+  const H=(t)=>{ const d=document.createElement('div'); d.className='follabel'; d.textContent=t; host.appendChild(d); };
+  if(v.kind==='none'){ const n=document.createElement('div'); n.className='folnone'; n.textContent=v.reason; host.appendChild(n); return; }
+  if(v.kind==='error'){ const e=document.createElement('div'); e.className='folerr';
+    const h=document.createElement('div'); h.className='eh'; h.textContent='⚠ No formula — fix '+v.issues.length+' issue'+(v.issues.length>1?'s':'')+' first:'; e.appendChild(h);
+    v.issues.forEach((it)=>{ const r=document.createElement('div'); r.className='er';
+      const et=document.createElement('span'); et.className='et'; et.textContent=it.id+' ['+it.tag+']: '; r.appendChild(et);
+      r.appendChild(document.createTextNode(it.msgs.join('; ')));
+      r.onclick=()=>{ selectBox(it.id); const b=find(it.id); if(b&&pieces(b).length) scrollToChar(pieces(b)[0].start); };
+      e.appendChild(r); }); host.appendChild(e); return; }
+  if(v.kind==='group'){ if(!v.parts.length){ const n=document.createElement('div'); n.className='folnone'; n.textContent='(empty organizer)'; host.appendChild(n); return; }
+    v.parts.forEach((p)=>{ const m=document.createElement('div'); m.className='folmember';
+      const mh=document.createElement('div'); mh.className='mh'; mh.textContent=p.label+' · '+p.id; mh.onclick=()=>selectBox(p.id); m.appendChild(mh);
+      const sv=p.view;
+      if(sv.kind==='formula') m.appendChild(folItemBlock({tokens:sv.tokens}));
+      else if(sv.kind==='parts'||sv.kind==='list'){ const w=document.createElement('div'); w.className='folnone'; w.textContent=(sv.title||'')+' — select to expand'; m.appendChild(w); }
+      else if(sv.kind==='group'){ const w=document.createElement('div'); w.className='folnone'; w.textContent=sv.title+' — select to expand'; m.appendChild(w); }
+      else if(sv.kind==='error'){ const w=document.createElement('div'); w.className='folnone'; w.style.color='#c0392b'; w.textContent='⚠ has issues (select to see)'; m.appendChild(w); }
+      else { const w=document.createElement('div'); w.className='folnone'; w.textContent=sv.reason; m.appendChild(w); }
+      host.appendChild(m); });
+    return; }
+  if(v.kind==='parts'){ v.parts.forEach((p)=>host.appendChild(folPartBlock(p.label,p.items)));
+    H('signature'); host.appendChild(folSigBlock(v.sig)); return; }
+  if(v.kind==='list'){ host.appendChild(folPartBlock(v.title,v.items));
+    H('signature'); host.appendChild(folSigBlock(v.sig)); return; }
+  // single formula
+  H('formula'); host.appendChild(folItemBlock({tokens:v.tokens}));
+  H('signature'); host.appendChild(folSigBlock(v.sig)); }
 // set/clear the selected box's declared count.
 function setCount(v){ const b=selId&&find(selId); if(!b) return;
   if(v===''||v==null||isNaN(+v)) delete b.count; else b.count=Math.max(0,Math.floor(+v));
@@ -1171,7 +1254,7 @@ function updateLeanUI(){ const box=selId&&find(selId);
 }
 function clearSel(){ window.getSelection().removeAllRanges(); curSel=null; }
 function flash(m){ $('status').textContent=m; setTimeout(()=>{if($('status').textContent===m)$('status').textContent='';},3000); }
-function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); }
+function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); renderFol(); }
 
 /* ───────────────── undo / redo ───────────────── */
 // snapshot stack of ROOT JSON. HIST[HISTi] is the CURRENT state; undo moves the
@@ -1217,6 +1300,23 @@ function switchTab(which){
   $('tabErrors').classList.toggle('active',which==='errors');
   if(which==='lean') renderLeanTree(); if(which==='errors') renderErrors(); scheduleViewSave(); }
 
+// switch the RIGHT pane between the Lean code+mapping view and the FOL view.
+// They share the one right column (tabs in the pane head).
+function switchRightTab(which){ RIGHT_TAB=which;
+  const leanOn=which==='lean';
+  $('leanScroll').style.display =leanOn?'':'none';
+  $('folScroll').style.display  =leanOn?'none':'';
+  $('rightLeanTools').style.display=leanOn?'':'none';
+  $('rightFolTitle').style.display =leanOn?'none':'';
+  $('folPin').style.display        =leanOn?'none':'';
+  $('rtabLean').classList.toggle('active',leanOn);
+  $('rtabFol').classList.toggle('active',!leanOn);
+  if(!leanOn) renderFol(); scheduleViewSave(); }
+// pin/unpin the FOL tab to the current box: pinned → selection no longer changes
+// what the FOL tab shows (until unpinned).
+function toggleFolPin(){ if(FOL_PIN) FOL_PIN=null; else { if(!selId){ flash('select a box to pin'); return; } FOL_PIN=selId; }
+  renderFol(); scheduleViewSave(); }
+
 /* ───────────────── init ───────────────── */
 async function init(){
   try{ const t=await fetch('../tree.json').then((r)=>r.ok?r.json():null); if(t&&t.children){ ROOT=t; walk(ROOT,(n)=>{const m=/^b(\d+)$/.exec(n.id||'');if(m)idCounter=Math.max(idCounter,+m[1]+1);}); } }catch(_){}
@@ -1242,7 +1342,9 @@ async function init(){
   document.addEventListener('mousedown',(e)=>{ if(!labelPopOpen) return; const pop=$('labelPop'); if(pop&&!pop.contains(e.target)&&e.target!==$('labelChip')) closeLabelPop(); });
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
   $('jumpLevel').onclick=jumpToLevel; $('jumpLevelPdf').onclick=jumpToLevel;
-  $('folBtn').onclick=(e)=>{ e.stopPropagation(); const p=$('labelPop'); if(p.style.display!=='none'&&p.querySelector('.folformula')) p.style.display='none'; else showFol(); };
+  $('folBtn').onclick=(e)=>{ e.stopPropagation(); switchRightTab('fol'); };
+  $('rtabLean').onclick=()=>switchRightTab('lean'); $('rtabFol').onclick=()=>switchRightTab('fol');
+  $('folPin').onclick=toggleFolPin;
   $('wireBtn').onclick=toggleWireframe;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
   $('mkimplicit').onclick=makeImplicitBox;
@@ -1282,7 +1384,7 @@ const VIEW_KEY='pdfseg:view:'+location.pathname;
 let _vt=null; function scheduleViewSave(){ clearTimeout(_vt); _vt=setTimeout(saveViewState,300); }
 function currentTab(){ return $('viewLean').style.display!=='none'?'lean':$('viewErrors').style.display!=='none'?'errors':'boxes'; }
 function saveViewState(){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify({
-  levelId, selId, tab:currentTab(), wire:WIREFRAME,
+  levelId, selId, tab:currentTab(), rtab:RIGHT_TAB, wire:WIREFRAME,
   pdf:$('pdfScroll').scrollTop, lean:$('leanScroll').scrollTop, leanFile:LEAN_FILE,
 })); }catch(_){} }
 async function restoreViewState(){ let v; try{ v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); }catch(_){ v=null; }
@@ -1292,6 +1394,7 @@ async function restoreViewState(){ let v; try{ v=JSON.parse(localStorage.getItem
   if(v.selId&&find(v.selId)) selId=v.selId;
   if(v.leanFile&&v.leanFile!==LEAN_FILE&&LEAN_FILES.includes(v.leanFile)) await showLeanFile(v.leanFile);
   if(v.tab&&v.tab!=='boxes') switchTab(v.tab);
+  if(v.rtab==='fol') switchRightTab('fol');
   refreshAll();
   // scroll after layout settles
   requestAnimationFrame(()=>{ if(v.pdf!=null)$('pdfScroll').scrollTop=v.pdf; if(v.lean!=null)$('leanScroll').scrollTop=v.lean; });

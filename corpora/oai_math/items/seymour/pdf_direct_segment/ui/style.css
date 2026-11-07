@@ -43,10 +43,47 @@ body.resizing{cursor:col-resize;user-select:none;}
 .labelsel{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:3px 5px;background:#fff;color:var(--ink);min-width:200px;}
 .labelsel:disabled{opacity:.5;}
 .labelsel.autolvl{opacity:.55;background:#f0f0f3;font-style:italic;}  /* forced/auto level */
-/* FOL view popover contents */
-.follabel{font:10px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-top:4px;}
-.folformula{font:13px/1.6 var(--mono);color:#1a1a1a;background:#f7f8fa;border:1px solid var(--line);border-radius:6px;padding:8px;white-space:pre-wrap;word-break:break-word;user-select:text;}
-.folsig{font:11px var(--mono);color:#444;}
+/* ── FOL view (right pane, shares the Lean slot) ── */
+.fol-scroll{flex:1;overflow:auto;position:relative;background:#fbfbfd;}
+.fol-view{padding:12px 14px 60px;max-width:760px;}
+.follabel{font:10px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:12px 0 4px;}
+.follabel:first-child{margin-top:0;}
+.folformula{font:15px/1.9 var(--mono);background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px;white-space:normal;word-break:normal;user-select:text;overflow-wrap:anywhere;}
+.folsig{font:12px var(--mono);color:#444;}
+/* token colors — by FOL kind; consistent between formula + signature chips */
+.ftok{white-space:pre;}
+.ftok.var{color:#7a4fd0;font-style:italic;}                 /* variable (matches var chips) */
+.ftok.var sub{font-size:.72em;font-style:normal;}
+.ftok.rel{color:#2563eb;font-weight:600;}                   /* relation */
+.ftok.fn{color:#0e8a5f;font-weight:600;}                    /* function */
+.ftok.con{color:#c2740a;font-weight:600;}                   /* constant */
+.ftok.logic{color:#111;font-weight:700;}                    /* ∀∃¬∧∨→↔= */
+.ftok.punct{color:#999;}
+.ftok.impl{opacity:.6;font-style:italic;text-decoration:underline dotted;} /* implicit ∅ symbol */
+/* FOL legend + signature rows */
+.follegend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:4px;font:10px -apple-system,system-ui,sans-serif;}
+.follegend span{display:inline-flex;align-items:center;gap:4px;color:var(--dim);}
+.follegend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+.folsigrow{display:flex;gap:8px;padding:2px 0;align-items:baseline;}
+.folsigrow .k{flex:none;width:72px;color:var(--dim);text-transform:uppercase;font-size:10px;letter-spacing:.04em;}
+.folsigrow .v{flex:1;display:flex;flex-wrap:wrap;gap:4px 8px;}
+.folsigchip{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:1px 6px;background:#fff;}
+.folsigchip .ar{color:var(--dim);}
+/* a broken-out definition part: label + its rendered formula */
+.folpart{margin-bottom:8px;}
+.folpart .pl{font:10px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:2px;}
+.folpart.whole{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);}
+/* group (organizer) member block */
+.folmember{margin-bottom:14px;}
+.folmember>.mh{font:11px var(--mono);color:#6b5600;font-weight:600;margin-bottom:4px;cursor:pointer;}
+.folmember>.mh:hover{text-decoration:underline;}
+/* error / none states */
+.folnone{font:12px -apple-system,system-ui,sans-serif;color:var(--dim);padding:6px 0;}
+.folerr{font:12px -apple-system,system-ui,sans-serif;color:#c0392b;background:#fff4f2;border:1px solid #f0cfc8;border-radius:7px;padding:10px 12px;}
+.folerr .eh{font-weight:700;margin-bottom:6px;}
+.folerr .er{font:11px var(--mono);padding:2px 0;cursor:pointer;}
+.folerr .er:hover{text-decoration:underline;}
+.folerr .er .et{color:#7a2018;font-weight:600;}
 .issuemark{flex:none;font-size:11px;color:#e08600;cursor:help;padding:0 2px;}
 /* Errors tab: issues grouped by type, collapsible groups */
 .errlist{padding:4px 0 40px;}

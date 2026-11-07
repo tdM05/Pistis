@@ -58,20 +58,45 @@ if (rawIdx >= 0) {
   process.exit(0);
 }
 
-// --fol: render a box to a FOL formula + its signature
+// --fol: render a box to a FOL formula + its signature (via the shared folView
+// dispatch, so the CLI matches the UI's FOL tab exactly).
 if (folIdx >= 0) {
   const id = args[folIdx + 1]; const b = C.find(ROOT, id);
   if (!b) { console.error('no such box: ' + id); process.exit(1); }
   const symText = (x) => { const ps = C.pieces(x); if (!ps.length) return '∅'; return CHARS.slice(ps[0].start, ps[0].end).replace(/\s+/g, ' ').trim().replace(/ /g, '_'); };
-  const { str, sig } = C.toFOL(ROOT, b, symText);
-  console.log('FOL:\n  ' + str);
-  console.log('\nsignature:');
+  const SUB = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉' };
+  const sub = (s) => String(s).replace(/\d/g, (d) => SUB[d]);
+  // tokens → plain text, with variable subscripts for readability
+  const txt = (tokens) => tokens.map((t) => (t.t === 'var' ? sub(t.s) : t.s)).join('');
   const fmt = (o) => Object.entries(o).map(([k, n]) => `${k}/${n}`).join(', ') || '—';
-  console.log('  relations:', fmt(sig.rel));
-  console.log('  functions:', fmt(sig.fn));
-  console.log('  constants:', fmt(sig.con));
-  console.log('  variables:', [...sig.vars].join(', ') || '—');
-  process.exit(0);
+  const sigBlock = (sig) => {
+    console.log('\nsignature:');
+    console.log('  relations:', fmt(sig.rel));
+    console.log('  functions:', fmt(sig.fn));
+    console.log('  constants:', fmt(sig.con));
+    console.log('  variables:', [...sig.vars].map(sub).join(', ') || '—');
+  };
+  // one part = a label + its items (each item a formula; list slots have many)
+  const printPart = (label, items) => {
+    if (items.length <= 1) { console.log(`  ${label.padEnd(12)} ${items.length ? txt(items[0].tokens) : '—'}`); return; }
+    console.log(`  ${label} (${items.length}):`);
+    items.forEach((it) => console.log(`    • ${txt(it.tokens)}`));
+  };
+  const v = C.folView(ROOT, b, symText);
+  if (v.kind === 'none') { console.log('(no FOL) ' + v.reason); process.exit(0); }
+  if (v.kind === 'error') { console.log('⚠ suppressed — fix issues first:');
+    v.issues.forEach((it) => console.log(`  ${it.id} [${it.tag}]: ${it.msgs.join('; ')}`)); process.exit(1); }
+  if (v.kind === 'group') { console.log(v.title);
+    v.parts.forEach((p) => { console.log(`\n• ${p.label} (${p.id}):`);
+      const sv = p.view; if (sv.kind === 'formula') console.log('  ' + txt(sv.tokens));
+      else if (sv.kind === 'parts' || sv.kind === 'list') console.log('  (' + (sv.title || 'parts') + ' — inspect ' + p.id + ')');
+      else if (sv.kind === 'group') console.log('  (' + sv.title + ')');
+      else if (sv.kind === 'error') console.log('  ⚠ has issues'); else console.log('  (' + sv.reason + ')'); });
+    process.exit(0); }
+  if (v.kind === 'parts') { console.log(v.title + ':');
+    v.parts.forEach((p) => printPart(p.label, p.items)); sigBlock(v.sig); process.exit(0); }
+  if (v.kind === 'list') { console.log(v.title + ':'); printPart(v.title, v.items); sigBlock(v.sig); process.exit(0); }
+  console.log('FOL:\n  ' + txt(v.tokens)); sigBlock(v.sig); process.exit(0);
 }
 
 // --vars: variable coreference groups, keyed by each variable's ACTUAL scope

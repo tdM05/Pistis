@@ -134,47 +134,63 @@ export function makeCore(schema) {
   const freshVarName = (root, scope) => { const used = varsInScope(root, scope); let i = 0; while (used['v' + i]) i++; return 'v' + i; };
 
   // ── FOL rendering (Bilaniuk Def 5.2/5.3, extended with ∧∨∃↔ abbreviations) ──
-  // Render a box to a FOL string. `symText(box)` returns a symbol box's printed
-  // name (highlighted span text, slugified) — supplied by the caller since core
-  // has no text source. Collects the signature (relations/functions/constants
-  // with arities) and free variables into `sig` as a side effect.
+  // Render a box to a FOL formula as a flat TOKEN LIST (not just a string), so
+  // callers can render it richly (color by kind, subscripts) or flatten it to
+  // text. `symText(box)` returns a symbol box's printed name (highlighted span
+  // text, slugified) — supplied by the caller since core has no text source.
+  // Collects the signature (relations/functions/constants with arities) and free
+  // variables into `sig` as a side effect.
+  //
+  // Token = {t, s} where t ∈ var|rel|fn|con|logic|punct|sp and s is its text.
+  //  var  — variable name (vᵢ)           rel  — relation symbol
+  //  fn   — function symbol              con  — constant symbol
+  //  logic— ∀ ∃ ¬ ∧ ∨ → ↔ =             punct— parens / commas
+  //  sp   — a single space               .impl=true marks an implicit (∅) symbol.
+  // Returns {str, tokens, sig}: str = tokens joined verbatim (back-compat).
   const INFIX = { conjunction: '∧', disjunction: '∨', implication: '→' };
   function toFOL(root, box, symText, sig) {
     sig = sig || { rel: {}, fn: {}, con: {}, vars: new Set() };
+    const V = (s) => ({ t: 'var', s }); const REL = (s, impl) => ({ t: 'rel', s, impl });
+    const FN = (s, impl) => ({ t: 'fn', s, impl }); const CON = (s, impl) => ({ t: 'con', s, impl });
+    const L = (s) => ({ t: 'logic', s }); const P = (s) => ({ t: 'punct', s }); const SP = { t: 'sp', s: ' ' };
+    const Q = (s) => ({ t: 'logic', s });
+    // flatten token-arrays, inserting `sep` (a token array) between them
+    const join = (arrs, sep) => { const o = []; arrs.forEach((a, i) => { if (i) o.push(...sep); o.push(...a); }); return o; };
     const rec = (b) => {
       const kids = (b.children || []).filter((c) => labelConcrete(c.label) !== 'commentary');
       const c = labelConcrete(b.label);
-      const sym = () => { let s = symText(b); if (b.implicit) s = '∅'; return s; };
+      const symOf = (x) => (x.implicit ? '∅' : symText(x));
       switch (c) {
-        case 'variable': case 'variable-symbol': { const v = b.var || '?'; sig.vars.add(v); return v; }
-        case 'constant': { const s = sym(); sig.con[s] = 0; return s; }
-        case 'external-citation': case 'implicit-external-reference': { const s = sym(); sig.con[s] = 0; return s; }
+        case 'variable': case 'variable-symbol': { const v = b.var || '?'; sig.vars.add(v); return [V(v)]; }
+        case 'constant': { const s = symOf(b); sig.con[s] = 0; return [CON(s, b.implicit)]; }
+        case 'external-citation': case 'implicit-external-reference': { const s = symOf(b); sig.con[s] = 0; return [CON(s, b.implicit)]; }
         case 'function-application': {
           const fsym = kids.find((k) => labelConcrete(k.label) === 'function-symbol');
           const terms = kids.filter((k) => k !== fsym);
-          const f = fsym ? (fsym.implicit ? '∅' : symText(fsym)) : '∅'; sig.fn[f] = terms.length;
-          return `${f}(${terms.map(rec).join(', ')})`;
+          const f = fsym ? symOf(fsym) : '∅'; sig.fn[f] = terms.length;
+          return [FN(f, fsym ? fsym.implicit : true), P('('), ...join(terms.map(rec), [P(','), SP]), P(')')];
         }
         case 'relation': {
           const rsym = kids.find((k) => labelConcrete(k.label) === 'relation-symbol');
           const terms = kids.filter((k) => k !== rsym);
-          const r = rsym ? (rsym.implicit ? '∅' : symText(rsym)) : '∅'; sig.rel[r] = terms.length;
-          return `${r}(${terms.map(rec).join(', ')})`;
+          const r = rsym ? symOf(rsym) : '∅'; sig.rel[r] = terms.length;
+          return [REL(r, rsym ? rsym.implicit : true), P('('), ...join(terms.map(rec), [P(','), SP]), P(')')];
         }
-        case 'equality': { const terms = kids.filter((k) => labelConcrete(k.label) !== 'equality-symbol'); return `${rec(terms[0])} = ${rec(terms[1])}`; }
-        case 'negation': { const f = kids.find((k) => labelSubtypes(labelConcrete(k.label) || '', 'formula') || isFormulaish(k)); return `¬${rec(f)}`; }
+        case 'equality': { const terms = kids.filter((k) => labelConcrete(k.label) !== 'equality-symbol'); return [...rec(terms[0]), SP, L('='), SP, ...rec(terms[1])]; }
+        case 'negation': { const f = kids.find((k) => isFormulaish(k)); return [L('¬'), ...(f ? rec(f) : [P('?')])]; }
         case 'conjunction': case 'disjunction': case 'implication': {
-          const fs = kids.filter((k) => isFormulaish(k)); return `(${fs.map(rec).join(` ${INFIX[c]} `)})`;
+          const fs = kids.filter((k) => isFormulaish(k)); return [P('('), ...join(fs.map(rec), [SP, L(INFIX[c]), SP]), P(')')];
         }
         case 'universal': case 'existential': {
           const q = c === 'universal' ? '∀' : '∃';
           const vb = kids.find((k) => isVariable(k)); const body = kids.find((k) => isFormulaish(k));
           const v = vb ? (vb.var || '?') : '?'; sig.vars.add(v);
-          return `${q}${v} ${rec(body)}`;
+          return [Q(q), V(v), SP, ...(body ? rec(body) : [P('?')])];
         }
+        case 'theorem': { const f = kids.find((k) => isFormulaish(k)); return f ? rec(f) : [P('?')]; }
         case 'body': case 'formula': case 'atomic-formula': case 'compound-formula': case 'quantified': case 'connective': case 'atomic-term': case 'composite-term': case 'term': {
           // abstract wrapper: should have exactly one concrete child to render
-          const only = kids[0]; return only ? rec(only) : '?';
+          const only = kids[0]; return only ? rec(only) : [P('?')];
         }
         case 'definition': {
           const head = (k) => k.label && k.label[0];   // name/inputs/conditions/body are top-label slots
@@ -185,20 +201,89 @@ export function makeCore(schema) {
           const nm = name ? symText(name) : '∅';
           const ivars = inputs ? (inputs.children || []).filter(isVariable).map((v) => { sig.vars.add(v.var); return v.var; }) : [];
           sig.rel[nm] = ivars.length;   // the definiendum = a new relation symbol
-          const lhs = `${nm}(${ivars.join(', ')})`;
-          const rhs = bodyB ? rec(bodyB) : '?';
-          const condStr = conds ? (conds.children || []).filter((k) => isFormulaish(k)).map(rec).join(' ∧ ') : '';
-          const bicond = `${lhs} ↔ ${rhs}`;
-          const body2 = condStr ? `(${condStr}) → (${bicond})` : bicond;
-          return ivars.length ? `∀${ivars.join('∀')} ${body2}` : body2;
+          const lhs = [REL(nm, name ? name.implicit : true), P('('), ...join(ivars.map((v) => [V(v)]), [P(','), SP]), P(')')];
+          const rhs = bodyB ? rec(bodyB) : [P('?')];
+          const condArr = conds ? (conds.children || []).filter(isFormulaish).map(rec) : [];
+          const bicond = [...lhs, SP, L('↔'), SP, ...rhs];
+          const body2 = condArr.length
+            ? [P('('), ...join(condArr, [SP, L('∧'), SP]), P(')'), SP, L('→'), SP, P('('), ...bicond, P(')')]
+            : bicond;
+          const pre = []; ivars.forEach((v) => pre.push(Q('∀'), V(v)));
+          return ivars.length ? [...pre, SP, ...body2] : body2;
         }
-        default: { const only = kids[0]; return only ? rec(only) : (sym() || '?'); }
+        default: { const only = kids[0]; return only ? rec(only) : [CON(symOf(b) || '?', b.implicit)]; }
       }
     };
-    const str = rec(box);
-    return { str, sig };
+    const tokens = rec(box);
+    const str = tokens.map((t) => t.s).join('');
+    return { str, tokens, sig };
   }
   const isFormulaish = (b) => { const c = labelConcrete(b.label); return c && (c === 'formula' || canonPath(c).includes('formula') || c === 'body'); };
+  // can this box be rendered as a FOL formula at all? (vs commentary / a bare
+  // symbol / an organizer — those have their own view in folView)
+  const isFolable = (b) => { const c = labelConcrete(b && b.label); return !!c && (c === 'definition' || c === 'theorem' || isFormulaish(b) || canonPath(c).includes('term') || canonPath(c).includes('formula')); };
+  // does `box` or any descendant have a structural issue? (a half-labelled
+  // subtree can't render a meaningful formula — folView suppresses it)
+  const subtreeHasIssue = (box) => { let bad = false; walk(box, (n) => { if (boxIssues(n).length) bad = true; }); return bad; };
+
+  // ── FOL VIEW: box-kind dispatch, shared by UI + CLI ──
+  // Returns a view descriptor describing how to present `box` in the FOL tab.
+  // Every part is {label, items:[{tokens,id?}]}: a single formula/term is one
+  // part with one item; a LIST slot (conditions, inputs, …) is one part whose
+  // items are its members — NOT fused with ∧. Kinds:
+  //   {kind:'none',  reason}                           commentary / nothing
+  //   {kind:'error', issues:[{id,tag,msgs}]}            subtree has issues → suppress
+  //   {kind:'formula', tokens, sig}                     a single formula/term
+  //   {kind:'list',  title, items:[{tokens,id}], sig}   a slot's members, listed
+  //   {kind:'parts', title, parts:[{label,items}], sig} a definition, broken out
+  //   {kind:'group', title, parts:[{label,id,view}]}    an organizer's members
+  // `symText(box)` supplies printed symbol names (see toFOL).
+  function folView(root, box, symText) {
+    const c = labelConcrete(box && box.label);
+    if (!box || !box.label || !box.label.length) return { kind: 'none', reason: 'unlabelled — no FOL' };
+    if (c === 'commentary') return { kind: 'none', reason: 'commentary — no formula' };
+    const kidsOf = (b) => (b.children || []).filter((k) => labelConcrete(k.label) !== 'commentary');
+    // organizer: list each member's own FOL view (recurse one level)
+    if (c === 'organizer-section') {
+      const parts = kidsOf(box).map((k) => ({ label: k.label ? labelTag(root, k) : k.id, id: k.id, view: folView(root, k, symText) }));
+      return { kind: 'group', title: 'organizer — ' + parts.length + ' member(s)', parts };
+    }
+    // suppress on errors anywhere in the subtree we'd render
+    const issues = [];
+    walk(box, (n) => { const m = boxIssues(n); if (m.length) issues.push({ id: n.id, tag: n.label ? labelTag(root, n) : 'unlabelled', msgs: m }); });
+    if (issues.length) return { kind: 'error', issues };
+    const sig = { rel: {}, fn: {}, con: {}, vars: new Set() };
+    // definition: show each slot broken out (conditions kept as a LIST). No
+    // synthesized "whole" biconditional — the parts ARE the content.
+    if (c === 'definition') {
+      const head = (k) => k.label && k.label[0];
+      const kids = kidsOf(box);
+      const name = kids.find((k) => head(k) === 'name');
+      const inputs = kids.find((k) => head(k) === 'inputs');
+      const conds = kids.find((k) => head(k) === 'conditions');
+      const bodyB = kids.find((k) => head(k) === 'body');
+      const parts = [];
+      const nm = name ? symText(name) : '∅';
+      const ivs = inputs ? kidsOf(inputs).filter(isVariable) : [];
+      ivs.forEach((v) => sig.vars.add(v.var));
+      sig.rel[nm] = ivs.length;   // definiendum = a new relation symbol
+      parts.push({ label: 'name', items: [{ tokens: [{ t: 'rel', s: nm, impl: name ? name.implicit : true }], id: name && name.id }] });
+      if (inputs) parts.push({ label: 'inputs', items: ivs.length ? ivs.map((v) => ({ tokens: [{ t: 'var', s: v.var || '?' }], id: v.id })) : [{ tokens: [{ t: 'punct', s: '— none' }] }] });
+      if (conds) { const cfs = kidsOf(conds); parts.push({ label: 'conditions', items: cfs.length ? cfs.map((f) => ({ tokens: toFOL(root, f, symText, sig).tokens, id: f.id })) : [{ tokens: [{ t: 'punct', s: '— none' }] }] }); }
+      if (bodyB) parts.push({ label: 'body', items: [{ tokens: toFOL(root, bodyB, symText, sig).tokens, id: bodyB.id }] });
+      return { kind: 'parts', title: 'definition', parts, sig };
+    }
+    // a name slot clicked directly: just the definiendum symbol
+    if (c === 'name') return { kind: 'formula', tokens: [{ t: 'rel', s: symText(box) || '∅', impl: box.implicit }], sig };
+    // a single formula / term / theorem
+    if (isFolable(box)) { const r = toFOL(root, box, symText, sig); return { kind: 'formula', tokens: r.tokens, sig }; }
+    // a composite slot clicked directly (conditions, inputs, proof, …): list its
+    // renderable members — each shown on its own, NOT conjoined.
+    const kids = kidsOf(box);
+    const renderable = kids.filter((k) => { const cc = labelConcrete(k.label); return cc && (isFormulaish(k) || canonPath(cc).includes('term') || canonPath(cc).includes('formula') || isVariable(k)); });
+    if (renderable.length) return { kind: 'list', title: c || 'items', items: renderable.map((k) => ({ tokens: toFOL(root, k, symText, sig).tokens, id: k.id })), sig };
+    return { kind: 'none', reason: (c || 'this box') + ' — nothing to render' };
+  }
 
   return {
     schema, ISA, HASA, ROOT_SLOTS, LABEL_SHORT, DERIVED_SYM, CONDITIONS, COUNTED_SLOT, ISA_PARENT,
@@ -207,6 +292,6 @@ export function makeCore(schema) {
     labelSubtypes, childCountsAs, pathsUnder, hasaSlotsOf, allowedLabelPaths,
     lblShort, derivedSymbol, labelTag,
     mergeIntervals, coverageOf, boxIssues, allIssues,
-    scopeOf, isVariable, varsInScope, freshVarName, toFOL,
+    scopeOf, isVariable, varsInScope, freshVarName, toFOL, folView, isFormulaish, isFolable, subtreeHasIssue,
   };
 }
