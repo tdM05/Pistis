@@ -65,6 +65,7 @@ const printNode = (n, d) => {
     if (errorsOnly && !iss.length) { /* still recurse */ }
     else {
       const tag = n.label ? C.labelTag(ROOT, n) : '·unlabelled';
+      const vn = (C.isVariable(n) && n.var != null) ? ` =${n.var}` : '';
       const cnt = n.count != null ? ` #${n.count}` : '';
       const lean = n.lean ? (n.lean.none ? ' [lean:∅]' : ` [lean:${(n.lean.spans || []).length}]`) : '';
       const lk = linkmap[n.id] ? ' ' + linkmap[n.id].join(' ') : '';
@@ -79,7 +80,7 @@ const printNode = (n, d) => {
         const cv = C.coverageOf(n); if (cv.total) cov = ` [cov:${Math.round(100 * cv.covered / cv.total)}%${cv.gaps.length ? ',' + cv.gaps.length + 'gap' : ''}]`;
       }
       const warn = iss.length ? '  ⚠ ' + iss.join('; ') : '';
-      out.push(`${'  '.repeat(d)}${n.id} [${tag}]${cnt}${im}${lean}${cov}${lk}${dsn}  "${snippet(boxText(n))}"${warn}`);
+      out.push(`${'  '.repeat(d)}${n.id} [${tag}${vn}]${cnt}${im}${lean}${cov}${lk}${dsn}  "${snippet(boxText(n))}"${warn}`);
     }
   }
   (n.children || []).forEach((c) => printNode(c, d + 1));

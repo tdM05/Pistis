@@ -113,6 +113,26 @@ export function makeCore(schema) {
   };
   const allIssues = (root) => { const out = []; walk(root, (n) => { if (n === root) return; const iss = boxIssues(n); if (iss.length) out.push({ id: n.id, box: n, issues: iss }); }); return out; };
 
+  // ── variable naming / scope ──
+  // A VARIABLE's identity is its name (v0, v1, …), matched within its SCOPE unit.
+  // Scope unit = nearest enclosing definition / theorem; else the top-level box
+  // under root. (Links are NOT used for variable coreference; same name = same var.)
+  const SCOPE_LABELS = new Set(['definition', 'theorem']);
+  const scopeOf = (root, box) => {
+    let x = box, last = box;
+    while (x && x !== root) { const c = labelConcrete(x.label); if (SCOPE_LABELS.has(c)) return x; last = x; x = parentOf(root, x.id); }
+    // no def/theorem ancestor → the top-level box (direct child of root) it sits under
+    return last;
+  };
+  // both a `variable` TERM (used occurrence) and a `variable-symbol` (the bound
+  // symbol after ∀/∃) carry variable identity and share the var-name namespace,
+  // so coreference across binder + uses works (∀x. P(x) → both x are the same name).
+  const isVariable = (box) => { const c = labelConcrete(box.label); return c === 'variable' || c === 'variable-symbol'; };
+  // every variable name currently used inside a scope (for freshness / coref view)
+  const varsInScope = (root, scope) => { const names = {}; walk(scope, (n) => { if (isVariable(n) && n.var != null) names[n.var] = (names[n.var] || 0) + 1; }); return names; };
+  // next fresh v{N} not used in the scope
+  const freshVarName = (root, scope) => { const used = varsInScope(root, scope); let i = 0; while (used['v' + i]) i++; return 'v' + i; };
+
   return {
     schema, ISA, HASA, ROOT_SLOTS, LABEL_SHORT, DERIVED_SYM, CONDITIONS, COUNTED_SLOT, ISA_PARENT,
     walk, find, parentOf, pieces, regionLen,
@@ -120,5 +140,6 @@ export function makeCore(schema) {
     labelSubtypes, childCountsAs, pathsUnder, hasaSlotsOf, allowedLabelPaths,
     lblShort, derivedSymbol, labelTag,
     mergeIntervals, coverageOf, boxIssues, allIssues,
+    scopeOf, isVariable, varsInScope, freshVarName,
   };
 }

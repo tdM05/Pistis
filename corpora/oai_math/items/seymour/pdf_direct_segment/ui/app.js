@@ -109,6 +109,9 @@ function renderErrors(){ const list=$('errList'); if(!list) return;
 }
 
 const $ = (x) => document.getElementById(x);
+// pretty subscript: 'v3' -> 'v₃' (digits only; for display, stored value stays 'v3')
+const SUBS={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+const sub=(s)=>String(s).replace(/\d/g,(d)=>SUBS[d]);
 function boxHue(id){const n=parseInt(String(id).replace(/\D/g,''),10)||0;return Math.round((n*137.508)%360);}
 function boxColor(id){return `hsl(${boxHue(id)} 72% 50%)`;}
 function hueRGB(id){const h=boxHue(id)/360,s=.72,l=.5;const f=(n)=>{const k=(n+h*12)%12;return l-s*Math.min(l,1-l)*Math.max(-1,Math.min(k-3,9-k,1));};return [f(0),f(8),f(4)];}
@@ -850,6 +853,8 @@ function treeRow(node,isRoot){
   if(!isRoot && node.label&&node.label.length){ const lt=document.createElement('span'); lt.className='labeltag';
     lt.textContent=labelTag(node); const ds=derivedSymbol(node);
     lt.title=node.label.join(' → ')+(ds?`  (${ds.reason} — auto)`:''); row.appendChild(lt); }
+  // variable name chip (coreference marker) — e.g. v0
+  if(!isRoot && CORE.isVariable(node) && node.var!=null){ const vt=document.createElement('span'); vt.className='vartag'; vt.textContent=sub(node.var); vt.title='variable '+node.var; row.appendChild(vt); }
   // loose-end marker: ⚠ if this box violates a structural condition (soft flag)
   if(!isRoot){ const iss=boxIssues(node); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
@@ -970,8 +975,20 @@ function updateLabelUI(){ const chip=$('labelChip'); if(!chip) return;
   const cw=$('countWrap'), ci=$('countInput');
   if(cw){ const cslot=box&&box.label&&COUNTED_SLOT[labelConcrete(box.label)];
     if(cslot){ cw.style.display=''; cw.title='declared number of '+cslot+'s';
-      if(document.activeElement!==ci) ci.value=(box.count!=null?box.count:''); }
+      const cur=box.count!=null?String(box.count):'';
+      ci.innerHTML='<option value="">#…</option>'+Array.from({length:11},(_,i)=>`<option value="${i}"${String(i)===cur?' selected':''}>${i}</option>`).join('');
+      ci.value=cur; }
     else cw.style.display='none'; }
+  // variable dropdown (coreference by same var within scope) — only for variables.
+  // offers v0..v9 formatted as v₀..v₉, plus any var already used in this scope.
+  const vw=$('varWrap'), vi=$('varInput');
+  if(vw){ if(box&&CORE.isVariable(box)){ vw.style.display='';
+      const used=Object.keys(CORE.varsInScope(ROOT, CORE.scopeOf(ROOT,box)));
+      const opts=[...new Set(['v0','v1','v2','v3','v4','v5','v6','v7','v8','v9',...used,...(box.var?[box.var]:[])])];
+      const cur=box.var!=null?box.var:'';
+      vi.innerHTML='<option value="">var…</option>'+opts.map((o)=>`<option value="${o}"${o===cur?' selected':''}>${sub(o)}</option>`).join('');
+      vi.value=cur; }
+    else vw.style.display='none'; }
   // status-bar issue note for the selected box
   const ls=$('labelStatus'); if(ls){ const iss=box?boxIssues(box):[]; ls.textContent=iss.length?('⚠ '+iss.join('; ')):''; ls.classList.toggle('warn',!!iss.length); }
   if(labelPopOpen) buildLabelPop();            // keep an open popover in sync
@@ -1027,7 +1044,15 @@ function setLabelPath(path){ const b=selId&&find(selId); if(!b) return;
   else { // extend through any levels where all candidates agree (forced prefix)
     while(true){ const nx=path.length; const set=[...new Set(cands.map((p)=>p[nx]).filter(Boolean))];
       if(set.length===1){ path=[...path,set[0]]; cands=cands.filter((p)=>p[nx]===set[0]); } else break; } }
-  b.label=path; if(!isJudgeable(b)) delete b.verdict; markDirty(); refreshAll(); }
+  b.label=path; if(!isJudgeable(b)) delete b.verdict;
+  // variable → auto-assign a fresh name within its scope (if it doesn't have one);
+  // non-variable → drop any stale name.
+  if(CORE.isVariable(b)){ if(b.var==null) b.var=CORE.freshVarName(ROOT, CORE.scopeOf(ROOT,b)); }
+  else { delete b.var; }
+  markDirty(); refreshAll(); }
+// set/clear the selected variable box's name (coreference = same name in scope).
+function setVarName(v){ const b=selId&&find(selId); if(!b||!CORE.isVariable(b)) return;
+  v=(v||'').trim(); if(!v) delete b.var; else b.var=v; markDirty(); refreshAll(); }
 // Lean toolbar: add (m), remove (r), none, clear + the verdict buttons.
 function updateLeanUI(){ const box=selId&&find(selId);
   const map=$('leanMap'),unmap=$('leanUnmap'),none=$('leanNone'),clr=$('leanClear'),info=$('leanInfo');
@@ -1113,7 +1138,8 @@ async function init(){
   $('vOk').onclick=()=>setVerdict('ok'); $('vNotok').onclick=()=>setVerdict('notok'); $('vUndec').onclick=()=>setVerdict('undecidable');
   $('tabBoxes').onclick=()=>switchTab('boxes'); $('tabLean').onclick=()=>switchTab('lean'); $('tabErrors').onclick=()=>switchTab('errors');
   $('labelChip').onclick=(e)=>{ e.stopPropagation(); if(labelPopOpen) closeLabelPop(); else openLabelPop(); };
-  $('countInput').onchange=(e)=>setCount(e.target.value); $('countInput').oninput=(e)=>setCount(e.target.value);
+  $('countInput').onchange=(e)=>setCount(e.target.value);
+  $('varInput').onchange=(e)=>setVarName(e.target.value);
   // close the label popover on any outside click (but not clicks within it)
   document.addEventListener('mousedown',(e)=>{ if(!labelPopOpen) return; const pop=$('labelPop'); if(pop&&!pop.contains(e.target)&&e.target!==$('labelChip')) closeLabelPop(); });
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
