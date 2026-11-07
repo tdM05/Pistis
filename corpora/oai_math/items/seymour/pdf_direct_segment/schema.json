@@ -1,0 +1,80 @@
+{
+  "_doc": "Single source of truth for the label taxonomy + structural constraints. Read by ui/app.js (browser) and tools/*.js (node). See doc/labels.md, doc/label_conditions.md. Do NOT duplicate these tables elsewhere.",
+
+  "ISA": {
+    "body":             ["term", "formula"],
+    "formula":          ["external-citation", "atomic-formula", "compound-formula"],
+    "atomic-formula":   ["relation", "equality"],
+    "compound-formula": ["quantified", "connective"],
+    "quantified":       ["universal", "existential"],
+    "connective":       ["negation", "implication", "conjunction", "disjunction"],
+    "term":             ["external-citation", "implicit-external-reference", "atomic-term", "composite-term"],
+    "atomic-term":      ["variable", "constant"],
+    "composite-term":   ["function-application"],
+    "symbol":           ["logical", "non-logical"],
+    "logical":          ["parenthesis", "connective-symbol", "quantifier", "variable-symbol", "equality-symbol"],
+    "non-logical":      ["constant-symbol", "function-symbol", "relation-symbol"]
+  },
+
+  "HASA": {
+    "organizer-section":    ["definition", "theorem", "organizer-section"],
+    "definition":           ["name", "inputs", "conditions", "body"],
+    "name":                 [],
+    "inputs":               ["term"],
+    "conditions":           ["formula"],
+    "theorem":              ["formula", "proof"],
+    "proof":                ["formula", "theorem", "tactic"],
+    "relation":             ["relation-symbol", "term"],
+    "equality":             ["equality-symbol", "term"],
+    "universal":            ["quantifier", "variable-symbol", "formula"],
+    "existential":          ["quantifier", "variable-symbol", "formula"],
+    "negation":             ["connective-symbol", "formula"],
+    "implication":          ["connective-symbol", "formula"],
+    "conjunction":          ["connective-symbol", "formula"],
+    "disjunction":          ["connective-symbol", "formula"],
+    "function-application": ["function-symbol", "term"]
+  },
+
+  "ROOT_SLOTS": ["commentary", "definition", "theorem", "organizer-section"],
+
+  "COMMENTARY_ANYWHERE": true,
+
+  "LABEL_SHORT": {
+    "commentary": "comm", "external-citation": "cite", "implicit-external-reference": "ext",
+    "organizer-section": "org", "definition": "def", "theorem": "thm", "proof": "proof", "tactic": "tac",
+    "name": "name", "inputs": "inputs", "conditions": "conds", "body": "body",
+    "formula": "form", "atomic-formula": "atom", "compound-formula": "cmpd",
+    "quantified": "quant", "universal": "univ", "existential": "exist",
+    "connective": "conn", "negation": "neg", "implication": "impl", "conjunction": "conj", "disjunction": "disj",
+    "relation": "rel", "equality": "eq",
+    "term": "term", "atomic-term": "atom", "composite-term": "cmpt", "function-application": "fnapp",
+    "variable": "var", "constant": "const",
+    "symbol": "sym", "logical": "log", "non-logical": "nonlog", "parenthesis": "paren",
+    "relation-symbol": "rel", "equality-symbol": "eq", "quantifier": "quant",
+    "connective-symbol": "conn", "variable-symbol": "var", "constant-symbol": "const", "function-symbol": "fn"
+  },
+
+  "DERIVED_SYM": {
+    "connective-symbol": { "conjunction": "∧", "implication": "→", "disjunction": "∨", "negation": "¬" },
+    "quantifier":        { "universal": "∀", "existential": "∃" },
+    "equality-symbol":   { "equality": "=" }
+  },
+
+  "CONDITIONS": {
+    "definition":           [{"slot": "name", "min": 1, "max": 1}, {"slot": "body", "min": 1, "max": 1}],
+    "theorem":              [{"slot": "formula", "min": 1, "max": 1}, {"slot": "proof", "min": 1, "max": 1}],
+    "relation":             [{"slot": "relation-symbol", "min": 1, "max": 1}, {"slot": "term", "min": 1, "max": null}],
+    "equality":             [{"slot": "equality-symbol", "min": 1, "max": 1}, {"slot": "term", "min": 2, "max": 2}],
+    "universal":            [{"slot": "quantifier", "min": 1, "max": 1}, {"slot": "variable-symbol", "min": 1, "max": 1}, {"slot": "formula", "min": 1, "max": 1}],
+    "existential":          [{"slot": "quantifier", "min": 1, "max": 1}, {"slot": "variable-symbol", "min": 1, "max": 1}, {"slot": "formula", "min": 1, "max": 1}],
+    "negation":             [{"slot": "connective-symbol", "min": 1, "max": 1}, {"slot": "formula", "min": 1, "max": 1}],
+    "implication":          [{"slot": "connective-symbol", "min": 1, "max": 1}, {"slot": "formula", "min": 2, "max": 2}],
+    "conjunction":          [{"slot": "connective-symbol", "min": 1, "max": 1}, {"slot": "formula", "min": 2, "max": 2}],
+    "disjunction":          [{"slot": "connective-symbol", "min": 1, "max": 1}, {"slot": "formula", "min": 2, "max": 2}],
+    "function-application": [{"slot": "function-symbol", "min": 1, "max": 1}, {"slot": "term", "min": 1, "max": null}]
+  },
+
+  "COUNTED_SLOT": {
+    "inputs": "term", "conditions": "formula", "relation": "term", "function-application": "term"
+  }
+}

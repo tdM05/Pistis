@@ -1,0 +1,171 @@
+# Box Labels (auto-generated from schema.json — do not edit)
+
+`[isa]` = choose one subtype · `[hasa]` = decomposes into child boxes · `(base)` = leaf.
+`commentary` is auto-allowed under every composite box (omitted below).
+
+Top level (root) allows: commentary, definition, theorem, organizer-section.
+
+- commentary (base)
+- definition [hasa]
+  - name [hasa]
+  - inputs [hasa]
+    - term [isa]
+      - external-citation (base)
+      - implicit-external-reference (base)
+      - atomic-term [isa]
+        - variable (base)
+        - constant (base)
+      - composite-term [isa]
+        - function-application [hasa]
+          - function-symbol (base)
+          - →term
+  - conditions [hasa]
+    - formula [isa]
+      - external-citation (base)
+      - atomic-formula [isa]
+        - relation [hasa]
+          - relation-symbol (base)
+          - →term
+        - equality [hasa]
+          - equality-symbol (base)
+          - →term
+      - compound-formula [isa]
+        - quantified [isa]
+          - universal [hasa]
+            - quantifier (base)
+            - variable-symbol (base)
+            - →formula
+          - existential [hasa]
+            - quantifier (base)
+            - variable-symbol (base)
+            - →formula
+        - connective [isa]
+          - negation [hasa]
+            - connective-symbol (base)
+            - →formula
+          - implication [hasa]
+            - connective-symbol (base)
+            - →formula
+          - conjunction [hasa]
+            - connective-symbol (base)
+            - →formula
+          - disjunction [hasa]
+            - connective-symbol (base)
+            - →formula
+  - body [isa]
+    - →term
+    - →formula
+- theorem [hasa]
+  - formula [isa]
+    - external-citation (base)
+    - atomic-formula [isa]
+      - relation [hasa]
+        - relation-symbol (base)
+        - term [isa]
+          - external-citation (base)
+          - implicit-external-reference (base)
+          - atomic-term [isa]
+            - variable (base)
+            - constant (base)
+          - composite-term [isa]
+            - function-application [hasa]
+              - function-symbol (base)
+              - →term
+      - equality [hasa]
+        - equality-symbol (base)
+        - →term
+    - compound-formula [isa]
+      - quantified [isa]
+        - universal [hasa]
+          - quantifier (base)
+          - variable-symbol (base)
+          - →formula
+        - existential [hasa]
+          - quantifier (base)
+          - variable-symbol (base)
+          - →formula
+      - connective [isa]
+        - negation [hasa]
+          - connective-symbol (base)
+          - →formula
+        - implication [hasa]
+          - connective-symbol (base)
+          - →formula
+        - conjunction [hasa]
+          - connective-symbol (base)
+          - →formula
+        - disjunction [hasa]
+          - connective-symbol (base)
+          - →formula
+  - proof [hasa]
+    - →formula
+    - →theorem
+    - tactic (base)
+- organizer-section [hasa]
+  - definition [hasa]
+    - name [hasa]
+    - inputs [hasa]
+      - term [isa]
+        - external-citation (base)
+        - implicit-external-reference (base)
+        - atomic-term [isa]
+          - variable (base)
+          - constant (base)
+        - composite-term [isa]
+          - function-application [hasa]
+            - function-symbol (base)
+            - →term
+    - conditions [hasa]
+      - formula [isa]
+        - external-citation (base)
+        - atomic-formula [isa]
+          - relation [hasa]
+            - relation-symbol (base)
+            - →term
+          - equality [hasa]
+            - equality-symbol (base)
+            - →term
+        - compound-formula [isa]
+          - quantified [isa]
+            - universal [hasa]
+              - quantifier (base)
+              - variable-symbol (base)
+              - →formula
+            - existential [hasa]
+              - quantifier (base)
+              - variable-symbol (base)
+              - →formula
+          - connective [isa]
+            - negation [hasa]
+              - connective-symbol (base)
+              - →formula
+            - implication [hasa]
+              - connective-symbol (base)
+              - →formula
+            - conjunction [hasa]
+              - connective-symbol (base)
+              - →formula
+            - disjunction [hasa]
+              - connective-symbol (base)
+              - →formula
+    - body [isa]
+      - →term
+      - →formula
+  - theorem [hasa]
+    - →formula
+    - proof [hasa]
+      - →formula
+      - →theorem
+      - tactic (base)
+  - →organizer-section
+- symbol [isa]
+  - logical [isa]
+    - parenthesis (base)
+    - connective-symbol (base)
+    - quantifier (base)
+    - variable-symbol (base)
+    - equality-symbol (base)
+  - non-logical [isa]
+    - constant-symbol (base)
+    - function-symbol (base)
+    - relation-symbol (base)

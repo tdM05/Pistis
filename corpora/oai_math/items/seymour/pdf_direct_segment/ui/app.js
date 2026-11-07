@@ -1,4 +1,7 @@
-'use strict';
+// ES module. Shared label logic + schema loaded from ../core.js and ../schema.json
+// (the single source of truth, also used by tools/inspect.js).
+import { makeCore } from '../core.js';
+const SCHEMA = await fetch('../schema.json').then((r) => r.json());
 // ───────────────────────────────────────────────────────────────────────────
 // PDF-direct segmentation. The PDF is the source.
 //
@@ -47,205 +50,27 @@ let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
 const COLLAPSED = {};
 
-// ── LABELS ──────────────────────────────────────────────────────────────────
-// See doc/labels.md. Two relations:
-//  ISA[x]  = is-a children (x is ABSTRACT: a box can't be labelled x; you refine
-//            to a concrete subtype). A concrete label = one NOT in ISA.
-//  HASA[x] = has-a child-box slots of a concrete label x. A slot accepts the slot
-//            label OR any is-a subtype of it (subtype expansion).
-// A box's label is stored as the full is-a PATH (array), e.g.
-//   ['formula','atomic-formula','relation']  or  ['definition','formula','…','relation'].
-// The last element is the actual (concrete) label; path[0] is the top (what the
-// tree tag shows). A leaf label (judgeable) = concrete and not in HASA.
-const ISA = {
-  'body':             ['term','formula'],   // a definition's body (the `:=` meaning) IS a term or formula
-  'formula':          ['external-citation','atomic-formula','compound-formula'],
-  'atomic-formula':   ['relation','equality'],
-  'compound-formula': ['quantified','connective'],
-  'quantified':       ['universal','existential'],
-  'connective':       ['negation','implication','conjunction','disjunction'],
-  'term':             ['external-citation','implicit-external-reference','atomic-term','composite-term'],
-  'atomic-term':      ['variable','constant'],
-  'composite-term':   ['function-application'],
-  // symbols of a first-order language (Def 5.1): logical vs non-logical.
-  'symbol':           ['logical','non-logical'],
-  'logical':          ['parenthesis','connective-symbol','quantifier','variable-symbol','equality-symbol'],
-  'non-logical':      ['constant-symbol','function-symbol','relation-symbol'],
-};
-// NOTE: 'commentary' is NOT listed here — it is auto-allowed on EVERY composite
-// box (see hasaSlotsOf), since filler/no-formal-role spans (whitespace, glue,
-// meta-prose) can occur between any box's children. Leaves get no children.
-const HASA = {
-  'organizer-section':   ['definition','theorem','organizer-section'],
-  // a definition HAS: a name (the definiendum), inputs (the bound objects),
-  // conditions (typing/constraints), and a body (the `:=` meaning).
-  'definition':          ['name','inputs','conditions','body'],
-  'name':                [],                 // base leaf: the symbol being defined
-  'inputs':              ['term'],           // the bound objects (G, D, T, …) — each a term
-  'conditions':          ['formula'],        // typing/constraints (finite graph, ⊆ I×J, …)
-  'theorem':             ['formula','proof'],
-  'proof':               ['formula','theorem','tactic'],
-  'relation':            ['relation-symbol','term'],
-  'equality':            ['equality-symbol','term'],
-  'universal':           ['quantifier','variable-symbol','formula'],
-  'existential':         ['quantifier','variable-symbol','formula'],
-  'negation':            ['connective-symbol','formula'],
-  'implication':         ['connective-symbol','formula'],
-  'conjunction':         ['connective-symbol','formula'],
-  'disjunction':         ['connective-symbol','formula'],
-  // variable / constant are LEAVES: a variable term IS the symbol, no child
-  // (a bare bound symbol like the x in ∀x is variable-symbol, in the symbol tree).
-  'function-application':['function-symbol','term'],
-};
-const ROOT_SLOTS = ['commentary','definition','theorem','organizer-section'];
-// short forms for compact display; the tree tag shows FIRST.LAST of the is-a path
-// (e.g. form.univ, def.conj), so you can read both the top kind and the concrete.
-const LABEL_SHORT = {
-  'commentary':'comm','external-citation':'cite','implicit-external-reference':'ext',
-  'organizer-section':'org','definition':'def','theorem':'thm','proof':'proof','tactic':'tac',
-  'name':'name','inputs':'inputs','conditions':'conds','body':'body',
-  'formula':'form','atomic-formula':'atom','compound-formula':'cmpd',
-  'quantified':'quant','universal':'univ','existential':'exist',
-  'connective':'conn','negation':'neg','implication':'impl','conjunction':'conj','disjunction':'disj',
-  'relation':'rel','equality':'eq',
-  'term':'term','atomic-term':'atom','composite-term':'cmpt','function-application':'fnapp',
-  'variable':'var','constant':'const',
-  'symbol':'sym','logical':'log','non-logical':'nonlog','parenthesis':'paren',
-  'relation-symbol':'rel','equality-symbol':'eq','quantifier':'quant',
-  'connective-symbol':'conn','variable-symbol':'var','constant-symbol':'const','function-symbol':'fn',
-};
-const lblShort=(l)=>LABEL_SHORT[l]||l;
-// compact tag for a box: first.last of its is-a path, EXCEPT when the concrete
-// label has an auto-derived symbol (∀, ∧, =) — then the last component is that
-// symbol itself (e.g. sym.∀), so the token shows inline as ONE tag.
-function labelTag(box){ const path=box&&box.label; if(!path||!path.length) return '';
-  const a=lblShort(path[0]); if(path.length===1) return a;
-  const ds=box.id?derivedSymbol(box):null;
-  return a+'.'+(ds?ds.sym:lblShort(path[path.length-1])); }
-
-// Some symbol leaves have an identity FULLY DETERMINED by their parent label, so
-// it's auto-derived (not picked): e.g. a connective-symbol under `conjunction`
-// is necessarily ∧. DERIVED_SYM[symbolLabel][parentConcrete] = {sym, from}.
-const DERIVED_SYM = {
-  'connective-symbol': { conjunction:'∧', implication:'→', disjunction:'∨', negation:'¬' },
-  'quantifier':        { universal:'∀', existential:'∃' },
-  'equality-symbol':   { equality:'=' },
-};
-// auto-derived symbol identity for a box, from its concrete label + parent label.
-// returns {sym, reason} or null.
-function derivedSymbol(box){ const c=labelConcrete(box.label); const map=c&&DERIVED_SYM[c]; if(!map) return null;
-  const par=parentOf(box.id); const pc=par&&par.label?labelConcrete(par.label):null; const sym=pc&&map[pc];
-  return sym?{sym, reason:`${c} inside ${pc} ⇒ ${sym}`}:null; }
-
-function isAbstract(l){ return l in ISA; }
-function isComposite(l){ return l in HASA; }
-function isLeafLabel(l){ return !isAbstract(l) && !isComposite(l); }  // has-a base
-// concrete label of a stored path (last element), or null.
-function labelConcrete(path){ return path&&path.length?path[path.length-1]:null; }
-// is-a parent map (child → its is-a parent) + canonical full path for any label.
-const ISA_PARENT={}; for(const k in ISA) for(const c of ISA[k]) ISA_PARENT[c]=k;
-function canonPath(label){ const p=[label]; let x=label; while(ISA_PARENT[x]){ x=ISA_PARENT[x]; p.unshift(x); } return p; }
-// all full paths of CONCRETE labels reachable by refining `slot`. The slot STARTS
-// the path (so a `formula` slot gives formula→…, not definition→formula→…), EXCEPT
-// symbol leaves, which carry their canonical symbol→logical/non-logical→ ancestry.
-function pathsUnder(slot, prefix){ let base=prefix&&prefix.length?prefix:[];
-  if(!base.length){ const c=canonPath(slot); if(c[0]==='symbol') base=c.slice(0,-1); }
-  const p=[...base,slot];
-  if(!isAbstract(slot)) return [p];
-  return ISA[slot].flatMap((c)=>pathsUnder(c,p)); }
-// has-a slots of a box = union of HASA over EVERY label in its is-a path (the box
-// is-a each of them, so it has-a all their children), PLUS 'commentary' which is
-// auto-allowed on any composite box (filler/no-role spans go anywhere).
-function hasaSlotsOf(box){ const out=[]; let composite=false;
-  for(const l of (box.label||[])){ if(l in HASA) composite=true; (HASA[l]||[]).forEach((s)=>{ if(!out.includes(s)) out.push(s); }); }
-  if(composite && !out.includes('commentary')) out.push('commentary'); return out; }
-// valid label-paths for a box given its PARENT box. root → ROOT_SLOTS; a labelled
-// parent → its has-a slots (subtype-expanded); unlabelled non-root parent → none
-// (label the parent first — keeps labelling top-down and the tree well-formed).
-function allowedLabelPaths(parentBox){
-  const atTop = !parentBox || parentBox===ROOT || parentBox.id==='root';
-  const slots = atTop ? ROOT_SLOTS
-    : (parentBox.label ? hasaSlotsOf(parentBox) : null);
-  if(!slots) return null;                 // null => parent not labelled yet
-  return slots.flatMap((s)=>pathsUnder(s,[])); }
-
-// ── structural conditions (doc/label_conditions.md) ─────────────────────────
-// CONDITIONS[label] = list of {slot, min, max} required child counts. A child
-// "counts as slot" if its is-a path HEAD subtypes the slot. commentary is never
-// counted. max:null = unbounded. Labels absent here impose no arity condition.
-const CONDITIONS = {
-  'definition':          [{slot:'name',min:1,max:1},{slot:'body',min:1,max:1}],  // inputs/conditions unconstrained (0+)
-  'theorem':             [{slot:'formula',min:1,max:1},{slot:'proof',min:1,max:1}],
-  'relation':            [{slot:'relation-symbol',min:1,max:1},{slot:'term',min:1,max:null}],
-  'equality':            [{slot:'equality-symbol',min:1,max:1},{slot:'term',min:2,max:2}],
-  'universal':           [{slot:'quantifier',min:1,max:1},{slot:'variable-symbol',min:1,max:1},{slot:'formula',min:1,max:1}],
-  'existential':         [{slot:'quantifier',min:1,max:1},{slot:'variable-symbol',min:1,max:1},{slot:'formula',min:1,max:1}],
-  'negation':            [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:1,max:1}],
-  'implication':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
-  'conjunction':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
-  'disjunction':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
-  'function-application':[{slot:'function-symbol',min:1,max:1},{slot:'term',min:1,max:null}],
-};
-// labels that REQUIRE the user to declare how many of a repeatable slot they
-// intend (box.count) — so you can't silently forget to separate arguments.
-// COUNTED_SLOT[label] = the slot whose child-count must equal box.count.
-const COUNTED_SLOT = {
-  'inputs':'term', 'conditions':'formula', 'relation':'term', 'function-application':'term',
-};
-// is label `l` the slot, or an is-a subtype of it?
-function labelSubtypes(l, slot){ if(l===slot) return true;
-  const kids=ISA[l]; return kids? kids.some((k)=>labelSubtypes(k,slot)) : false; }
-// a child box counts as `slot` if its CONCRETE label IS-A `slot` — i.e. slot lies
-// on the concrete label's canonical ancestry (relation is-a formula; quantifier
-// is-a symbol but NOT is-a variable-symbol). Checks the leaf's ancestry, so a
-// quantifier child counts as 'quantifier'/'symbol' but never 'variable-symbol'.
-function childCountsAs(child, slot){ const c=labelConcrete(child.label); if(!c) return false;
-  return canonPath(c).includes(slot) || labelSubtypes(c,slot); }
-// merge a list of {start,end} into disjoint sorted intervals.
-function mergeIntervals(ivs){ const s=ivs.slice().sort((a,b)=>a.start-b.start); const out=[];
-  for(const iv of s){ const last=out[out.length-1]; if(last&&iv.start<=last.end){ last.end=Math.max(last.end,iv.end); } else out.push({start:iv.start,end:iv.end}); } return out; }
-// COVERAGE of a box by its children: do the children's pieces cover ALL of the
-// box's own pieces? Returns {covered, total, gaps:[{start,end}]}. total/covered
-// are in chars. Overlap is allowed (not a partition); only gaps matter.
-function coverageOf(box){ const own=mergeIntervals(pieces(box)); const total=own.reduce((t,p)=>t+(p.end-p.start),0);
-  const kid=mergeIntervals((box.children||[]).flatMap((c)=>pieces(c)));
-  let covered=0; const gaps=[];
-  for(const p of own){ let cur=p.start;
-    for(const k of kid){ if(k.end<=cur||k.start>=p.end) continue; const a=Math.max(k.start,cur), b=Math.min(k.end,p.end);
-      if(a>cur) gaps.push({start:cur,end:a}); covered+=Math.max(0,b-a); cur=Math.max(cur,b); }
-    if(cur<p.end){ gaps.push({start:cur,end:p.end}); } }
-  return {covered, total, gaps}; }
-// loose-end issues for ONE box (not recursive). [] = clean.
-function boxIssues(box){ const out=[];
-  if(!box.label||!box.label.length){ out.push('unlabelled'); return out; }
-  const concrete=labelConcrete(box.label);
-  if(isAbstract(concrete)) out.push('incomplete label (ends abstract)');
-  const conds=CONDITIONS[concrete]||[];
-  for(const c of conds){ const n=(box.children||[]).filter((ch)=>childCountsAs(ch,c.slot)).length;
-    if(n<c.min) out.push(`needs ${c.min===c.max?c.min:c.min+'+'} ${c.slot} (has ${n})`);
-    else if(c.max!=null && n>c.max) out.push(`too many ${c.slot} (${n}, max ${c.max})`);
-  }
-  // any child whose label isn't an allowed slot of this box = misplaced
-  const slots=hasaSlotsOf(box);
-  for(const ch of (box.children||[])){ const head=ch.label&&ch.label[0];
-    if(head && !slots.some((s)=>labelSubtypes(head,s))) out.push(`child “${head}” not allowed here`); }
-  // DECLARED COUNT: labels in COUNTED_SLOT must state the intended arity (box.count)
-  // and the actual child-count of that slot must match it.
-  const cslot=COUNTED_SLOT[concrete];
-  if(cslot){ const have=(box.children||[]).filter((ch)=>childCountsAs(ch,cslot)).length;
-    if(box.count==null) out.push(`specify number of ${cslot}s (have ${have})`);
-    else if(box.count!==have) out.push(`declared ${box.count} ${cslot}${box.count===1?'':'s'}, have ${have}`); }
-  // COVERAGE: a non-leaf-label box with children must have them cover its whole
-  // region (leaf-label boxes need no children, so no coverage requirement).
-  if(box.children&&box.children.length && !isLeafLabel(concrete)){
-    const cov=coverageOf(box); if(cov.gaps.length){ const pct=cov.total?Math.round(100*cov.covered/cov.total):100;
-      out.push(`children cover ${pct}% (${cov.gaps.length} gap${cov.gaps.length>1?'s':''})`); } }
-  return out; }
+// ── LABELS & VALIDATION — logic lives in ../core.js, rules in ../schema.json ──
+// SCHEMA (ISA/HASA/CONDITIONS/COUNTED_SLOT/…) and the pure algorithms are shared
+// with the headless tools (tools/inspect.js) via core.js — single source of truth,
+// no drift. Below are thin wrappers that bind the current global ROOT so the rest
+// of the UI keeps calling find(id)/boxIssues(box)/labelTag(box)/… unchanged.
+const CORE = makeCore(SCHEMA);
+const { ISA, HASA, ROOT_SLOTS, LABEL_SHORT, DERIVED_SYM, CONDITIONS, COUNTED_SLOT, ISA_PARENT,
+        pieces, regionLen, isAbstract, isComposite, isLeafLabel, labelConcrete, canonPath,
+        labelSubtypes, childCountsAs, pathsUnder, hasaSlotsOf, lblShort,
+        mergeIntervals, coverageOf, boxIssues } = CORE;
+// root-bound wrappers (core takes root explicitly; UI uses the global ROOT)
+function walk(n,fn,d=0){ return CORE.walk(n,fn,d); }
+function find(id){ return CORE.find(ROOT,id); }
+function parentOf(id){ return CORE.parentOf(ROOT,id); }
+function derivedSymbol(box){ return CORE.derivedSymbol(ROOT,box); }
+function labelTag(box){ return CORE.labelTag(ROOT,box); }
+function allowedLabelPaths(parentBox){ return CORE.allowedLabelPaths(ROOT,parentBox); }
+function allIssues(){ return CORE.allIssues(ROOT); }
 // whole-subtree: does this box or any descendant have an issue?
 function subtreeHasIssue(box){ if(box!==ROOT && boxIssues(box).length) return true;
   return (box.children||[]).some(subtreeHasIssue); }
-// every issue in the tree: [{id, label, issues:[…]}], in reading order.
-function allIssues(){ const out=[]; walk(ROOT,(n)=>{ if(n===ROOT) return; const iss=boxIssues(n); if(iss.length) out.push({id:n.id, box:n, issues:iss}); }); return out; }
 // normalize an issue string to a GROUP key (so "needs 2 formula (has 1)" and
 // "needs 2 formula (has 0)" group together). 'unlabelled' is forced to sort last.
 function issueGroupKey(msg){
@@ -291,12 +116,8 @@ function rgbToHex(c){return '#'+c.map((v)=>Math.round(255*Math.max(0,Math.min(1,
 function boxHex(id){return rgbToHex(hueRGB(id));}
 function blendHex(ids){const a=[0,0,0];ids.forEach((id)=>{const c=hueRGB(id);a[0]+=c[0];a[1]+=c[1];a[2]+=c[2];});return rgbToHex(a.map((v)=>v/ids.length));}
 
-/* ───────────────── tree helpers ───────────────── */
-function walk(n,fn,d=0){fn(n,d);n.children.forEach((c)=>walk(c,fn,d+1));}
-function find(id){let f=null;walk(ROOT,(n)=>{if(n.id===id)f=n;});return f;}
-function parentOf(id){let p=null;walk(ROOT,(n)=>{if(n.children.some((c)=>c.id===id))p=n;});return p;}
-function pieces(b){return b.pieces||[];}
-function regionLen(b){return pieces(b).reduce((t,p)=>t+(p.end-p.start),0);}
+/* ───────────────── tree helpers ─────────────────
+   walk/find/parentOf/pieces/regionLen now come from core.js (see wrappers above). */
 
 /* ───────────────── link helpers ───────────────── */
 function links(){ if(!ROOT.links) ROOT.links=[]; return ROOT.links; }
