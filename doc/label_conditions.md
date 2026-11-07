@@ -8,6 +8,19 @@ Checks are SOFT: a box violating these is flagged as a loose end, not blocked.
 Labels not listed here impose no condition (any/empty children), except leaves
 (has-a bases) which must have no children other than commentary.
 
+## Declared argument count
+These labels have a meaningful, easily-miscounted arity, so the user MUST declare
+the intended number of arguments (box.count); the actual child count of that slot
+must equal it. A missing count is itself a loose end (so you can't forget to
+separate arguments).
+
+| label | counted slot |
+|---|---|
+| inputs | term |
+| conditions | formula |
+| relation | term |
+| function-application | term |
+
 | label | required children |
 |---|---|
 | definition | exactly 1 name, exactly 1 body (inputs/conditions 0+) |

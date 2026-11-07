@@ -31,6 +31,8 @@ body.resizing{cursor:col-resize;user-select:none;}
 .labelbar .spacer{flex:1;}
 .labelbar #upLevel{margin-left:0;display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;padding:0;font-size:12px;line-height:1;border-radius:5px;}
 /* fixed-size label chip in the labelbar (never changes row height) */
+.countwrap{font:11px var(--mono);color:#6b5600;display:inline-flex;align-items:center;gap:3px;}
+.countinput{width:40px;height:22px;font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 4px;}
 .labelchip{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 8px;height:24px;background:#fff;color:#888;cursor:pointer;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
 .labelchip:hover:not(:disabled){border-color:var(--accent);}
 .labelchip:disabled{opacity:.5;cursor:default;}
@@ -71,6 +73,9 @@ body.resizing{cursor:col-resize;user-select:none;}
 .row.level{border-left-color:#e0a800;background:#fff8e1;}
 .row.level .rname{font-weight:700;}
 .row.implicit .rname{font-style:italic;color:#999;}  /* implicit (no-span) box */
+.row.droptgt{background:#dff5e3;box-shadow:inset 0 0 0 2px #1f9d55;}   /* valid drop target */
+.row.dropbad{background:#fbe3df;box-shadow:inset 0 0 0 2px #c0392b;}   /* invalid drop target */
+.row[draggable=true]{cursor:grab;}
 .twist{width:14px;flex:none;text-align:center;color:var(--dim);user-select:none;}
 .twist.leaf{opacity:.25;}
 .rswatch{width:9px;height:9px;border-radius:2px;flex:none;}

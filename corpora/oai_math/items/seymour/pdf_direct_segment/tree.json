@@ -142,7 +142,10 @@
                   "end": 15897
                 }
               ],
-              "children": []
+              "children": [],
+              "label": [
+                "commentary"
+              ]
             },
             {
               "id": "b14",
@@ -251,7 +254,8 @@
                             "formula",
                             "atomic-formula",
                             "relation"
-                          ]
+                          ],
+                          "count": 1
                         },
                         {
                           "id": "b81",
@@ -301,7 +305,8 @@
                             "formula",
                             "atomic-formula",
                             "relation"
-                          ]
+                          ],
+                          "count": 1
                         },
                         {
                           "id": "b83",
@@ -389,7 +394,8 @@
                         "formula",
                         "atomic-formula",
                         "relation"
-                      ]
+                      ],
+                      "count": 1
                     },
                     {
                       "id": "b65",
@@ -523,19 +529,22 @@
                             "term",
                             "composite-term",
                             "function-application"
-                          ]
+                          ],
+                          "count": 2
                         }
                       ],
                       "label": [
                         "formula",
                         "atomic-formula",
                         "relation"
-                      ]
+                      ],
+                      "count": 2
                     }
                   ],
                   "label": [
                     "conditions"
-                  ]
+                  ],
+                  "count": 3
                 },
                 {
                   "id": "b58",
@@ -549,10 +558,70 @@
                       "end": 15948
                     }
                   ],
-                  "children": [],
+                  "children": [
+                    {
+                      "id": "b116",
+                      "pieces": [
+                        {
+                          "start": 15919,
+                          "end": 15920
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "term",
+                        "atomic-term",
+                        "variable"
+                      ]
+                    },
+                    {
+                      "id": "b118",
+                      "pieces": [
+                        {
+                          "start": 15920,
+                          "end": 15922
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "commentary"
+                      ]
+                    },
+                    {
+                      "id": "b117",
+                      "pieces": [
+                        {
+                          "start": 15922,
+                          "end": 15923
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "term",
+                        "atomic-term",
+                        "variable"
+                      ]
+                    },
+                    {
+                      "id": "b119",
+                      "pieces": [
+                        {
+                          "start": 15947,
+                          "end": 15948
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "term",
+                        "atomic-term",
+                        "variable"
+                      ]
+                    }
+                  ],
                   "label": [
                     "inputs"
-                  ]
+                  ],
+                  "count": 3
                 },
                 {
                   "id": "b60",
@@ -565,6 +634,332 @@
                   "children": [],
                   "label": [
                     "name"
+                  ]
+                },
+                {
+                  "id": "b90",
+                  "pieces": [
+                    {
+                      "start": 15962,
+                      "end": 16009
+                    }
+                  ],
+                  "children": [
+                    {
+                      "id": "b115",
+                      "pieces": [
+                        {
+                          "start": 15962,
+                          "end": 15964
+                        },
+                        {
+                          "start": 15976,
+                          "end": 15977
+                        },
+                        {
+                          "start": 15982,
+                          "end": 15983
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "commentary"
+                      ]
+                    },
+                    {
+                      "id": "b92",
+                      "pieces": [
+                        {
+                          "start": 15964,
+                          "end": 15976
+                        }
+                      ],
+                      "children": [
+                        {
+                          "id": "b91",
+                          "pieces": [],
+                          "implicit": true,
+                          "children": [],
+                          "label": [
+                            "term",
+                            "atomic-term",
+                            "variable"
+                          ]
+                        },
+                        {
+                          "id": "b94",
+                          "pieces": [
+                            {
+                              "start": 15964,
+                              "end": 15976
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "symbol",
+                            "non-logical",
+                            "relation-symbol"
+                          ]
+                        }
+                      ],
+                      "label": [
+                        "formula",
+                        "atomic-formula",
+                        "relation"
+                      ],
+                      "count": 1
+                    },
+                    {
+                      "id": "b93",
+                      "pieces": [
+                        {
+                          "start": 15977,
+                          "end": 15982
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "symbol",
+                        "logical",
+                        "connective-symbol"
+                      ]
+                    },
+                    {
+                      "id": "b95",
+                      "pieces": [
+                        {
+                          "start": 15983,
+                          "end": 16009
+                        }
+                      ],
+                      "children": [
+                        {
+                          "id": "b97",
+                          "pieces": [
+                            {
+                              "start": 15983,
+                              "end": 15989
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "symbol",
+                            "logical",
+                            "variable-symbol"
+                          ]
+                        },
+                        {
+                          "id": "b98",
+                          "pieces": [
+                            {
+                              "start": 15989,
+                              "end": 15990
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "symbol",
+                            "logical",
+                            "quantifier"
+                          ]
+                        },
+                        {
+                          "id": "b99",
+                          "pieces": [
+                            {
+                              "start": 15990,
+                              "end": 15991
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "commentary"
+                          ]
+                        },
+                        {
+                          "id": "b96",
+                          "pieces": [
+                            {
+                              "start": 15991,
+                              "end": 16009
+                            }
+                          ],
+                          "children": [
+                            {
+                              "id": "b103",
+                              "pieces": [],
+                              "implicit": true,
+                              "children": [],
+                              "label": [
+                                "symbol",
+                                "logical",
+                                "connective-symbol"
+                              ]
+                            },
+                            {
+                              "id": "b100",
+                              "pieces": [
+                                {
+                                  "start": 15991,
+                                  "end": 16000
+                                }
+                              ],
+                              "children": [
+                                {
+                                  "id": "b101",
+                                  "pieces": [],
+                                  "implicit": true,
+                                  "children": [],
+                                  "label": [
+                                    "term",
+                                    "atomic-term",
+                                    "variable"
+                                  ]
+                                },
+                                {
+                                  "id": "b102",
+                                  "pieces": [
+                                    {
+                                      "start": 15991,
+                                      "end": 16000
+                                    }
+                                  ],
+                                  "children": [],
+                                  "label": [
+                                    "symbol",
+                                    "non-logical",
+                                    "relation-symbol"
+                                  ]
+                                }
+                              ],
+                              "label": [
+                                "formula",
+                                "atomic-formula",
+                                "relation"
+                              ],
+                              "count": 1
+                            },
+                            {
+                              "id": "b105",
+                              "pieces": [
+                                {
+                                  "start": 16000,
+                                  "end": 16001
+                                }
+                              ],
+                              "children": [],
+                              "label": [
+                                "commentary"
+                              ]
+                            },
+                            {
+                              "id": "b104",
+                              "pieces": [
+                                {
+                                  "start": 16001,
+                                  "end": 16009
+                                }
+                              ],
+                              "children": [
+                                {
+                                  "id": "b114",
+                                  "pieces": [],
+                                  "implicit": true,
+                                  "children": [],
+                                  "label": [
+                                    "term",
+                                    "atomic-term",
+                                    "variable"
+                                  ]
+                                },
+                                {
+                                  "id": "b113",
+                                  "pieces": [
+                                    {
+                                      "start": 16001,
+                                      "end": 16005
+                                    }
+                                  ],
+                                  "children": [],
+                                  "label": [
+                                    "commentary"
+                                  ]
+                                },
+                                {
+                                  "id": "b112",
+                                  "pieces": [
+                                    {
+                                      "start": 16005,
+                                      "end": 16009
+                                    }
+                                  ],
+                                  "children": [],
+                                  "label": [
+                                    "symbol",
+                                    "non-logical",
+                                    "relation-symbol"
+                                  ]
+                                }
+                              ],
+                              "label": [
+                                "formula",
+                                "atomic-formula",
+                                "relation"
+                              ],
+                              "count": 1
+                            }
+                          ],
+                          "label": [
+                            "formula",
+                            "compound-formula",
+                            "connective",
+                            "implication"
+                          ]
+                        }
+                      ],
+                      "label": [
+                        "formula",
+                        "compound-formula",
+                        "quantified",
+                        "universal"
+                      ]
+                    }
+                  ],
+                  "label": [
+                    "body",
+                    "formula",
+                    "compound-formula",
+                    "connective",
+                    "conjunction"
+                  ]
+                },
+                {
+                  "id": "b89",
+                  "pieces": [
+                    {
+                      "start": 15923,
+                      "end": 15925
+                    },
+                    {
+                      "start": 15933,
+                      "end": 15934
+                    },
+                    {
+                      "start": 15946,
+                      "end": 15947
+                    },
+                    {
+                      "start": 15956,
+                      "end": 15962
+                    },
+                    {
+                      "start": 16009,
+                      "end": 16045
+                    }
+                  ],
+                  "children": [],
+                  "label": [
+                    "commentary"
                   ]
                 }
               ],
@@ -932,6 +1327,18 @@
     {
       "from": "b16",
       "to": "b14"
+    },
+    {
+      "from": "b91",
+      "to": "b67"
+    },
+    {
+      "from": "b101",
+      "to": "b97"
+    },
+    {
+      "from": "b114",
+      "to": "b97"
     }
   ]
 }

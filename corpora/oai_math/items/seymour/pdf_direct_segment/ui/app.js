@@ -42,6 +42,7 @@ let leanCurSel = null;     // {file,start,end} current selection inside Lean pan
 let dirty = false;
 let WIREFRAME = false;     // wireframe mode: draw highlights as own-color outlines, no fill
 let JUNK_MODE = false;     // junk mode: n/e operate on all uncovered whitespace/punctuation
+let DRAG_ID = null;        // id of the tree row currently being dragged (reparent)
 let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
 const COLLAPSED = {};
@@ -185,11 +186,21 @@ const CONDITIONS = {
   'disjunction':         [{slot:'connective-symbol',min:1,max:1},{slot:'formula',min:2,max:2}],
   'function-application':[{slot:'function-symbol',min:1,max:1},{slot:'term',min:1,max:null}],
 };
+// labels that REQUIRE the user to declare how many of a repeatable slot they
+// intend (box.count) — so you can't silently forget to separate arguments.
+// COUNTED_SLOT[label] = the slot whose child-count must equal box.count.
+const COUNTED_SLOT = {
+  'inputs':'term', 'conditions':'formula', 'relation':'term', 'function-application':'term',
+};
 // is label `l` the slot, or an is-a subtype of it?
 function labelSubtypes(l, slot){ if(l===slot) return true;
   const kids=ISA[l]; return kids? kids.some((k)=>labelSubtypes(k,slot)) : false; }
-// a child box counts as `slot` if its path head subtypes slot (commentary never).
-function childCountsAs(child, slot){ const head=child.label&&child.label[0]; return head? labelSubtypes(head,slot) : false; }
+// a child box counts as `slot` if its CONCRETE label IS-A `slot` — i.e. slot lies
+// on the concrete label's canonical ancestry (relation is-a formula; quantifier
+// is-a symbol but NOT is-a variable-symbol). Checks the leaf's ancestry, so a
+// quantifier child counts as 'quantifier'/'symbol' but never 'variable-symbol'.
+function childCountsAs(child, slot){ const c=labelConcrete(child.label); if(!c) return false;
+  return canonPath(c).includes(slot) || labelSubtypes(c,slot); }
 // merge a list of {start,end} into disjoint sorted intervals.
 function mergeIntervals(ivs){ const s=ivs.slice().sort((a,b)=>a.start-b.start); const out=[];
   for(const iv of s){ const last=out[out.length-1]; if(last&&iv.start<=last.end){ last.end=Math.max(last.end,iv.end); } else out.push({start:iv.start,end:iv.end}); } return out; }
@@ -218,6 +229,12 @@ function boxIssues(box){ const out=[];
   const slots=hasaSlotsOf(box);
   for(const ch of (box.children||[])){ const head=ch.label&&ch.label[0];
     if(head && !slots.some((s)=>labelSubtypes(head,s))) out.push(`child “${head}” not allowed here`); }
+  // DECLARED COUNT: labels in COUNTED_SLOT must state the intended arity (box.count)
+  // and the actual child-count of that slot must match it.
+  const cslot=COUNTED_SLOT[concrete];
+  if(cslot){ const have=(box.children||[]).filter((ch)=>childCountsAs(ch,cslot)).length;
+    if(box.count==null) out.push(`specify number of ${cslot}s (have ${have})`);
+    else if(box.count!==have) out.push(`declared ${box.count} ${cslot}${box.count===1?'':'s'}, have ${have}`); }
   // COVERAGE: a non-leaf-label box with children must have them cover its whole
   // region (leaf-label boxes need no children, so no coverage requirement).
   if(box.children&&box.children.length && !isLeafLabel(concrete)){
@@ -475,9 +492,10 @@ function paintLeanRange(s,e,color,opts){ opts=opts||{}; const host=$('leanCode')
     for(const rc of rects){ const d=document.createElement('div'); d.className='lean-hl';
       d.style.left=(rc.left-hostBox.left+host.scrollLeft)+'px'; d.style.top=(rc.top-hostBox.top+host.scrollTop)+'px';
       d.style.width=rc.width+'px'; d.style.height=rc.height+'px';
-      if(opts.level){ d.style.background='rgba(120,120,120,0.10)'; }        // level: faint grey
-      else { d.style.background=color+'3d'; }                              // normal: light fill
-      const rings=[]; if(WIREFRAME && !opts.level) rings.push('inset 0 0 0 1px '+color+'cc');
+      const rings=[];
+      if(opts.level){ d.style.background='rgba(110,110,110,0.28)'; }       // level: darker grey fill
+      else { d.style.background=color+'55'; }                              // normal: fill
+      if(WIREFRAME){ rings.push(opts.level ? 'inset 0 0 0 1px rgba(90,90,90,0.7)' : 'inset 0 0 0 1px '+color+'cc'); }
       if(opts.sel) rings.push('inset 0 0 0 2px '+SEL_OUTLINE+'cc');
       if(rings.length) d.style.boxShadow=rings.join(', ');
       host.appendChild(d); } }
@@ -747,11 +765,44 @@ function deleteBox(id){ const p=parentOf(id); if(!p) return; const i=p.children.
   markDirty(); refreshAll(); }
 function removePiece(id,idx){ const n=find(id); if(!n)return; n.pieces.splice(idx,1); if(!n.pieces.length){deleteBox(id);return;} markDirty(); refreshAll(); }
 
+/* ───────────────── move (drag-reparent) ───────────────── */
+// is `maybeAnc` an ancestor-or-self of `id`?
+function isAncestorOf(maybeAnc, id){ let x=find(id); while(x){ if(x.id===maybeAnc) return true; x=parentOf(x.id); } return false; }
+// can box `id` be reparented under `targetId` (targetId==='root' = top level)?
+// returns {ok:true} or {ok:false, why}. Validates: not into own subtree, span
+// within target region, label allowed as a child of target.
+function canMove(id, targetId){ const box=find(id); if(!box) return {ok:false,why:'no such box'};
+  const target = targetId==='root' ? ROOT : find(targetId); if(!target) return {ok:false,why:'no such target'};
+  if(targetId===id) return {ok:false,why:'cannot drop a box onto itself'};
+  if(parentOf(id)===target) return {ok:false,why:'already a child of that box'};
+  if(isAncestorOf(id, targetId)) return {ok:false,why:'cannot move a box into its own subtree'};
+  // span containment: every piece of box must lie within target's region.
+  // (implicit boxes have no pieces → [].every is true → naturally passes.
+  //  target=root is the whole paper → everything is inside.)
+  if(target!==ROOT){ const reg=mergeIntervals(pieces(target));
+    const inside=pieces(box).every((p)=>reg.some((r)=>r.start<=p.start&&p.end<=r.end));
+    if(!inside) return {ok:false,why:`“${label(box)}” span lies outside “${label(target)}”`}; }
+  // label allowed as a child of target (only if box is labelled)
+  if(box.label&&box.label.length){ const head=box.label[0];
+    const slots = target===ROOT ? ROOT_SLOTS : hasaSlotsOf(target);
+    if(!slots.some((s)=>labelSubtypes(head,s))) return {ok:false,why:`“${head}” is not allowed inside “${target===ROOT?'paper':labelConcrete(target.label)||label(target)}”`}; }
+  return {ok:true}; }
+function moveBox(id, targetId){ const chk=canMove(id,targetId); if(!chk.ok){ flash('move denied: '+chk.why); return false; }
+  const box=find(id), op=parentOf(id); const target=targetId==='root'?ROOT:find(targetId);
+  op.children.splice(op.children.indexOf(box),1);
+  target.children.push(box); sortKids(target);
+  markDirty(); refreshAll(); flash('moved “'+label(box)+'”'); return true; }
+
 /* ───────────────── link arrows on the PDF ───────────────── */
 // anchor box of a node in PAGES coordinates (px within the #pages stack):
 // the bounding box of its FIRST piece's rects. Returns null if offscreen/unbuilt.
-function anchorRect(id){ const b=find(id); if(!b) return null; const ps=pieces(b); if(!ps.length) return null;
-  const p=ps[0]; let r=null;
+function anchorRect(id){ const b=find(id); if(!b) return null; const ps=pieces(b);
+  // an implicit box has no span → anchor loosely to its nearest spanned ancestor's
+  // region (so its arrow emanates "from the body", not a specific glyph).
+  if(!ps.length){ let a=parentOf(id); while(a&&a!==ROOT&&!pieces(a).length) a=parentOf(a.id);
+    return a&&a!==ROOT ? {...rectOfFirstPiece(a), loose:true} : null; }
+  return rectOfFirstPiece(b); }
+function rectOfFirstPiece(b){ const p=pieces(b)[0]; if(!p) return null; let r=null;
   for(let i=p.start;i<p.end;i++){ const m=CHARMETA[i]; if(!m) continue; const pg=pageEls[m.page]; if(!pg) continue;
     const ox=pg.wrap.offsetLeft, oy=pg.wrap.offsetTop; const x0=ox+m.x,y0=oy+m.y,x1=x0+m.w,y1=y0+m.h;
     if(!r) r={x0,y0,x1,y1}; else { r.x0=Math.min(r.x0,x0); r.y0=Math.min(r.y0,y0); r.x1=Math.max(r.x1,x1); r.y1=Math.max(r.y1,y1); } }
@@ -774,6 +825,9 @@ function drawArrows(){ const svg=$('arrowLayer'); if(!svg) return; const host=$(
     let sx,sy,tx,ty;
     if(b.x0 > a.x1){ sx=a.x1; tx=b.x0; } else if(b.x1 < a.x0){ sx=a.x0; tx=b.x1; } else { sx=(a.x0+a.x1)/2; tx=(b.x0+b.x1)/2; }
     sy=ay; ty=by;
+    // implicit tail (loose anchor): start further out so it reads "from the body
+    // anywhere", not pinned to a glyph.
+    if(a.loose){ sx += (tx>=sx?1:-1)*22; sy = ay; }
     const col=boxHex(l.from); const emph=(hi===l.from||hi===l.to);
     // control points: bow the curve outward horizontally
     const dx=Math.max(40,Math.abs(tx-sx)*0.5), dir=tx>=sx?1:-1;
@@ -841,7 +895,9 @@ function renderLevelStats(){ const el=$('levelStats'); if(!el) return; el.innerH
       txt=`${lvl.children.length} children · ${pct}% covered`;
     } else if(concrete && isLeafLabel(concrete)){ txt='leaf label — no children needed'; }
     else { txt=`${lvl.children.length} children`; }
-    const iss=boxIssues(lvl); if(iss.length){ warn=true; txt+='  ·  ⚠ '+iss.join('; '); }
+    // show the level's own issues here ONLY if it isn't the selected box
+    // (else labelStatus already shows them → avoid the duplicate).
+    if(lvl.id!==selId){ const iss=boxIssues(lvl); if(iss.length){ warn=true; txt+='  ·  ⚠ '+iss.join('; '); } }
   }
   el.appendChild(document.createTextNode(txt));
   if(gaps.length){ const g=document.createElement('span'); g.className='gaplink';
@@ -935,11 +991,14 @@ function drawRange(s,e,color,opts){ opts=opts||{};
     const d=document.createElement('div'); d.className='hl';
     d.style.left=run.x0+'px'; d.style.top=run.y0+'px';
     d.style.width=(run.x1-run.x0)+'px'; d.style.height=(run.y1-run.y0)+'px';
-    if(opts.outline){ d.style.background='rgba(120,120,120,0.09)'; }
-    else if(opts.dep){ d.style.background=color+'2e'; }
-    else { d.style.background=color+'3d'; }
     const rings=[];
-    if(WIREFRAME){ rings.push(opts.outline ? 'inset 0 0 0 1px rgba(120,120,120,0.75)' : 'inset 0 0 0 1px '+color+'cc'); }
+    if(opts.outline){ d.style.background='rgba(110,110,110,0.28)'; }  // current level: darker grey fill
+    else if(opts.dep){ // link dependent (the arrow TIP target): dashed/striped fill
+      // so it reads as "revealed here, not really part of this box".
+      d.style.backgroundImage=`repeating-linear-gradient(45deg, ${color}66 0 5px, ${color}1a 5px 10px)`;
+      rings.push('inset 0 0 0 1px '+color+'88'); }
+    else { d.style.background=color+'55'; }
+    if(WIREFRAME){ rings.push(opts.outline ? 'inset 0 0 0 1px rgba(90,90,90,0.7)' : 'inset 0 0 0 1px '+color+'cc'); }
     if(opts.sel) rings.push('inset 0 0 0 2px '+SEL_OUTLINE+'cc');
     if(rings.length) d.style.boxShadow=rings.join(', ');
     pg.hl.appendChild(d); }
@@ -996,6 +1055,16 @@ function treeRow(node,isRoot){
     selId=node.id; render(); if(pieces(node).length) scrollToChar(pieces(node)[0].start);
     if(node.lean&&!node.lean.none) jumpToLean(node); };
   row.ondblclick=()=>{ enterLevel(node.id); };
+  // drag-to-reparent (like a file tree): drag a row onto another → becomes its child
+  if(!isRoot) row.draggable=true;
+  row.addEventListener('dragstart',(e)=>{ e.stopPropagation(); DRAG_ID=node.id; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',node.id);}catch(_){} });
+  row.addEventListener('dragend',()=>{ DRAG_ID=null; [...$('tree').querySelectorAll('.droptgt,.dropbad')].forEach((x)=>x.classList.remove('droptgt','dropbad')); });
+  row.addEventListener('dragover',(e)=>{ if(!DRAG_ID||DRAG_ID===node.id) return; e.preventDefault();
+    const ok=canMove(DRAG_ID,node.id).ok; e.dataTransfer.dropEffect=ok?'move':'none';
+    row.classList.toggle('droptgt',ok); row.classList.toggle('dropbad',!ok); });
+  row.addEventListener('dragleave',()=>{ row.classList.remove('droptgt','dropbad'); });
+  row.addEventListener('drop',(e)=>{ e.preventDefault(); e.stopPropagation(); row.classList.remove('droptgt','dropbad');
+    if(DRAG_ID&&DRAG_ID!==node.id) moveBox(DRAG_ID,node.id); DRAG_ID=null; });
   wrap.appendChild(row);
   // piece sub-rows (navigable) when >1 piece
   if(!isRoot && pieces(node).length>1 && !collapsed){
@@ -1075,10 +1144,21 @@ function updateLabelUI(){ const chip=$('labelChip'); if(!chip) return;
   else if(!slots){ chip.textContent='label parent first'; chip.classList.remove('set'); }
   else if(box.label&&box.label.length){ chip.textContent=labelTag(box); chip.classList.add('set'); chip.title=box.label.join(' → '); }
   else { chip.textContent='label…'; chip.classList.remove('set'); chip.title=''; }
+  // count field: shown only for labels that require a declared arity (inputs,
+  // conditions, relation, function-application).
+  const cw=$('countWrap'), ci=$('countInput');
+  if(cw){ const cslot=box&&box.label&&COUNTED_SLOT[labelConcrete(box.label)];
+    if(cslot){ cw.style.display=''; cw.title='declared number of '+cslot+'s';
+      if(document.activeElement!==ci) ci.value=(box.count!=null?box.count:''); }
+    else cw.style.display='none'; }
   // status-bar issue note for the selected box
   const ls=$('labelStatus'); if(ls){ const iss=box?boxIssues(box):[]; ls.textContent=iss.length?('⚠ '+iss.join('; ')):''; ls.classList.toggle('warn',!!iss.length); }
   if(labelPopOpen) buildLabelPop();            // keep an open popover in sync
 }
+// set/clear the selected box's declared count.
+function setCount(v){ const b=selId&&find(selId); if(!b) return;
+  if(v===''||v==null||isNaN(+v)) delete b.count; else b.count=Math.max(0,Math.floor(+v));
+  markDirty(); refreshAll(); }
 // ── label popover (overlay cascade) ──
 let labelPopOpen=false;
 function openLabelPop(){ const box=selId&&find(selId); if(!box) return; if(!topSlots(parentOf(box.id))) return;
@@ -1212,6 +1292,7 @@ async function init(){
   $('vOk').onclick=()=>setVerdict('ok'); $('vNotok').onclick=()=>setVerdict('notok'); $('vUndec').onclick=()=>setVerdict('undecidable');
   $('tabBoxes').onclick=()=>switchTab('boxes'); $('tabLean').onclick=()=>switchTab('lean'); $('tabErrors').onclick=()=>switchTab('errors');
   $('labelChip').onclick=(e)=>{ e.stopPropagation(); if(labelPopOpen) closeLabelPop(); else openLabelPop(); };
+  $('countInput').onchange=(e)=>setCount(e.target.value); $('countInput').oninput=(e)=>setCount(e.target.value);
   // close the label popover on any outside click (but not clicks within it)
   document.addEventListener('mousedown',(e)=>{ if(!labelPopOpen) return; const pop=$('labelPop'); if(pop&&!pop.contains(e.target)&&e.target!==$('labelChip')) closeLabelPop(); });
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
