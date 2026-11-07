@@ -49,6 +49,8 @@
     <div id="viewBoxes" class="tabview">
       <div class="labelbar">
         <button id="upLevel" class="minibtn" title="go up a level" style="display:none">↑ up</button>
+        <button id="jumpLevel" class="minibtn" title="scroll both panes to the current level">⦿ level</button>
+        <button id="folBtn" class="minibtn" title="show this box as a FOL formula + signature" style="display:none">∀ FOL</button>
         <span class="spacer"></span>
         <label id="varWrap" class="countwrap" style="display:none" title="variable (same variable = same identity within this definition/theorem)">var <select id="varInput" class="countsel"></select></label>
         <label id="countWrap" class="countwrap" style="display:none" title="declared number of arguments"># <select id="countInput" class="countsel"></select></label>
@@ -68,6 +70,7 @@
     <div class="pane-head">PDF &middot; <span class="dimlab">select text, then n / e / r · double-click a box to enter it</span>
       <span class="spacer"></span>
       <button id="wireBtn" class="minibtn" title="wireframe: outlines only">▢ wireframe</button>
+      <button id="jumpLevelPdf" class="minibtn" title="scroll to the current level">⦿ level</button>
       <button id="upLevelPdf" class="minibtn" title="go up a level" style="display:none">↑ up</button>
     </div>
     <div id="pdfScroll" class="pdf-scroll"><div id="pages" class="pages"></div></div>

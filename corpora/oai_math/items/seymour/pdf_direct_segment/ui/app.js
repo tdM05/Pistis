@@ -49,6 +49,7 @@ let DRAG_ID = null;        // id of the tree row currently being dragged (repare
 let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
 const COLLAPSED = {};
+const MOD_OPEN = {};   // box id -> modifier rows (pieces/links/lean) expanded?
 
 // ── LABELS & VALIDATION — logic lives in ../core.js, rules in ../schema.json ──
 // SCHEMA (ISA/HASA/CONDITIONS/COUNTED_SLOT/…) and the pure algorithms are shared
@@ -519,9 +520,33 @@ function junkPieces(){ const level=find(levelId)||ROOT;
     run&&out.push(run); run=null; }
   return out; }
 // enter a node: it becomes the current level (new boxes nest under it).
-function enterLevel(id){ levelId=id; refreshAll(); scheduleViewSave(); }
+// set the current level — ALWAYS focuses the tree to it (even re-selecting the
+// same level). focusLevel() collapses everything except the path + direct kids.
+function enterLevel(id){ levelId=id; focusLevel(); refreshAll(); scheduleViewSave(); }
 // go up to the current node's parent.
-function upLevel(){ if(levelId==='root')return; const p=parentOf(levelId); levelId=p?p.id:'root'; refreshAll(); scheduleViewSave(); }
+function upLevel(){ if(levelId==='root')return; const p=parentOf(levelId); levelId=p?p.id:'root'; focusLevel(); refreshAll(); scheduleViewSave(); }
+// scroll BOTH panes to the current level: its row in the Boxes tree, and its
+// first piece in the PDF. (No state change — just navigation.)
+function jumpToLevel(){ const pane=document.querySelector('.tree-pane');
+  if(levelId==='root'){ $('pdfScroll').scrollTo({top:0,behavior:'smooth'}); if(pane) pane.scrollTo({top:0,behavior:'smooth'}); return; }
+  const lvl=find(levelId); if(!lvl) return;
+  const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===levelId); if(r) r.scrollIntoView({block:'center',behavior:'smooth'});
+  if(pieces(lvl).length) scrollToChar(pieces(lvl)[0].start); }
+// FOCUS: collapse everything except the path to the current level + its direct
+// children. Shows ancestors (expanded, to reach it), the level (expanded, so its
+// kids show), the kids (collapsed, so their subtrees hide), and collapses all
+// other branches. Keeps the tree to just what matters at this level.
+function focusLevel(){
+  const path=new Set();                       // level + all ancestors (must stay expanded)
+  let x=find(levelId); while(x && x!==ROOT){ path.add(x.id); x=parentOf(x.id); }
+  walk(ROOT,(n)=>{ if(n===ROOT) return;
+    if(path.has(n.id)) COLLAPSED[n.id]=false;  // ancestors + the level: expanded
+    else COLLAPSED[n.id]=true;                 // everything else: collapsed
+  });
+  // (level's direct children are "everything else" → collapsed, so you see them
+  //  as leaves but not their subtrees. Exactly the requested view.)
+  // callers (enterLevel/upLevel) re-render; this only mutates COLLAPSED.
+}
 function extendBox(){
   const box=selId&&find(selId); if(!box){flash('select a box first');return;}
   if(JUNK_MODE){ const jp=junkPieces(); if(!jp.length){flash('no uncovered whitespace/punctuation here');return;}
@@ -732,6 +757,22 @@ function renderLevelStats(){ const el=$('levelStats'); if(!el) return; el.innerH
 function toggleWireframe(){ WIREFRAME=!WIREFRAME; const b=$('wireBtn'); if(b) b.classList.toggle('on',WIREFRAME); refreshAll(); }
 function toggleJunk(){ JUNK_MODE=!JUNK_MODE; const b=$('junkbox'); if(b) b.classList.toggle('armed',JUNK_MODE); updateSelUI();
   flash(JUNK_MODE?'junk mode ON — n = box all junk, e = add junk to selected':'junk mode off'); }
+// right-click popover: SHOW the id/text (and path) in auto-selected inputs so you
+// can just press Ctrl/Cmd+C — no clipboard API needed (works over SSH http).
+function showIdPopover(x,y,idText,pathText){ closeCtxMenu();
+  const m=document.createElement('div'); m.id='ctxmenu'; m.className='ctxmenu';
+  m.style.left=x+'px'; m.style.top=y+'px';
+  const mk=(lab,val,sel)=>{ const wrap=document.createElement('div'); wrap.className='ctxrow';
+    const l=document.createElement('div'); l.className='ctxlab'; l.textContent=lab; wrap.appendChild(l);
+    const inp=document.createElement('input'); inp.className='ctxinp'; inp.readOnly=true; inp.value=val;
+    inp.onclick=()=>inp.select(); wrap.appendChild(inp); if(sel) wrap._sel=inp; return wrap; };
+  const first=mk('id : text', idText, true); m.appendChild(first);
+  m.appendChild(mk('path', pathText));
+  document.body.appendChild(m);
+  const r=m.getBoundingClientRect(); if(r.right>innerWidth) m.style.left=(x-r.width)+'px'; if(r.bottom>innerHeight) m.style.top=(y-r.height)+'px';
+  if(first._sel){ first._sel.focus(); first._sel.select(); }   // ready for Ctrl/Cmd+C
+  setTimeout(()=>document.addEventListener('mousedown',(e)=>{ if(!m.contains(e.target)) closeCtxMenu(); },{once:true}),0); }
+function closeCtxMenu(){ const m=$('ctxmenu'); if(m) m.remove(); }
 // draw temporary flash rects of class `cls` over char ranges, auto-removed.
 function flashRuns(ranges,cls,ms){ document.querySelectorAll('.'+cls).forEach((e)=>e.remove());
   const MINW=6;   // whitespace/newline gaps are ~0px wide → floor so they're visible
@@ -899,6 +940,11 @@ function treeRow(node,isRoot){
     selId=node.id; render(); if(pieces(node).length) scrollToChar(pieces(node)[0].start);
     if(node.lean&&!node.lean.none) jumpToLean(node); };
   row.ondblclick=()=>{ enterLevel(node.id); };
+  // right-click → context menu: copy id / id+text / path (to point at a box in chat)
+  if(!isRoot) row.oncontextmenu=(e)=>{ e.preventDefault(); e.stopPropagation();
+    const txt=pieces(node).length?CHARS.slice(pieces(node)[0].start,pieces(node)[0].end).replace(/\s+/g,' ').trim():(node.implicit?'(implicit)':'(no span)');
+    const pathIds=[]; let x=node; while(x && x!==ROOT){ pathIds.unshift(x.id); x=parentOf(x.id); }
+    showIdPopover(e.clientX,e.clientY,`${node.id}: "${txt}"`, pathIds.join(' › ')); };
   // drag-to-reparent (like a file tree): drag a row onto another → becomes its child
   if(!isRoot) row.draggable=true;
   row.addEventListener('dragstart',(e)=>{ e.stopPropagation(); DRAG_ID=node.id; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',node.id);}catch(_){} });
@@ -910,44 +956,58 @@ function treeRow(node,isRoot){
   row.addEventListener('drop',(e)=>{ e.preventDefault(); e.stopPropagation(); row.classList.remove('droptgt','dropbad');
     if(DRAG_ID&&DRAG_ID!==node.id) moveBox(DRAG_ID,node.id); DRAG_ID=null; });
   wrap.appendChild(row);
-  // piece sub-rows (navigable) when >1 piece
-  if(!isRoot && pieces(node).length>1 && !collapsed){
-    const pb=document.createElement('div'); pb.className='modrows';
-    pieces(node).forEach((p,pi)=>{ const pr=document.createElement('div'); pr.className='row piecerow';
-      const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='◦';pr.appendChild(pad);
-      // pieces use a hollow diamond marker (not a filled box swatch) to read as
-      // "a fragment of this box", visually distinct from a real child box.
-      const dot=document.createElement('span');dot.className='pcmark';dot.style.color=boxColor(node.id);dot.textContent='◇';pr.appendChild(dot);
-      const t=document.createElement('span');t.className='rname';t.textContent=`piece ${pi+1}: ${CHARS.slice(p.start,p.end).replace(/\s+/g,' ').trim().slice(0,20)||'(span)'}`;pr.appendChild(t);
-      const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='remove this piece';del.onclick=(e)=>{e.stopPropagation();removePiece(node.id,pi);};pr.appendChild(del);
-      pr.onclick=()=>{selId=node.id;render();scrollToChar(p.start);flashPiece(p);}; pb.appendChild(pr); });
-    wrap.appendChild(pb);
+  // MODIFIER ROWS (pieces / links / lean spans) — collapsed by default behind a
+  // one-line summary chip "◇p ➜o ⬅i λs"; click the chip to expand the details.
+  if(!isRoot && !collapsed){
+    const multiPieces = pieces(node).length>1;
+    const ls=[...linksFrom(node.id).map((l)=>({l,dir:'out',other:l.to})),
+              ...linksTo(node.id).map((l)=>({l,dir:'in',other:l.from}))];
+    const outN=linksFrom(node.id).length, inN=linksTo(node.id).length;
+    const sp=leanSpans(node);
+    const parts=[];
+    if(multiPieces) parts.push(['◇',pieces(node).length]);
+    if(outN) parts.push(['➜',outN]); if(inN) parts.push(['⬅',inN]);
+    if(sp.length) parts.push(['λ',sp.length]);
+    if(parts.length){
+      const open=!!MOD_OPEN[node.id];
+      const sum=document.createElement('div'); sum.className='modrows modsum';
+      const tw=document.createElement('span'); tw.className='twist'; tw.textContent=open?'▾':'▸'; sum.appendChild(tw);
+      const lab=document.createElement('span'); lab.className='modsumlab'; lab.textContent=parts.map(([g,n])=>g+n).join('  '); sum.appendChild(lab);
+      sum.onclick=(e)=>{ e.stopPropagation(); MOD_OPEN[node.id]=!open; renderTree(); };
+      wrap.appendChild(sum);
+      if(open){
+        // pieces
+        if(multiPieces){ const pb=document.createElement('div'); pb.className='modrows modsub';
+          pieces(node).forEach((p,pi)=>{ const pr=document.createElement('div'); pr.className='row piecerow';
+            const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='◦';pr.appendChild(pad);
+            const dot=document.createElement('span');dot.className='pcmark';dot.style.color=boxColor(node.id);dot.textContent='◇';pr.appendChild(dot);
+            const t=document.createElement('span');t.className='rname';t.textContent=`piece ${pi+1}: ${CHARS.slice(p.start,p.end).replace(/\s+/g,' ').trim().slice(0,20)||'(span)'}`;pr.appendChild(t);
+            const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='remove this piece';del.onclick=(e)=>{e.stopPropagation();removePiece(node.id,pi);};pr.appendChild(del);
+            pr.onclick=()=>{selId=node.id;render();scrollToChar(p.start);flashPiece(p);}; pb.appendChild(pr); });
+          wrap.appendChild(pb); }
+        // links
+        if(ls.length){ const lbx=document.createElement('div'); lbx.className='modrows modsub';
+          ls.forEach(({l,dir,other})=>{ const lr=document.createElement('div'); lr.className='row linkrow'+(dir==='in'?' incoming':'');
+            const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='·';lr.appendChild(pad);
+            const dot=document.createElement('span');dot.className='pcmark';dot.style.color=boxColor(l.from);dot.textContent=dir==='out'?'➜':'⬅';lr.appendChild(dot);
+            const t=document.createElement('span');t.className='rname';t.textContent=(dir==='out'?'to ':'from ')+label(find(other));lr.appendChild(t);
+            const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='delete link';del.onclick=(e)=>{e.stopPropagation();removeLink(l.from,l.to);refreshAll();};lr.appendChild(del);
+            lr.onclick=()=>{ selId=other; render(); const o=find(other); if(o&&pieces(o).length)scrollToChar(pieces(o)[0].start); }; lbx.appendChild(lr); });
+          wrap.appendChild(lbx); }
+        // lean spans
+        if(sp.length){ const lbx=document.createElement('div'); lbx.className='modrows modsub';
+          sp.forEach((p,si)=>{ const lr=document.createElement('div'); lr.className='row leanrow';
+            const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='·';lr.appendChild(pad);
+            const dot=document.createElement('span');dot.className='pcmark';dot.style.color='#2c7a4b';dot.textContent='λ';lr.appendChild(dot);
+            const t=document.createElement('span');t.className='rname';t.textContent=p.file.replace(/^lean\//,'')+` [${p.start}–${p.end}]`;lr.appendChild(t);
+            const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='remove this Lean span';del.onclick=(e)=>{e.stopPropagation();removeLeanSpan(node.id,si);};lr.appendChild(del);
+            lr.onclick=async()=>{ selId=node.id; render(); await showLeanFile(p.file); paintLeanHighlights();
+              const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=p.start); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); };
+            lbx.appendChild(lr); });
+          wrap.appendChild(lbx); }
+      }
+    }
   }
-  // link sub-rows: outgoing (➜ target) then incoming (⬅ source), each jumps to
-  // the other node and can be deleted. Shown when the node is not collapsed.
-  if(!isRoot && !collapsed){ const ls=[...linksFrom(node.id).map((l)=>({l,dir:'out',other:l.to})),
-                                        ...linksTo(node.id).map((l)=>({l,dir:'in',other:l.from}))];
-    if(ls.length){ const lbx=document.createElement('div'); lbx.className='modrows';
-      ls.forEach(({l,dir,other})=>{ const lr=document.createElement('div'); lr.className='row linkrow'+(dir==='in'?' incoming':'');
-        const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='·';lr.appendChild(pad);
-        const dot=document.createElement('span');dot.className='pcmark';dot.style.color=boxColor(l.from);dot.textContent=dir==='out'?'➜':'⬅';lr.appendChild(dot);
-        const t=document.createElement('span');t.className='rname';t.textContent=(dir==='out'?'to ':'from ')+label(find(other));lr.appendChild(t);
-        const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='delete link';del.onclick=(e)=>{e.stopPropagation();removeLink(l.from,l.to);refreshAll();};lr.appendChild(del);
-        lr.onclick=()=>{ selId=other; render(); const o=find(other); if(o&&pieces(o).length)scrollToChar(pieces(o)[0].start); }; lbx.appendChild(lr); });
-      wrap.appendChild(lbx); } }
-  // Lean span sub-rows: one per mapped span (λ marker), click jumps the Lean
-  // pane to it, ✕ removes just that span. Shown when the node is not collapsed.
-  if(!isRoot && !collapsed){ const sp=leanSpans(node);
-    if(sp.length){ const lbx=document.createElement('div'); lbx.className='modrows';
-      sp.forEach((p,si)=>{ const lr=document.createElement('div'); lr.className='row leanrow';
-        const pad=document.createElement('span');pad.className='twist leaf';pad.textContent='·';lr.appendChild(pad);
-        const dot=document.createElement('span');dot.className='pcmark';dot.style.color='#2c7a4b';dot.textContent='λ';lr.appendChild(dot);
-        const t=document.createElement('span');t.className='rname';t.textContent=p.file.replace(/^lean\//,'')+` [${p.start}–${p.end}]`;lr.appendChild(t);
-        const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='remove this Lean span';del.onclick=(e)=>{e.stopPropagation();removeLeanSpan(node.id,si);};lr.appendChild(del);
-        lr.onclick=async()=>{ selId=node.id; render(); await showLeanFile(p.file); paintLeanHighlights();
-          const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=p.start); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); };
-        lbx.appendChild(lr); });
-      wrap.appendChild(lbx); } }
   if(kids && !collapsed){const box=document.createElement('div');box.className='children';node.children.forEach((c)=>box.appendChild(treeRow(c,false)));wrap.appendChild(box);}
   return wrap;
 }
@@ -1007,10 +1067,30 @@ function updateLabelUI(){ const chip=$('labelChip'); if(!chip) return;
       vi.innerHTML='<option value="">var…</option>'+opts.map((o)=>`<option value="${o}"${o===cur?' selected':''}>${sub(o)}</option>`).join('');
       vi.value=cur; }
     else vw.style.display='none'; }
+  // FOL button: shown for a labelled formula / term / definition / theorem box
+  const fb=$('folBtn');
+  if(fb){ const c=box&&labelConcrete(box.label);
+    const folable = c && (c==='definition'||c==='theorem'||isFormulaish(box)||canonPath(c).includes('term'));
+    fb.style.display = folable ? '' : 'none'; }
   // status-bar issue note for the selected box
   const ls=$('labelStatus'); if(ls){ const iss=box?boxIssues(box):[]; ls.textContent=iss.length?('⚠ '+iss.join('; ')):''; ls.classList.toggle('warn',!!iss.length); }
   if(labelPopOpen) buildLabelPop();            // keep an open popover in sync
 }
+// is a box renderable to a formula (used for the FOL button). mirrors core.
+function isFormulaish(box){ const c=labelConcrete(box&&box.label); return c && (c==='formula'||c==='body'||canonPath(c).includes('formula')); }
+// show the FOL rendering of the selected box in a popover.
+function showFol(){ const box=selId&&find(selId); if(!box) return;
+  const symText=(x)=>{ const ps=pieces(x); if(!ps.length) return '∅'; return CHARS.slice(ps[0].start,ps[0].end).replace(/\s+/g,' ').trim().replace(/ /g,'_'); };
+  const {str,sig}=CORE.toFOL(ROOT,box,symText);
+  const fmt=(o)=>Object.entries(o).map(([k,n])=>`${k}/${n}`).join(', ')||'—';
+  const pop=$('labelPop'); pop.innerHTML=''; pop.style.display='';
+  const b=$('folBtn').getBoundingClientRect(); pop.style.top=(b.bottom+4)+'px'; pop.style.left='auto'; pop.style.right=(innerWidth-b.right)+'px'; pop.style.maxWidth='520px';
+  const H=(t,cls)=>{ const d=document.createElement('div'); d.className=cls; d.textContent=t; pop.appendChild(d); };
+  H('FOL','follabel'); const f=document.createElement('div'); f.className='folformula'; f.textContent=str; pop.appendChild(f);
+  H('signature','follabel');
+  H('relations: '+fmt(sig.rel),'folsig'); H('functions: '+fmt(sig.fn),'folsig'); H('constants: '+fmt(sig.con),'folsig'); H('variables: '+([...sig.vars].join(', ')||'—'),'folsig');
+  labelPopOpen=false;   // reuse the labelPop element but it's not the cascade
+  setTimeout(()=>document.addEventListener('mousedown',(e)=>{ if(!pop.contains(e.target)&&e.target!==$('folBtn')) pop.style.display='none'; },{once:true}),0); }
 // set/clear the selected box's declared count.
 function setCount(v){ const b=selId&&find(selId); if(!b) return;
   if(v===''||v==null||isNaN(+v)) delete b.count; else b.count=Math.max(0,Math.floor(+v));
@@ -1161,6 +1241,8 @@ async function init(){
   // close the label popover on any outside click (but not clicks within it)
   document.addEventListener('mousedown',(e)=>{ if(!labelPopOpen) return; const pop=$('labelPop'); if(pop&&!pop.contains(e.target)&&e.target!==$('labelChip')) closeLabelPop(); });
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
+  $('jumpLevel').onclick=jumpToLevel; $('jumpLevelPdf').onclick=jumpToLevel;
+  $('folBtn').onclick=(e)=>{ e.stopPropagation(); const p=$('labelPop'); if(p.style.display!=='none'&&p.querySelector('.folformula')) p.style.display='none'; else showFol(); };
   $('wireBtn').onclick=toggleWireframe;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
   $('mkimplicit').onclick=makeImplicitBox;

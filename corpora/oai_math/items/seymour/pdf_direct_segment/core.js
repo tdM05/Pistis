@@ -133,6 +133,73 @@ export function makeCore(schema) {
   // next fresh v{N} not used in the scope
   const freshVarName = (root, scope) => { const used = varsInScope(root, scope); let i = 0; while (used['v' + i]) i++; return 'v' + i; };
 
+  // ── FOL rendering (Bilaniuk Def 5.2/5.3, extended with ∧∨∃↔ abbreviations) ──
+  // Render a box to a FOL string. `symText(box)` returns a symbol box's printed
+  // name (highlighted span text, slugified) — supplied by the caller since core
+  // has no text source. Collects the signature (relations/functions/constants
+  // with arities) and free variables into `sig` as a side effect.
+  const INFIX = { conjunction: '∧', disjunction: '∨', implication: '→' };
+  function toFOL(root, box, symText, sig) {
+    sig = sig || { rel: {}, fn: {}, con: {}, vars: new Set() };
+    const rec = (b) => {
+      const kids = (b.children || []).filter((c) => labelConcrete(c.label) !== 'commentary');
+      const c = labelConcrete(b.label);
+      const sym = () => { let s = symText(b); if (b.implicit) s = '∅'; return s; };
+      switch (c) {
+        case 'variable': case 'variable-symbol': { const v = b.var || '?'; sig.vars.add(v); return v; }
+        case 'constant': { const s = sym(); sig.con[s] = 0; return s; }
+        case 'external-citation': case 'implicit-external-reference': { const s = sym(); sig.con[s] = 0; return s; }
+        case 'function-application': {
+          const fsym = kids.find((k) => labelConcrete(k.label) === 'function-symbol');
+          const terms = kids.filter((k) => k !== fsym);
+          const f = fsym ? (fsym.implicit ? '∅' : symText(fsym)) : '∅'; sig.fn[f] = terms.length;
+          return `${f}(${terms.map(rec).join(', ')})`;
+        }
+        case 'relation': {
+          const rsym = kids.find((k) => labelConcrete(k.label) === 'relation-symbol');
+          const terms = kids.filter((k) => k !== rsym);
+          const r = rsym ? (rsym.implicit ? '∅' : symText(rsym)) : '∅'; sig.rel[r] = terms.length;
+          return `${r}(${terms.map(rec).join(', ')})`;
+        }
+        case 'equality': { const terms = kids.filter((k) => labelConcrete(k.label) !== 'equality-symbol'); return `${rec(terms[0])} = ${rec(terms[1])}`; }
+        case 'negation': { const f = kids.find((k) => labelSubtypes(labelConcrete(k.label) || '', 'formula') || isFormulaish(k)); return `¬${rec(f)}`; }
+        case 'conjunction': case 'disjunction': case 'implication': {
+          const fs = kids.filter((k) => isFormulaish(k)); return `(${fs.map(rec).join(` ${INFIX[c]} `)})`;
+        }
+        case 'universal': case 'existential': {
+          const q = c === 'universal' ? '∀' : '∃';
+          const vb = kids.find((k) => isVariable(k)); const body = kids.find((k) => isFormulaish(k));
+          const v = vb ? (vb.var || '?') : '?'; sig.vars.add(v);
+          return `${q}${v} ${rec(body)}`;
+        }
+        case 'body': case 'formula': case 'atomic-formula': case 'compound-formula': case 'quantified': case 'connective': case 'atomic-term': case 'composite-term': case 'term': {
+          // abstract wrapper: should have exactly one concrete child to render
+          const only = kids[0]; return only ? rec(only) : '?';
+        }
+        case 'definition': {
+          const head = (k) => k.label && k.label[0];   // name/inputs/conditions/body are top-label slots
+          const name = kids.find((k) => head(k) === 'name');
+          const inputs = kids.find((k) => head(k) === 'inputs');
+          const conds = kids.find((k) => head(k) === 'conditions');
+          const bodyB = kids.find((k) => head(k) === 'body');
+          const nm = name ? symText(name) : '∅';
+          const ivars = inputs ? (inputs.children || []).filter(isVariable).map((v) => { sig.vars.add(v.var); return v.var; }) : [];
+          sig.rel[nm] = ivars.length;   // the definiendum = a new relation symbol
+          const lhs = `${nm}(${ivars.join(', ')})`;
+          const rhs = bodyB ? rec(bodyB) : '?';
+          const condStr = conds ? (conds.children || []).filter((k) => isFormulaish(k)).map(rec).join(' ∧ ') : '';
+          const bicond = `${lhs} ↔ ${rhs}`;
+          const body2 = condStr ? `(${condStr}) → (${bicond})` : bicond;
+          return ivars.length ? `∀${ivars.join('∀')} ${body2}` : body2;
+        }
+        default: { const only = kids[0]; return only ? rec(only) : (sym() || '?'); }
+      }
+    };
+    const str = rec(box);
+    return { str, sig };
+  }
+  const isFormulaish = (b) => { const c = labelConcrete(b.label); return c && (c === 'formula' || canonPath(c).includes('formula') || c === 'body'); };
+
   return {
     schema, ISA, HASA, ROOT_SLOTS, LABEL_SHORT, DERIVED_SYM, CONDITIONS, COUNTED_SLOT, ISA_PARENT,
     walk, find, parentOf, pieces, regionLen,
@@ -140,6 +207,6 @@ export function makeCore(schema) {
     labelSubtypes, childCountsAs, pathsUnder, hasaSlotsOf, allowedLabelPaths,
     lblShort, derivedSymbol, labelTag,
     mergeIntervals, coverageOf, boxIssues, allIssues,
-    scopeOf, isVariable, varsInScope, freshVarName,
+    scopeOf, isVariable, varsInScope, freshVarName, toFOL,
   };
 }

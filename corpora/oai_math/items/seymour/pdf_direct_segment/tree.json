@@ -164,10 +164,6 @@
                       "end": 15923
                     },
                     {
-                      "start": 15925,
-                      "end": 15933
-                    },
-                    {
                       "start": 15947,
                       "end": 15956
                     }
@@ -336,71 +332,6 @@
                       ]
                     },
                     {
-                      "id": "b64",
-                      "pieces": [
-                        {
-                          "start": 15925,
-                          "end": 15933
-                        },
-                        {
-                          "start": 15947,
-                          "end": 15948
-                        }
-                      ],
-                      "children": [
-                        {
-                          "id": "b68",
-                          "pieces": [
-                            {
-                              "start": 15925,
-                              "end": 15927
-                            }
-                          ],
-                          "children": [],
-                          "label": [
-                            "commentary"
-                          ]
-                        },
-                        {
-                          "id": "b66",
-                          "pieces": [
-                            {
-                              "start": 15927,
-                              "end": 15933
-                            }
-                          ],
-                          "children": [],
-                          "label": [
-                            "symbol",
-                            "non-logical",
-                            "relation-symbol"
-                          ]
-                        },
-                        {
-                          "id": "b67",
-                          "pieces": [
-                            {
-                              "start": 15947,
-                              "end": 15948
-                            }
-                          ],
-                          "children": [],
-                          "label": [
-                            "term",
-                            "atomic-term",
-                            "variable"
-                          ],
-                          "var": "v2"
-                        }
-                      ],
-                      "label": [
-                        "formula",
-                        "atomic-formula",
-                        "relation"
-                      ],
-                      "count": 1
-                    },
-                    {
                       "id": "b65",
                       "pieces": [
                         {
@@ -550,7 +481,7 @@
                   "label": [
                     "conditions"
                   ],
-                  "count": 3
+                  "count": 2
                 },
                 {
                   "id": "b58",
@@ -558,6 +489,10 @@
                     {
                       "start": 15919,
                       "end": 15923
+                    },
+                    {
+                      "start": 15927,
+                      "end": 15933
                     },
                     {
                       "start": 15947,
@@ -611,6 +546,22 @@
                       "var": "v1"
                     },
                     {
+                      "id": "b143",
+                      "pieces": [
+                        {
+                          "start": 15927,
+                          "end": 15933
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "term",
+                        "atomic-term",
+                        "variable"
+                      ],
+                      "var": "v3"
+                    },
+                    {
                       "id": "b119",
                       "pieces": [
                         {
@@ -630,14 +581,14 @@
                   "label": [
                     "inputs"
                   ],
-                  "count": 3
+                  "count": 4
                 },
                 {
                   "id": "b60",
                   "pieces": [
                     {
-                      "start": 15934,
-                      "end": 15946
+                      "start": 15925,
+                      "end": 15948
                     }
                   ],
                   "children": [],
@@ -685,23 +636,11 @@
                       ],
                       "children": [
                         {
-                          "id": "b91",
-                          "pieces": [],
-                          "implicit": true,
-                          "children": [],
-                          "label": [
-                            "term",
-                            "atomic-term",
-                            "variable"
-                          ],
-                          "var": "v4"
-                        },
-                        {
-                          "id": "b94",
+                          "id": "b141",
                           "pieces": [
                             {
                               "start": 15964,
-                              "end": 15976
+                              "end": 15970
                             }
                           ],
                           "children": [],
@@ -710,6 +649,22 @@
                             "non-logical",
                             "relation-symbol"
                           ]
+                        },
+                        {
+                          "id": "b142",
+                          "pieces": [
+                            {
+                              "start": 15970,
+                              "end": 15976
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "term",
+                            "atomic-term",
+                            "variable"
+                          ],
+                          "var": "v3"
                         }
                       ],
                       "label": [
@@ -764,7 +719,7 @@
                             "logical",
                             "variable-symbol"
                           ],
-                          "var": "v3"
+                          "var": "v5"
                         },
                         {
                           "id": "b126",
@@ -825,7 +780,7 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v3"
+                                      "var": "v5"
                                     },
                                     {
                                       "id": "b134",
@@ -869,7 +824,7 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v3"
+                                      "var": "v5"
                                     },
                                     {
                                       "id": "b135",
@@ -937,7 +892,7 @@
                                     "atomic-term",
                                     "variable"
                                   ],
-                                  "var": "v3"
+                                  "var": "v5"
                                 },
                                 {
                                   "id": "b137",
@@ -1381,10 +1336,6 @@
     {
       "from": "b16",
       "to": "b14"
-    },
-    {
-      "from": "b91",
-      "to": "b67"
     }
   ]
 }

@@ -43,6 +43,10 @@ body.resizing{cursor:col-resize;user-select:none;}
 .labelsel{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:3px 5px;background:#fff;color:var(--ink);min-width:200px;}
 .labelsel:disabled{opacity:.5;}
 .labelsel.autolvl{opacity:.55;background:#f0f0f3;font-style:italic;}  /* forced/auto level */
+/* FOL view popover contents */
+.follabel{font:10px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-top:4px;}
+.folformula{font:13px/1.6 var(--mono);color:#1a1a1a;background:#f7f8fa;border:1px solid var(--line);border-radius:6px;padding:8px;white-space:pre-wrap;word-break:break-word;user-select:text;}
+.folsig{font:11px var(--mono);color:#444;}
 .issuemark{flex:none;font-size:11px;color:#e08600;cursor:help;padding:0 2px;}
 /* Errors tab: issues grouped by type, collapsible groups */
 .errlist{padding:4px 0 40px;}
@@ -59,6 +63,12 @@ body.resizing{cursor:col-resize;user-select:none;}
 /* small label chip on a tree row */
 .labeltag{flex:none;font-size:9.5px;font-weight:600;color:#3858a8;background:#e4ecff;border:1px solid #cdddff;border-radius:3px;padding:0 4px;letter-spacing:.01em;}
 .vartag{flex:none;cursor:pointer;font:10px var(--mono);font-weight:700;color:#7a4fd0;background:#f1ebff;border:1px solid #ddd0f5;border-radius:3px;padding:0 4px;}
+/* right-click id popover (select + Ctrl/Cmd+C) */
+.ctxmenu{position:fixed;z-index:100;background:#fff;border:1px solid var(--line);border-radius:7px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:8px;min-width:240px;display:flex;flex-direction:column;gap:6px;}
+.ctxrow{display:flex;flex-direction:column;gap:2px;}
+.ctxlab{font:10px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);}
+.ctxinp{font:12px var(--mono);border:1px solid var(--line);border-radius:5px;padding:3px 6px;width:100%;background:#f7f8fa;}
+.ctxinp:focus{outline:2px solid var(--accent);background:#fff;}
 /* auto-derived symbol identity: locked chip + ? reason */
 .symtag{flex:none;font:10px var(--mono);font-weight:700;color:#555;background:#eee;border:1px solid #d5d5d5;border-radius:3px;padding:0 4px;}
 .symq{flex:none;font-size:9px;color:#999;cursor:help;}
@@ -96,6 +106,12 @@ body.resizing{cursor:col-resize;user-select:none;}
    Pushed further right with a dashed, muted edge so they read as attachments. */
 .modrows{margin-left:30px;border-left:1px dashed #d0d0d8;}
 .modrows .row{padding-top:2px;padding-bottom:2px;}
+/* collapsed modifier summary chip (pieces/links/lean counts) */
+.modsum{display:flex;align-items:center;gap:4px;padding:1px 0 1px 4px;cursor:pointer;font:10px var(--mono);color:#888;}
+.modsum:hover{background:#eef1f5;}
+.modsum .twist{width:12px;flex:none;}
+.modsumlab{letter-spacing:.02em;}
+.modsub{margin-left:42px;}  /* expanded detail rows: indented under the summary chip */
 
 /* pdf */
 .pdf-scroll{flex:1;overflow:auto;position:relative;background:#525659;}
