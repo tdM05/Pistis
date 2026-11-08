@@ -2,18 +2,26 @@
   "_doc": "Symbol dictionary + decl associations for FOL↔Lean alignment (tools/align.js). 'decls' maps a FOL definition/theorem box id to the Lean declaration it formalizes (name + source file, relative to the oai_math Lean project). 'symbols' maps a FOL symbol NAME (authored sym, else span slug) to its Lean meaning: {lean} is the Lean const/op; sort:true = a typing/sort predicate (carried by a Lean binder TYPE, not the proposition); lean:'not-mem' = negated membership (∉); lean:'apply' = higher-order application where the first FOL arg is the function (matrix applied to indices). name:true = the definiendum.",
 
   "decls": {
-    "b14": { "decl": "OAI.SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel.SupportedOn", "src": "items/seymour/pdf_direct_segment/lean/MaxSupportKernel.lean" }
+    "b14": {
+      "decl": "OAI.SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel.SupportedOn",
+      "src": "items/seymour/pdf_direct_segment/lean/MaxSupportKernel.lean"
+    }
   },
 
   "symbols": {
     "a_matrix_supported_on_T": { "lean": "SupportedOn", "name": true },
     "finite_index_set":        { "lean": "Fintype", "sort": true },
-    "real":                    { "lean": "ℝ", "sort": true },
-    "entries":                 { "lean": "index-pair", "sort": true },
+    "real":                    { "lean": "Real", "sort": true },
+    "entries":                 { "lean": "Prod", "sort": true },
     "⊆":                       { "lean": "Set", "sort": true },
     "outside":                 { "lean": "not-mem" },
     "×":                       { "lean": "Prod" },
     "zero":                    { "lean": "0" },
     "val_at_entry":            { "lean": "apply" }
+  },
+
+  "_doc_tuples": "FOL variables that denote a TUPLE, so one ∀ over them corresponds to several Lean binders (e.g. v5 ≡ (s,j), a 2-tuple). Value = arity. Declared, not guessed — absent ⇒ one ∀ must match exactly one Lean binder, else flagged.",
+  "tuples": {
+    "v5": 2
   }
 }

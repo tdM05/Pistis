@@ -69,7 +69,7 @@ if (alignIdx >= 0) {
   pr(res.alignment, 0);
   console.log('\n── findings ──');
   if (!res.findings.length) console.log('✓ fully aligned — no structural discrepancies');
-  else res.findings.forEach((f) => console.log(`  ${MK[f.status]} ${f.fol || '-'} ↔ ${f.lean || '-'}: ${f.note}`));
+  else res.findings.forEach((f) => console.log(`  ✗ ${f.path ? f.path + '\n      ' : ''}${f.message}${f.leanLoc ? '\n      @ ' + f.leanLoc : ''}`));
   process.exit(0);
 }
 

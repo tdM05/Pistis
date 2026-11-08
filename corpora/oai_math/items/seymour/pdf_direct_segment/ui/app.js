@@ -935,6 +935,10 @@ function treeRow(node,isRoot){
     st.onclick=(e)=>{ e.stopPropagation(); flashCoref(node); }; row.appendChild(st); }
   // loose-end marker: ⚠ if this box violates a structural condition (soft flag)
   if(!isRoot){ const iss=boxIssues(node); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
+  // Lean-alignment badge from the last ⟳ align run (✓ match / ⊤ typed / ● leaf / ✗ mismatch)
+  if(!isRoot && ALIGN_STATUS[node.id]){ const a=ALIGN_STATUS[node.id];
+    const w=document.createElement('span'); w.className='alignbadge st-'+a.status; w.textContent=ALIGN_MK[a.status]||'?';
+    w.title='Lean align: '+a.status+(a.lean?' ↔ '+a.lean:'')+(a.note?' — '+a.note:''); row.appendChild(w); }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
   if(!isRoot){ const out=linksFrom(node.id).length, inc=linksTo(node.id).length;
     if(out||inc){ const lb=document.createElement('span'); lb.className='linkbadge';
@@ -1272,7 +1276,12 @@ function renderFol(){ const host=$('folView'); if(!host) return;
 /* ───────── Lean alignment (⟳ align Lean) ───────── */
 // fetch the alignment of the current FOL-tab box against its Lean decl and render
 // it into #folView. The first call may take a while (Lean elaboration); cached after.
-const ALIGN_MK={match:'✓',leaf:'●',mismatch:'✗',unmapped:'⦸',typed:'⊤'};
+const ALIGN_MK={match:'✓',leaf:'●',mismatch:'✗',unmapped:'⦸',typed:'⊤',skipped:'·'};
+// box id → {status, lean, note} from the last alignment run; drives tree badges.
+let ALIGN_STATUS={};
+function stampAlign(n){ if(n&&n.fol) ALIGN_STATUS[n.fol]={status:n.status,lean:n.lean,note:n.note};
+  (n&&n.children||[]).forEach(stampAlign); }
+function clearAlignStatus(){ ALIGN_STATUS={}; renderTree(); }
 async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'?find(tid):null;
   const host=$('folView'); if(!host||!box) { flash('enter a definition/theorem level first'); return; }
   host.innerHTML=''; const wait=document.createElement('div'); wait.className='folnone';
@@ -1285,28 +1294,86 @@ async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'
   if(!res||!res.ok){ const e=document.createElement('div'); e.className='folerr';
     e.textContent='⚠ align: '+(res&&res.reason||'failed'); host.appendChild(e);
     const back=document.createElement('div'); back.className='er'; back.textContent='← back to FOL'; back.style.cursor='pointer'; back.onclick=renderFol; host.appendChild(back); return; }
-  H('aligned to '+res.leanDecl.split('.').pop());
-  if(res.leanInputs&&res.leanInputs.length){ const di=document.createElement('div'); di.className='folsig';
-    di.textContent='lean inputs: '+res.leanInputs.map((i)=>i.binder+(i.info==='implicit'?'{}':'')).join(' '); host.appendChild(di); }
-  // the alignment tree
-  const treeBox=document.createElement('div'); treeBox.className='aligntree';
-  const row=(n,d)=>{ const r=document.createElement('div'); r.className='alignrow st-'+n.status; r.style.paddingLeft=(6+d*14)+'px';
-    const mk=document.createElement('span'); mk.className='alignmk'; mk.textContent=ALIGN_MK[n.status]||'?'; r.appendChild(mk);
-    const txt=document.createElement('span'); txt.className='aligntxt';
-    const folPart=n.fol?('fol:'+n.fol):'—'; const leanPart=n.lean?('lean:'+n.lean):'—';
-    txt.textContent=folPart+'  ↔  '+leanPart+(n.note?'  '+n.note:''); r.appendChild(txt);
-    if(n.fol) r.onclick=()=>{ const b=find(n.fol); if(b){ selectBox(n.fol); if(pieces(b).length) scrollToChar(pieces(b)[0].start); } };
-    treeBox.appendChild(r);
-    (n.children||[]).forEach((c)=>row(c,d+1)); };
-  row(res.alignment,0); host.appendChild(treeBox);
-  // findings
-  H('findings');
-  if(!res.findings.length){ const ok=document.createElement('div'); ok.className='folnone'; ok.style.color='#1f9d55'; ok.textContent='✓ fully aligned — no structural discrepancies'; host.appendChild(ok); }
-  else res.findings.forEach((f)=>{ const r=document.createElement('div'); r.className='folerr'; r.style.margin='3px 0'; r.style.padding='5px 8px';
-    r.textContent=(ALIGN_MK[f.status]||'?')+' '+(f.fol||'-')+' ↔ '+(f.lean||'-')+': '+f.note;
-    if(f.fol) r.style.cursor='pointer', r.onclick=()=>selectBox(f.fol); host.appendChild(r); });
+  // stamp tree badges
+  stampAlign(res.alignment);
+  // CREATE THE MAP immediately: write the exact Lean spans onto the boxes so the
+  // Lean pane highlights them right away (this IS the point — not a report).
+  const applied=applyAlignSpans(res.spans||{}, true);
+  renderTree();
+
+  const okCount=res.findings.length===0;
+  // headline: did it map cleanly, or are there problems?
+  const head=document.createElement('div'); head.className=okCount?'folnone':'folerr';
+  head.style.cssText='font-weight:600;padding:8px;margin-bottom:6px;'+(okCount?'color:#1f9d55':'');
+  head.textContent=okCount
+    ? `✓ mapped to Lean ‘${res.leanDecl.split('.').pop()}’ — ${applied} pieces linked, no problems`
+    : `⚠ mapped ${applied} pieces to Lean ‘${res.leanDecl.split('.').pop()}’, but ${res.findings.length} problem${res.findings.length>1?'s':''} found:`;
+  host.appendChild(head);
+
+  // THE LEAN BEING COMPARED AGAINST: file+line, the verbatim source decl, and the
+  // elaborated/compiled term the aligner actually walks (what it sees, not the
+  // surface text). So a finding can be understood against what it was checked on.
+  { const d=document.createElement('div'); d.className='folcard'; d.style.cssText='border-left:3px solid #94a3b8;';
+    const loc=document.createElement('div'); loc.className='follabel'; loc.textContent='Lean '+(res.leanFile||'')+(res.leanLine?':'+res.leanLine:''); d.appendChild(loc);
+    if(res.leanSource){ const s=document.createElement('pre'); s.className='leansrc'; s.style.cssText='margin:4px 0;white-space:pre-wrap;font-size:12px;color:#334155;'; s.textContent=res.leanSource; d.appendChild(s); }
+    if(res.leanElaborated){ const el=document.createElement('div'); el.className='follabel'; el.textContent='elaborated (what the aligner compares against)'; d.appendChild(el);
+      const e=document.createElement('pre'); e.style.cssText='margin:4px 0;white-space:pre-wrap;font-size:12px;color:#64748b;'; e.textContent=res.leanElaborated; d.appendChild(e); }
+    host.appendChild(d); }
+
+  // PROBLEMS as formatted cards: NL sentence, the FOL formula (colored, like the
+  // FOL tab), and the structured error. Click a card to select the box.
+  res.findings.forEach((f)=>{ const b=f.fol&&find(f.fol);
+    const card=document.createElement('div'); card.className='folcard err'; card.style.cursor='pointer'; card.title='click to select this piece';
+    // object: the FULL label path of the FOL box this finding concerns
+    if(f.path){ const pl=document.createElement('div'); pl.className='follabel'; pl.textContent='object'; card.appendChild(pl);
+      const pv=document.createElement('div'); pv.style.cssText='font-family:monospace;font-size:12px;color:#475569;'; pv.textContent=f.path; card.appendChild(pv); }
+    // NL
+    const nlLab=document.createElement('div'); nlLab.className='follabel'; nlLab.textContent='NL'; card.appendChild(nlLab);
+    const nlv=document.createElement('div'); nlv.className='folcard-nl'; nlv.textContent=f.nl||'(implicit)'; card.appendChild(nlv);
+    // FOL (reuse the FOL-tab renderer for this box)
+    if(b){ const v=CORE.folView(ROOT,b,folSymText);
+      if(v.kind==='formula'){ const fl=document.createElement('div'); fl.className='follabel'; fl.textContent='FOL'; card.appendChild(fl);
+        card.appendChild(folFormulaBlock(v.tokens)); } }
+    // the Lean it was compared against (text + file location)
+    if(f.lean){ const ll=document.createElement('div'); ll.className='follabel'; ll.textContent='Lean'+(f.leanLoc?' ('+f.leanLoc+')':''); card.appendChild(ll);
+      const lv=document.createElement('div'); lv.style.cssText='font-family:monospace;font-size:12px;color:#475569;'; lv.textContent=f.lean; card.appendChild(lv); }
+    // error
+    const er=document.createElement('div'); er.className='folcard-err'; er.textContent='✗ '+f.message; card.appendChild(er);
+    card.onclick=()=>{ if(f.fol){ selectBox(f.fol); if(b&&pieces(b).length) scrollToChar(pieces(b)[0].start); } };
+    host.appendChild(card); });
+
+  // the pieces that DID map, shown as "NL text ↔ Lean text" (human-readable).
+  H('mapped pieces (NL ↔ Lean)');
+  const list=document.createElement('div'); list.className='mappedlist';
+  (function collect(n){
+    if(n.fol && n.leanText && n.status!=='mismatch' && n.status!=='unmapped'){
+      const b=find(n.fol); const nl=(n.nl||'').trim();
+      if(nl){ const r=document.createElement('div'); r.className='mappedrow'; r.title='click to highlight in Lean';
+        const a=document.createElement('span'); a.className='mnl'; a.textContent=nl.slice(0,34);
+        const arr=document.createElement('span'); arr.className='marr'; arr.textContent=' ↔ ';
+        const l=document.createElement('span'); l.className='mlean'; l.textContent=n.leanText;
+        r.appendChild(a); r.appendChild(arr); r.appendChild(l);
+        r.onclick=()=>{ if(b){ selectBox(n.fol); if(b.lean&&!b.lean.none) jumpToLean(b); } };
+        list.appendChild(r); }
+    }
+    (n.children||[]).forEach(collect);
+  })(res.alignment);
+  host.appendChild(list);
+
   const back=document.createElement('div'); back.className='er'; back.style.cssText='cursor:pointer;margin-top:10px;color:#2563eb'; back.textContent='← back to FOL view'; back.onclick=renderFol; host.appendChild(back);
+  const clr=document.createElement('div'); clr.className='er'; clr.style.cssText='cursor:pointer;margin-top:4px;color:#888'; clr.textContent='✕ undo this mapping / clear badges'; clr.onclick=()=>{ undo(); clearAlignStatus(); renderFol(); }; host.appendChild(clr);
 }
+// write the allocated Lean spans onto each box's lean mapping (box.lean.spans),
+// so the Lean pane highlights FOL↔Lean. Skips 'approx' (whole-body fallback)
+// spans by default — only the boxes whose Lean text was located exactly get a
+// span, which is the honest, useful mapping. Undoable (markDirty).
+function applyAlignSpans(spans, silent){ let n=0;
+  for(const [id,sp] of Object.entries(spans)){ const b=find(id); if(!b) continue;
+    if(sp.approx) continue;   // skip the coarse whole-body fallback — only exact spans
+    b.lean={spans:[{file:sp.file,start:sp.start,end:sp.end}]}; n++; }
+  if(n) markDirty();
+  if(!silent){ refreshAll(); flash(`mapped ${n} box${n===1?'':'es'} to Lean spans`); }
+  return n; }
 // set/clear the selected box's declared count.
 function setCount(v){ const b=selId&&find(selId); if(!b) return;
   if(v===''||v==null||isNaN(+v)) delete b.count; else b.count=Math.max(0,Math.floor(+v));

@@ -6,29 +6,46 @@
 --   kinds: forall | lam | app | const | var | sort | lit | let | proj | fvar | mvar
 -- The driver (lean_extract.js) substitutes __DECL__ with the fully-qualified name.
 section ExtractProbe
-open Lean
+open Lean Meta
 
-partial def __exprToJson (names : List String) (e : Expr) : Json :=
+-- explicitness of each argument of an application, read from the FUNCTION'S type
+-- (Meta.forallTelescopeReducing): a BinderInfo per positional arg. Lets the JS
+-- side keep only EXPLICIT args instead of guessing "last N" (which hid mismatches).
+def __argExplicit (fnTy : Expr) (n : Nat) : MetaM (Array Bool) :=
+  forallTelescopeReducing fnTy fun xs _ => do
+    let mut out := #[]
+    for x in xs do
+      let d ← x.fvarId!.getDecl
+      out := out.push d.binderInfo.isExplicit
+    pure (out.extract 0 n)
+
+partial def __exprToJson (names : List String) (e : Expr) : MetaM Json := do
   match e with
-  | .bvar i => Json.mkObj [("kind", "var"), ("name", Json.str (names.getD i s!"#{i}"))]
-  | .fvar _ => Json.mkObj [("kind", "fvar")]
-  | .mvar _ => Json.mkObj [("kind", "mvar")]
-  | .sort _ => Json.mkObj [("kind", "sort")]
-  | .const n _ => Json.mkObj [("kind", "const"), ("name", Json.str n.toString)]
-  | .lit (.natVal n) => Json.mkObj [("kind", "lit"), ("val", Json.str (toString n))]
-  | .lit (.strVal s) => Json.mkObj [("kind", "lit"), ("val", Json.str s)]
+  | .bvar i => pure <| Json.mkObj [("kind", "var"), ("name", Json.str (names.getD i s!"#{i}"))]
+  | .fvar _ => pure <| Json.mkObj [("kind", "fvar")]
+  | .mvar _ => pure <| Json.mkObj [("kind", "mvar")]
+  | .sort _ => pure <| Json.mkObj [("kind", "sort")]
+  | .const n _ => pure <| Json.mkObj [("kind", "const"), ("name", Json.str n.toString)]
+  | .lit (.natVal n) => pure <| Json.mkObj [("kind", "lit"), ("val", Json.str (toString n))]
+  | .lit (.strVal s) => pure <| Json.mkObj [("kind", "lit"), ("val", Json.str s)]
   | .mdata _ e => __exprToJson names e
-  | .proj s i e => Json.mkObj [("kind", "proj"), ("struct", Json.str s.toString), ("idx", Json.str (toString i)), ("on", __exprToJson names e)]
-  | .app .. =>
+  | .proj s i e => do pure <| Json.mkObj [("kind", "proj"), ("struct", Json.str s.toString), ("idx", Json.str (toString i)), ("on", ← __exprToJson names e)]
+  | .app .. => do
       let fn := e.getAppFn
       let args := e.getAppArgs
-      Json.mkObj [("kind", "app"), ("fn", __exprToJson names fn), ("args", Json.arr (args.map (__exprToJson names)))]
-  | .lam n t b bi =>
-      Json.mkObj [("kind", "lam"), ("binder", Json.str n.toString), ("info", Json.str (reprStr bi)), ("dom", __exprToJson names t), ("body", __exprToJson (n.toString :: names) b)]
-  | .forallE n t b bi =>
-      Json.mkObj [("kind", "forall"), ("binder", Json.str n.toString), ("info", Json.str (reprStr bi)), ("dom", __exprToJson names t), ("body", __exprToJson (n.toString :: names) b)]
-  | .letE n t v b _ =>
-      Json.mkObj [("kind", "let"), ("binder", Json.str n.toString), ("type", __exprToJson names t), ("value", __exprToJson names v), ("body", __exprToJson (n.toString :: names) b)]
+      let fnTy ← (do try inferType fn catch _ => pure (mkSort Level.zero))
+      let expl ← (do try __argExplicit fnTy args.size catch _ => pure (Array.replicate args.size true))
+      let argsJson ← args.mapIdxM (fun i a => do
+        let j ← __exprToJson names a
+        let isExpl := expl.getD i true
+        pure <| Json.mkObj [("explicit", Json.bool isExpl), ("node", j)])
+      pure <| Json.mkObj [("kind", "app"), ("fn", ← __exprToJson names fn), ("args", Json.arr argsJson)]
+  | .lam n t b bi => do
+      pure <| Json.mkObj [("kind", "lam"), ("binder", Json.str n.toString), ("info", Json.str (reprStr bi)), ("dom", ← __exprToJson names t), ("body", ← __exprToJson (n.toString :: names) b)]
+  | .forallE n t b bi => do
+      pure <| Json.mkObj [("kind", "forall"), ("binder", Json.str n.toString), ("info", Json.str (reprStr bi)), ("dom", ← __exprToJson names t), ("body", ← __exprToJson (n.toString :: names) b)]
+  | .letE n t v b _ => do
+      pure <| Json.mkObj [("kind", "let"), ("binder", Json.str n.toString), ("type", ← __exprToJson names t), ("value", ← __exprToJson names v), ("body", ← __exprToJson (n.toString :: names) b)]
 
 open Lean Elab in
 #eval show Lean.Elab.Command.CommandElabM Unit from do
@@ -37,9 +54,12 @@ open Lean Elab in
   match env.find? declName with
   | none => IO.println "__EXTRACT_ERR__ declaration not found"
   | some ci =>
-      let tyj := __exprToJson [] ci.type
-      let valj := match ci.value? with | some v => __exprToJson [] v | none => Json.null
-      let out := Json.mkObj [("name", Json.str declName.toString), ("type", tyj), ("value", valj)]
+      -- run the Expr→JSON walk inside MetaM (needed for per-arg explicitness)
+      let act : MetaM Json := do
+        let tyj ← __exprToJson [] ci.type
+        let valj ← match ci.value? with | some v => __exprToJson [] v | none => pure Json.null
+        pure <| Json.mkObj [("name", Json.str declName.toString), ("type", tyj), ("value", valj)]
+      let out ← Lean.Elab.Command.liftTermElabM act.run'
       IO.println s!"__EXTRACT__{out.compress}"
 
 end ExtractProbe

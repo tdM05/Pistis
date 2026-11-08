@@ -83,6 +83,29 @@ body.resizing{cursor:col-resize;user-select:none;}
 .alignrow.st-mismatch .alignmk{color:#c0392b;}
 .alignrow.st-unmapped{background:#fdf6e3;}
 .alignrow.st-unmapped .alignmk{color:#b8860b;}
+/* align PROBLEM card: NL sentence + colored FOL formula + structured error,
+   laid out like the FOL tab so it's easy to read */
+.folcard{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0;background:#fff;}
+.folcard.err{border-color:#f0cfc8;background:#fff7f5;}
+.folcard .follabel{margin-top:6px;}
+.folcard .follabel:first-child{margin-top:0;}
+.folcard-nl{font:13px/1.45 -apple-system,system-ui,sans-serif;color:#1a1a1a;}
+.folcard-err{margin-top:8px;font:12px var(--mono);color:#c0392b;font-weight:600;}
+/* mapped-pieces list in the align view: NL text ↔ Lean text, human-readable */
+.mappedlist{font:12px -apple-system,system-ui,sans-serif;}
+.mappedrow{display:flex;align-items:baseline;gap:2px;padding:2px 4px;border-radius:4px;cursor:pointer;}
+.mappedrow:hover{background:#eef1f5;}
+.mappedrow .mnl{color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
+.mappedrow .marr{color:#999;flex:none;}
+.mappedrow .mlean{font-family:var(--mono);color:#2563eb;white-space:nowrap;}
+/* per-box Lean-alignment badge in the Boxes tree (from the last ⟳ align run) */
+.alignbadge{flex:none;font-size:10px;font-weight:700;padding:0 4px;border-radius:3px;}
+.alignbadge.st-match{color:#1f9d55;}
+.alignbadge.st-leaf{color:#2563eb;}
+.alignbadge.st-typed{color:#b8860b;}
+.alignbadge.st-mismatch{color:#fff;background:#c0392b;border-radius:3px;}
+.alignbadge.st-unmapped{color:#fff;background:#b8860b;border-radius:3px;}
+.alignbadge.st-skipped{color:#aaa;}
 .folinline{line-height:1.9;}   /* inputs row: variables flow inline, comma-separated */
 /* bracket matching: hover one paren, both it and its partner light up */
 .ftok.paren{cursor:default;border-radius:3px;}

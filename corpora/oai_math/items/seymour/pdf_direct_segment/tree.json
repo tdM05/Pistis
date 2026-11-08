@@ -824,7 +824,16 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v5"
+                                      "var": "v5",
+                                      "lean": {
+                                        "spans": [
+                                          {
+                                            "file": "lean/MaxSupportKernel.lean",
+                                            "start": 299,
+                                            "end": 300
+                                          }
+                                        ]
+                                      }
                                     },
                                     {
                                       "id": "b135",
@@ -855,7 +864,16 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v3"
+                                      "var": "v3",
+                                      "lean": {
+                                        "spans": [
+                                          {
+                                            "file": "lean/MaxSupportKernel.lean",
+                                            "start": 290,
+                                            "end": 296
+                                          }
+                                        ]
+                                      }
                                     }
                                   ],
                                   "label": [
@@ -863,7 +881,16 @@
                                     "atomic-formula",
                                     "relation"
                                   ],
-                                  "count": 2
+                                  "count": 2,
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 290,
+                                        "end": 300
+                                      }
+                                    ]
+                                  }
                                 }
                               ],
                               "label": [
@@ -871,7 +898,16 @@
                                 "compound-formula",
                                 "connective",
                                 "conjunction"
-                              ]
+                              ],
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 290,
+                                    "end": 300
+                                  }
+                                ]
+                              }
                             },
                             {
                               "id": "b128",
@@ -897,7 +933,16 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v3"
+                                      "var": "v3",
+                                      "lean": {
+                                        "spans": [
+                                          {
+                                            "file": "lean/MaxSupportKernel.lean",
+                                            "start": 303,
+                                            "end": 304
+                                          }
+                                        ]
+                                      }
                                     },
                                     {
                                       "id": "b146",
@@ -909,7 +954,16 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v5"
+                                      "var": "v5",
+                                      "lean": {
+                                        "spans": [
+                                          {
+                                            "file": "lean/MaxSupportKernel.lean",
+                                            "start": 305,
+                                            "end": 306
+                                          }
+                                        ]
+                                      }
                                     },
                                     {
                                       "id": "b147",
@@ -929,7 +983,16 @@
                                     "composite-term",
                                     "function-application"
                                   ],
-                                  "count": 2
+                                  "count": 2,
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 303,
+                                        "end": 308
+                                      }
+                                    ]
+                                  }
                                 },
                                 {
                                   "id": "b144",
@@ -959,7 +1022,16 @@
                                     "term",
                                     "atomic-term",
                                     "constant"
-                                  ]
+                                  ],
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 311,
+                                        "end": 312
+                                      }
+                                    ]
+                                  }
                                 }
                               ],
                               "label": [
@@ -967,7 +1039,16 @@
                                 "atomic-formula",
                                 "equality"
                               ],
-                              "count": 1
+                              "count": 1,
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 303,
+                                    "end": 312
+                                  }
+                                ]
+                              }
                             }
                           ],
                           "label": [
@@ -975,7 +1056,16 @@
                             "compound-formula",
                             "connective",
                             "implication"
-                          ]
+                          ],
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 290,
+                                "end": 312
+                              }
+                            ]
+                          }
                         }
                       ],
                       "label": [
