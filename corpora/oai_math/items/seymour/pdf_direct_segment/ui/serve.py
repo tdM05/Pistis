@@ -6,7 +6,9 @@ import http.server
 import json
 import os
 import socketserver
+import subprocess
 import sys
+import urllib.parse
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8780
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # pdf_direct_segment/
@@ -28,7 +30,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.path = "/ui" + self.path
         elif self.path == "/lean-files":
             return self.send_lean_files()
+        elif self.path.startswith("/align"):
+            return self.send_align()
         return super().do_GET()
+
+    def send_align(self):
+        """Align a def/theorem box against its Lean decl: shell to the Node
+        driver (which elaborates Lean, cached) and return its JSON. Reads the box
+        id from the ?id= query. May take a while on the FIRST call (Lean run)."""
+        q = urllib.parse.urlparse(self.path).query
+        box_id = urllib.parse.parse_qs(q).get("id", [""])[0]
+        if not box_id:
+            self.send_error(400, "missing id"); return
+        try:
+            out = subprocess.run(
+                ["node", "tools/inspect.js", "--align-json", box_id],
+                cwd=ROOT, capture_output=True, text=True, timeout=330,
+            )
+            body = (out.stdout or '{"ok":false,"reason":"no output"}').encode()
+            if out.returncode != 0 and not out.stdout:
+                body = json.dumps({"ok": False, "reason": (out.stderr or "align failed")[:800]}).encode()
+        except subprocess.TimeoutExpired:
+            body = b'{"ok":false,"reason":"lean extract timed out"}'
+        except Exception as e:
+            body = json.dumps({"ok": False, "reason": str(e)}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def send_lean_files(self):
         """List every .lean file under lean/ (relative paths), sorted."""

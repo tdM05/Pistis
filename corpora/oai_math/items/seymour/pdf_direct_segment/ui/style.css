@@ -70,6 +70,19 @@ body.resizing{cursor:col-resize;user-select:none;}
 .folsigchip.clk:hover{border-color:var(--accent);background:#f0f5ff;}
 /* defined abbreviations: dashed border + faint fill, reads as "derived/eliminable" */
 .folsigchip.defined{border-style:dashed;background:#f6f4fb;}
+/* Lean alignment tree (⟳ align Lean) */
+.aligntree{font:11px var(--mono);margin:4px 0 8px;}
+.alignrow{display:flex;align-items:baseline;gap:6px;padding:1px 0;cursor:pointer;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alignrow:hover{background:#eef1f5;}
+.alignmk{flex:none;width:14px;text-align:center;font-weight:700;}
+.aligntxt{overflow:hidden;text-overflow:ellipsis;}
+.alignrow.st-match .alignmk{color:#1f9d55;}
+.alignrow.st-leaf .alignmk{color:#2563eb;}
+.alignrow.st-typed .alignmk{color:#b8860b;}
+.alignrow.st-mismatch{background:#fff4f2;}
+.alignrow.st-mismatch .alignmk{color:#c0392b;}
+.alignrow.st-unmapped{background:#fdf6e3;}
+.alignrow.st-unmapped .alignmk{color:#b8860b;}
 .folinline{line-height:1.9;}   /* inputs row: variables flow inline, comma-separated */
 /* bracket matching: hover one paren, both it and its partner light up */
 .ftok.paren{cursor:default;border-radius:3px;}

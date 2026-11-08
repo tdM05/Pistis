@@ -1268,6 +1268,45 @@ function renderFol(){ const host=$('folView'); if(!host) return;
   // single formula
   H('formula'); host.appendChild(folItemBlock({tokens:v.tokens}));
   H('signature'); host.appendChild(folSigBlock(v.sig)); }
+
+/* ───────── Lean alignment (⟳ align Lean) ───────── */
+// fetch the alignment of the current FOL-tab box against its Lean decl and render
+// it into #folView. The first call may take a while (Lean elaboration); cached after.
+const ALIGN_MK={match:'✓',leaf:'●',mismatch:'✗',unmapped:'⦸',typed:'⊤'};
+async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'?find(tid):null;
+  const host=$('folView'); if(!host||!box) { flash('enter a definition/theorem level first'); return; }
+  host.innerHTML=''; const wait=document.createElement('div'); wait.className='folnone';
+  wait.textContent='⟳ aligning '+box.id+' to Lean… (first run elaborates Lean, can take ~1 min)'; host.appendChild(wait);
+  let res; try{ res=await fetch('/align?id='+encodeURIComponent(box.id)).then((r)=>r.json()); }
+  catch(e){ res={ok:false,reason:'request failed: '+e.message}; }
+  if(folTargetId()!==tid) return;   // selection moved on while waiting → drop
+  host.innerHTML='';
+  const H=(t)=>{ const d=document.createElement('div'); d.className='follabel'; d.textContent=t; host.appendChild(d); };
+  if(!res||!res.ok){ const e=document.createElement('div'); e.className='folerr';
+    e.textContent='⚠ align: '+(res&&res.reason||'failed'); host.appendChild(e);
+    const back=document.createElement('div'); back.className='er'; back.textContent='← back to FOL'; back.style.cursor='pointer'; back.onclick=renderFol; host.appendChild(back); return; }
+  H('aligned to '+res.leanDecl.split('.').pop());
+  if(res.leanInputs&&res.leanInputs.length){ const di=document.createElement('div'); di.className='folsig';
+    di.textContent='lean inputs: '+res.leanInputs.map((i)=>i.binder+(i.info==='implicit'?'{}':'')).join(' '); host.appendChild(di); }
+  // the alignment tree
+  const treeBox=document.createElement('div'); treeBox.className='aligntree';
+  const row=(n,d)=>{ const r=document.createElement('div'); r.className='alignrow st-'+n.status; r.style.paddingLeft=(6+d*14)+'px';
+    const mk=document.createElement('span'); mk.className='alignmk'; mk.textContent=ALIGN_MK[n.status]||'?'; r.appendChild(mk);
+    const txt=document.createElement('span'); txt.className='aligntxt';
+    const folPart=n.fol?('fol:'+n.fol):'—'; const leanPart=n.lean?('lean:'+n.lean):'—';
+    txt.textContent=folPart+'  ↔  '+leanPart+(n.note?'  '+n.note:''); r.appendChild(txt);
+    if(n.fol) r.onclick=()=>{ const b=find(n.fol); if(b){ selectBox(n.fol); if(pieces(b).length) scrollToChar(pieces(b)[0].start); } };
+    treeBox.appendChild(r);
+    (n.children||[]).forEach((c)=>row(c,d+1)); };
+  row(res.alignment,0); host.appendChild(treeBox);
+  // findings
+  H('findings');
+  if(!res.findings.length){ const ok=document.createElement('div'); ok.className='folnone'; ok.style.color='#1f9d55'; ok.textContent='✓ fully aligned — no structural discrepancies'; host.appendChild(ok); }
+  else res.findings.forEach((f)=>{ const r=document.createElement('div'); r.className='folerr'; r.style.margin='3px 0'; r.style.padding='5px 8px';
+    r.textContent=(ALIGN_MK[f.status]||'?')+' '+(f.fol||'-')+' ↔ '+(f.lean||'-')+': '+f.note;
+    if(f.fol) r.style.cursor='pointer', r.onclick=()=>selectBox(f.fol); host.appendChild(r); });
+  const back=document.createElement('div'); back.className='er'; back.style.cssText='cursor:pointer;margin-top:10px;color:#2563eb'; back.textContent='← back to FOL view'; back.onclick=renderFol; host.appendChild(back);
+}
 // set/clear the selected box's declared count.
 function setCount(v){ const b=selId&&find(selId); if(!b) return;
   if(v===''||v==null||isNaN(+v)) delete b.count; else b.count=Math.max(0,Math.floor(+v));
@@ -1474,6 +1513,7 @@ async function init(){
   // view (both Lean + FOL are shown at once now; no tabs to switch).
   $('folBtn').onclick=(e)=>{ e.stopPropagation(); const p=$('pane3b'); if(p) p.scrollIntoView({block:'nearest',behavior:'smooth'}); $('folScroll').scrollTop=0; };
   $('folPin').onclick=toggleFolPin;
+  $('folAlign').onclick=showAlign;
   setupHSplitter();
   $('wireBtn').onclick=toggleWireframe;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
