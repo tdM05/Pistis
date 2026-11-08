@@ -34,6 +34,9 @@ body.resizing{cursor:col-resize;user-select:none;}
 .countwrap{font:11px var(--mono);color:#6b5600;display:inline-flex;align-items:center;gap:3px;}
 .countinput{width:40px;height:22px;font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 4px;}
 .countsel{height:22px;font:12px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 2px;background:#fff;}
+.symsel{height:22px;max-width:150px;font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 4px;background:#fff;color:#2563eb;}
+.symsel:focus{outline:2px solid var(--accent);}
+.symedit{width:130px;}   /* inline name editor (shown when + new / edit name is picked) */
 .labelchip{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 8px;height:24px;background:#fff;color:#888;cursor:pointer;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
 .labelchip:hover:not(:disabled){border-color:var(--accent);}
 .labelchip:disabled{opacity:.5;cursor:default;}
@@ -60,6 +63,20 @@ body.resizing{cursor:col-resize;user-select:none;}
 .ftok.logic{color:#111;font-weight:700;}                    /* ∀∃¬∧∨→↔= */
 .ftok.punct{color:#999;}
 .ftok.impl{opacity:.6;font-style:italic;text-decoration:underline dotted;} /* implicit ∅ symbol */
+/* clickable identity token (var/rel/fn/con) — hover shows it's clickable */
+.ftok.clk{cursor:pointer;border-radius:3px;padding:0 1px;}
+.ftok.clk:hover{background:rgba(37,99,235,.14);box-shadow:0 0 0 1px rgba(37,99,235,.35);}
+.folsigchip.clk{cursor:pointer;}
+.folsigchip.clk:hover{border-color:var(--accent);background:#f0f5ff;}
+/* defined abbreviations: dashed border + faint fill, reads as "derived/eliminable" */
+.folsigchip.defined{border-style:dashed;background:#f6f4fb;}
+.folinline{line-height:1.9;}   /* inputs row: variables flow inline, comma-separated */
+/* bracket matching: hover one paren, both it and its partner light up */
+.ftok.paren{cursor:default;border-radius:3px;}
+.ftok.parenhi{background:#ffe08a;color:#7a4b00;box-shadow:0 0 0 1px #e0a800;font-weight:700;}
+/* clicked identity token: pulse all co-referents in the FOL view (purple, matches
+   the var/flash accent) — so even span-less (implicit) variables light up here */
+.ftok.folkeyhi{background:rgba(122,79,208,.26);box-shadow:0 0 0 1.5px rgba(122,79,208,.9);border-radius:3px;animation:gappulse .7s ease-in-out infinite;}
 /* FOL legend + signature rows */
 .follegend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:4px;font:10px -apple-system,system-ui,sans-serif;}
 .follegend span{display:inline-flex;align-items:center;gap:4px;color:var(--dim);}
@@ -107,7 +124,14 @@ body.resizing{cursor:col-resize;user-select:none;}
 .ctxinp{font:12px var(--mono);border:1px solid var(--line);border-radius:5px;padding:3px 6px;width:100%;background:#f7f8fa;}
 .ctxinp:focus{outline:2px solid var(--accent);background:#fff;}
 /* auto-derived symbol identity: locked chip + ? reason */
-.symtag{flex:none;font:10px var(--mono);font-weight:700;color:#555;background:#eee;border:1px solid #d5d5d5;border-radius:3px;padding:0 4px;}
+.symtag{flex:none;font:10px var(--mono);font-weight:700;color:#555;background:#eee;border:1px solid #d5d5d5;border-radius:3px;padding:0 4px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* non-logical symbol chips (relation/function/constant), colored by kind, click
+   to flash all co-referents — like the variable chip */
+.symtag.rel,.symtag.fn,.symtag.con{cursor:pointer;}
+.symtag.rel{color:#2563eb;background:#e4ecff;border-color:#cdddff;}
+.symtag.fn{color:#0e8a5f;background:#e2f5ec;border-color:#c3e8d7;}
+.symtag.con{color:#c2740a;background:#fdf0dd;border-color:#f3dcb5;}
+.symtag.rel:hover,.symtag.fn:hover,.symtag.con:hover{filter:brightness(.95);box-shadow:0 0 0 1px currentColor;}
 .symq{flex:none;font-size:9px;color:#999;cursor:help;}
 /* locked identity row in the label popover */
 .labellock{display:flex;align-items:center;gap:6px;padding:3px 5px;border:1px dashed #ccc;border-radius:5px;background:#f6f6f6;color:#555;font:11px var(--mono);}
@@ -202,8 +226,18 @@ body.resizing{cursor:col-resize;user-select:none;}
 .leanbadge.derived.notok{color:#c0392b;box-shadow:inset 0 0 0 1px #c0392b;}
 .leanbadge.derived.undecidable,.leanbadge.derived.unset{color:#9aa0a6;box-shadow:inset 0 0 0 1px #9aa0a6;}
 
-/* Lean pane (third column) */
+/* Lean pane (third column): a vertical stack of two sub-panes — Lean (top) and
+   FOL (bottom) — separated by a horizontal splitter. */
 .lean-pane{flex:1 1 0;min-width:200px;overflow:hidden;background:#fbfbfd;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--line);}
+.rsub{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+#pane3a{flex:1 1 0;}              /* Lean: starts at half, resizable via the splitter */
+#pane3b{flex:1 1 0;}             /* FOL: the other half */
+/* horizontal splitter between the two right sub-panes (drag to resize vertically) */
+.hsplitter{flex:0 0 6px;cursor:row-resize;background:var(--line);position:relative;}
+.hsplitter:hover,.hsplitter.drag{background:var(--accent);}
+.hsplitter::after{content:"";position:absolute;inset:-4px 0;}
+body.resizingv{cursor:row-resize;user-select:none;}
+.rtitle{font-weight:600;color:var(--ink);white-space:nowrap;}
 .lean-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;text-transform:none;letter-spacing:0;}
 .leanfile{font:11px var(--mono);max-width:230px;border:1px solid var(--line);border-radius:5px;padding:2px 5px;background:#fff;color:var(--ink);}
 .lean-tools{display:flex;gap:5px;align-items:center;}

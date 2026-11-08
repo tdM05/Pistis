@@ -46,8 +46,8 @@ let dirty = false;
 let WIREFRAME = false;     // wireframe mode: draw highlights as own-color outlines, no fill
 let JUNK_MODE = false;     // junk mode: n/e operate on all uncovered whitespace/punctuation
 let DRAG_ID = null;        // id of the tree row currently being dragged (reparent)
-let RIGHT_TAB = 'lean';    // right pane: 'lean' (code+mapping) | 'fol' (FOL view)
-let FOL_PIN = null;        // if set, the FOL tab shows THIS box id regardless of selection
+let RSPLIT = 0.5;          // right column vertical split: FOL sub-pane's fraction (0..1)
+let FOL_PIN = null;        // if set, the FOL view shows THIS box id regardless of selection
 let idCounter = 1;
 const freshId = () => 'b' + (idCounter++);
 const COLLAPSED = {};
@@ -787,23 +787,34 @@ function flashRuns(ranges,cls,ms){ document.querySelectorAll('.'+cls).forEach((e
 // flash ONE piece's region on the PDF (distinct from the blue selection), fade.
 let _pieceT=null;
 function flashPiece(p){ clearTimeout(_pieceT); _pieceT=flashRuns([p],'pieceflash',2000); }
-// flash ALL occurrences of variable `name` within `scopeBox` — on the PDF (var
-// color) and the tree rows — so you can eyeball that coreference is complete.
+// flash a SET of boxes — on the PDF (var color) and the tree rows — so you can
+// eyeball all co-referents at once. Shared by the variable chip and the FOL
+// view's clickable tokens (variables AND symbols).
+// NOTE: flashRuns cleanup does .remove() on all '.'+cls, so the PDF class
+// (varflash) MUST differ from the tree-row class (varrow) — else it would delete
+// the tree row DOM elements.
 let _varT=null;
-function flashVar(name, scopeBox){ clearTimeout(_varT);
+function flashBoxes(boxes, msg){ clearTimeout(_varT);
   document.querySelectorAll('.tree .row.varrow').forEach((r)=>r.classList.remove('varrow'));
-  const boxes=[]; walk(scopeBox,(n)=>{ if(CORE.isVariable(n)&&n.var===name) boxes.push(n); });
-  // PDF: flash each occurrence's spans (implicit boxes have none → skipped).
-  // NOTE: flashRuns cleanup does .remove() on all '.'+cls, so the PDF class
-  // (varflash) MUST differ from the tree-row class (varrow) — else it would
-  // delete the tree row DOM elements.
-  const ranges=boxes.flatMap((b)=>pieces(b));
+  // PDF: a box with its own span flashes that span; an IMPLICIT (span-less) box
+  // has nothing to show, so flash the nearest non-implicit ancestor's span
+  // instead (the containing word/formula) — and highlight that ancestor's row.
+  const rowIds=new Set(); const ranges=[];
+  boxes.forEach((b)=>{ let f=b; while(f && !pieces(f).length){ f=parentOf(f.id); }
+    if(f){ ranges.push(...pieces(f)); rowIds.add(b.id); if(f!==b) rowIds.add(f.id); }
+    else rowIds.add(b.id); });
   _varT=flashRuns(ranges,'varflash',2600);
-  // tree: outline the rows of all occurrences (class toggled, never removed from DOM)
-  boxes.forEach((b)=>{ const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===b.id); if(r) r.classList.add('varrow'); });
+  rowIds.forEach((id)=>{ const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.classList.add('varrow'); });
   setTimeout(()=>document.querySelectorAll('.tree .row.varrow').forEach((r)=>r.classList.remove('varrow')), 2600);
   const n=boxes.length, impl=boxes.filter((b)=>b.implicit).length;
-  flash(`${name}: ${n} occurrence${n>1?'s':''}${impl?` (${impl} implicit, no span)`:''}`); }
+  if(msg!=null) flash(`${msg}: ${n} occurrence${n===1?'':'s'}${impl?` (${impl} implicit → shown on container)`:''}`); }
+// flash ALL occurrences of variable `name` within `scopeBox` (the var chip).
+function flashVar(name, scopeBox){ const boxes=[]; walk(scopeBox,(n)=>{ if(CORE.isVariable(n)&&n.var===name) boxes.push(n); }); flashBoxes(boxes, name); }
+// flash everything that co-refers with `box` — same variable (in scope) or same
+// symbol name (document-wide). Used by the FOL view's clickable tokens.
+function flashCoref(box){ if(!box) return; const boxes=CORE.coreferentsOf(ROOT,box,folSymText);
+  const nm = CORE.isVariable(box) ? (box.var||'?') : CORE.symNameOf(box,folSymText);
+  flashBoxes(boxes, nm); }
 // temporarily draw + scroll to the uncovered gap regions on the PDF, then fade.
 let _gapT=null;
 function flashGaps(gaps){ clearTimeout(_gapT); _gapT=flashRuns(gaps,'gapflash',2500); if(gaps.length) scrollToChar(gaps[0].start); }
@@ -916,6 +927,12 @@ function treeRow(node,isRoot){
   // variable name chip (coreference marker) — e.g. v0
   if(!isRoot && CORE.isVariable(node) && node.var!=null){ const vt=document.createElement('span'); vt.className='vartag'; vt.textContent=sub(node.var); vt.title='variable '+node.var+' — click to flash all occurrences';
     vt.onclick=(e)=>{ e.stopPropagation(); flashVar(node.var, CORE.scopeOf(ROOT,node)); }; row.appendChild(vt); }
+  // non-logical symbol chip (relation/function/constant) — its resolved name;
+  // click flashes all co-referents document-wide (same behavior as the var chip).
+  if(!isRoot && CORE.symKind(node)){ const kind=CORE.symKind(node); const nm=CORE.symNameOf(node,folSymText);
+    const st=document.createElement('span'); st.className='symtag '+kind; st.textContent=nm;
+    st.title=({rel:'relation',fn:'function',con:'constant'}[kind])+' “'+nm+'” — click to flash all occurrences';
+    st.onclick=(e)=>{ e.stopPropagation(); flashCoref(node); }; row.appendChild(st); }
   // loose-end marker: ⚠ if this box violates a structural condition (soft flag)
   if(!isRoot){ const iss=boxIssues(node); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
@@ -1069,6 +1086,28 @@ function updateLabelUI(){ const chip=$('labelChip'); if(!chip) return;
       vi.innerHTML='<option value="">var…</option>'+opts.map((o)=>`<option value="${o}"${o===cur?' selected':''}>${sub(o)}</option>`).join('');
       vi.value=cur; }
     else vw.style.display='none'; }
+  // symbol identity picker (relation/function/constant/name) — a plain dropdown
+  // of existing symbols OF THE SAME KIND (document-wide). Pick one → coreference;
+  // choose "+ new name…" → prompt for a custom name. The default (span slug) is
+  // shown as a disabled hint; current authored name is pre-selected.
+  const sw=$('symWrap'), si=$('symInput'), se=$('symEdit');
+  // don't rebuild the picker while the inline name editor is open (mid-edit)
+  if(sw && !(se && se.style.display!=='none')){ const kind=box&&CORE.symKind(box);
+    if(kind){ sw.style.display=''; sw.title='symbol identity ('+({rel:'relation',fn:'function',con:'constant'}[kind])+') — same name = same symbol document-wide';
+      // a symbol ALWAYS has a resolved name (authored box.sym, else span slug),
+      // and symNamesOfKind includes it — so it's just one of the options and is
+      // pre-selected. No "default" entry, no duplicate.
+      const names=CORE.symNamesOfKind(ROOT,kind,folSymText);
+      const cur=CORE.symNameOf(box,folSymText);   // always non-empty
+      const ncor=CORE.coreferentsOf(ROOT,box,folSymText).length;
+      // existing names (pick = coreference this box), then two explicit actions:
+      // NEW (name this box only) and RENAME (rename the whole symbol group).
+      const opts=names.map((n)=>`<option value="${n.replace(/"/g,'&quot;')}"${n===cur?' selected':''}>${n}</option>`);
+      opts.push('<option value="__new__">＋ new name (this one only)…</option>');
+      opts.push(`<option value="__rename__">✎ rename “${cur.replace(/"/g,'&quot;')}” everywhere (${ncor})…</option>`);
+      si.innerHTML=opts.join('');
+      si.value=cur; si.style.display=''; if(se) se.style.display='none';
+    } else sw.style.display='none'; }
   // FOL button: shown for a labelled formula / term / definition / theorem box
   const fb=$('folBtn');
   if(fb){ const c=box&&labelConcrete(box.label);
@@ -1089,13 +1128,42 @@ function folSymText(x){ const ps=pieces(x); if(!ps.length) return '∅'; return 
 // per token, variables carry a real <sub> subscript. `impl` tokens get a dotted
 // underline (implicit ∅ symbol).
 function folTokensEl(tokens){ const frag=document.createDocumentFragment();
-  tokens.forEach((t)=>{ const sp=document.createElement('span'); sp.className='ftok '+t.t+(t.impl?' impl':'');
+  // match '(' to its ')' within THIS token list (a balanced-paren stack), so
+  // hovering a bracket can highlight its partner. els[i] fills in below.
+  const els=new Array(tokens.length); const pair={}; const stack=[];
+  tokens.forEach((t,i)=>{ if(t.t==='punct'&&t.s==='('){ stack.push(i); }
+    else if(t.t==='punct'&&t.s===')'&&stack.length){ const o=stack.pop(); pair[o]=i; pair[i]=o; } });
+  tokens.forEach((t,i)=>{ const sp=document.createElement('span'); sp.className='ftok '+t.t+(t.impl?' impl':'');
     if(t.t==='var'){ const m=/^([A-Za-z]+)(\d+)$/.exec(t.s);
       if(m){ sp.appendChild(document.createTextNode(m[1])); const su=document.createElement('sub'); su.textContent=m[2]; sp.appendChild(su); }
       else sp.textContent=t.s; }
     else sp.textContent=t.s;
+    els[i]=sp;
+    // bracket: on hover, highlight both this and its matching partner
+    if(pair[i]!=null){ sp.classList.add('paren');
+      sp.onmouseenter=()=>{ sp.classList.add('parenhi'); const o=els[pair[i]]; if(o) o.classList.add('parenhi'); };
+      sp.onmouseleave=()=>{ sp.classList.remove('parenhi'); const o=els[pair[i]]; if(o) o.classList.remove('parenhi'); }; }
+    // identity tokens (var/rel/fn/con that came from a real box) are clickable:
+    // hover shows what will flash, click flashes all co-referents (PDF + tree) —
+    // exactly like the variable chip in the tree — AND lights up every matching
+    // token in the FOL view itself (so purely-implicit vars like a ∀-bound entry
+    // var, which have no PDF span, are still visibly highlighted where they live:
+    // in the formula). The key groups co-referents: vars by name, syms by kind+name.
+    if(t.box && (t.t==='var'||t.t==='rel'||t.t==='fn'||t.t==='con')){ sp.classList.add('clk');
+      const kindName={var:'variable',rel:'relation',fn:'function',con:'constant'}[t.t];
+      const key=(t.t==='var'?'v':t.t)+':'+t.s; sp.dataset.folkey=key;
+      sp.title='flash all occurrences of '+kindName+' “'+t.s+'”';
+      sp.onclick=(e)=>{ e.stopPropagation(); const b=find(t.box); if(b) flashCoref(b); flashFolKey(key); }; }
     frag.appendChild(sp); });
   return frag; }
+// light up every identity token in the FOL view that shares `key` (same var
+// name / same symbol), pulsing briefly. Complements flashCoref (PDF + tree) so
+// implicit-only variables are still visible where they appear — in the formula.
+let _folKeyT=null;
+function flashFolKey(key){ clearTimeout(_folKeyT); const host=$('folView'); if(!host) return;
+  host.querySelectorAll('.ftok.folkeyhi').forEach((e)=>e.classList.remove('folkeyhi'));
+  host.querySelectorAll('.ftok[data-folkey="'+(window.CSS&&CSS.escape?CSS.escape(key):key)+'"]').forEach((e)=>e.classList.add('folkeyhi'));
+  _folKeyT=setTimeout(()=>host.querySelectorAll('.ftok.folkeyhi').forEach((e)=>e.classList.remove('folkeyhi')), 2600); }
 // a colored formula block from tokens
 function folFormulaBlock(tokens){ const d=document.createElement('div'); d.className='folformula'; d.appendChild(folTokensEl(tokens)); return d; }
 // signature block: a legend + one row per kind (relations/functions/constants/
@@ -1113,38 +1181,64 @@ function folSigBlock(sig){ const wrap=document.createElement('div');
     const v=document.createElement('span'); v.className='v';
     const ents=Object.entries(obj);
     if(!ents.length){ const e=document.createElement('span'); e.className='folsigchip'; e.style.opacity='.5'; e.textContent='—'; v.appendChild(e); }
-    else ents.forEach(([nm,ar])=>{ const c=document.createElement('span'); c.className='folsigchip';
+    else ents.forEach(([nm,ar])=>{ const c=document.createElement('span'); c.className='folsigchip clk';
       const nmel=document.createElement('span'); nmel.className='ftok '+kind; nmel.textContent=nm; c.appendChild(nmel);
-      const a=document.createElement('span'); a.className='ar'; a.textContent='/'+ar; c.appendChild(a); v.appendChild(c); });
+      const a=document.createElement('span'); a.className='ar'; a.textContent='/'+ar; c.appendChild(a);
+      c.title='flash all occurrences of this '+({rel:'relation',fn:'function',con:'constant'}[kind]);
+      c.onclick=()=>flashSym(kind,nm); v.appendChild(c); });
     row.appendChild(v); wrap.appendChild(row); });
   // variables row (no arity)
   const vr=document.createElement('div'); vr.className='folsigrow';
   const vk=document.createElement('span'); vk.className='k'; vk.textContent='variables'; vr.appendChild(vk);
   const vv=document.createElement('span'); vv.className='v'; const vars=[...sig.vars];
   if(!vars.length){ const e=document.createElement('span'); e.className='folsigchip'; e.style.opacity='.5'; e.textContent='—'; vv.appendChild(e); }
-  else vars.forEach((nm)=>{ const c=document.createElement('span'); c.className='folsigchip';
-    c.appendChild(folTokensEl([{t:'var',s:nm}])); vv.appendChild(c); });
+  else vars.forEach((nm)=>{ const c=document.createElement('span'); c.className='folsigchip clk';
+    c.appendChild(folTokensEl([{t:'var',s:nm}])); c.title='flash all occurrences of variable '+nm;
+    c.onclick=()=>flashSymVar(nm); vv.appendChild(c); });
   vr.appendChild(vv); wrap.appendChild(vr);
+  // DEFINED abbreviations row: condition-guarded definienda — NOT primitives of
+  // the language (eliminable, like δ-reduction). Shown separately so the rows
+  // above stay the irreducible dictionary. Dashed chips to read as "derived".
+  const def=Object.entries(sig.defined||{});
+  if(def.length){ const dr=document.createElement('div'); dr.className='folsigrow';
+    const dk=document.createElement('span'); dk.className='k'; dk.textContent='defined'; dk.title='condition-guarded abbreviations (not primitive symbols — they unfold to their body)'; dr.appendChild(dk);
+    const dv=document.createElement('span'); dv.className='v';
+    def.forEach(([nm,ar])=>{ const c=document.createElement('span'); c.className='folsigchip clk defined';
+      const nmel=document.createElement('span'); nmel.className='ftok rel'; nmel.textContent=nm; c.appendChild(nmel);
+      const a=document.createElement('span'); a.className='ar'; a.textContent='/'+ar; c.appendChild(a);
+      c.title='defined abbreviation (guarded by its conditions; unfolds to its body) — click to flash occurrences';
+      c.onclick=()=>flashSym('rel',nm); dv.appendChild(c); });
+    dr.appendChild(dv); wrap.appendChild(dr); }
   return wrap; }
+// flash all boxes of a given symbol kind+name (sig chip click). Document-wide.
+function flashSym(kind,name){ const boxes=[]; walk(ROOT,(n)=>{ if(CORE.symKind(n)===kind && CORE.symNameOf(n,folSymText)===name) boxes.push(n); }); flashBoxes(boxes,name); flashFolKey(kind+':'+name); }
+// flash all boxes of a variable name — within the FOL target's scope (sig chip).
+function flashSymVar(name){ const box=folTargetId()&&find(folTargetId()); if(!box) return;
+  const sc=CORE.scopeOf(ROOT,box); const boxes=[]; walk(sc,(n)=>{ if(CORE.isVariable(n)&&n.var===name) boxes.push(n); }); flashBoxes(boxes,name); flashFolKey('v:'+name); }
 // which box the FOL tab is showing: the pinned box if pinned, else the selection.
-function folTargetId(){ return FOL_PIN || selId; }
-// one rendered-formula item: colored tokens, optionally click-to-select its box.
+function folTargetId(){ return FOL_PIN || levelId; }
+// one rendered-formula item: colored tokens. Individual identity tokens are
+// clickable (flash co-referents); the block itself is not a select target.
 function folItemBlock(item){ const d=document.createElement('div'); d.className='folformula';
-  d.appendChild(folTokensEl(item.tokens));
-  if(item.id){ d.style.cursor='pointer'; d.title='select '+item.id; d.onclick=()=>selectBox(item.id); }
-  return d; }
-// a list of items under a part label (members shown separately — NOT conjoined)
-function folPartBlock(label,items){ const blk=document.createElement('div'); blk.className='folpart';
+  d.appendChild(folTokensEl(item.tokens)); return d; }
+// a list of items under a part label. Normally each item is its own block
+// (conditions, body). INLINE parts (inputs — just variables) flow on one line,
+// comma-separated, like the signature's variables row, to avoid wasted space.
+function folPartBlock(label,items,inline){ const blk=document.createElement('div'); blk.className='folpart';
   const pl=document.createElement('div'); pl.className='pl'; pl.textContent=label+(items.length>1?' ('+items.length+')':''); blk.appendChild(pl);
-  items.forEach((it)=>blk.appendChild(folItemBlock(it))); return blk; }
+  if(inline){ const row=document.createElement('div'); row.className='folformula folinline';
+    items.forEach((it,i)=>{ if(i){ const c=document.createElement('span'); c.className='ftok punct'; c.textContent=', '; row.appendChild(c); }
+      row.appendChild(folTokensEl(it.tokens)); }); blk.appendChild(row); }
+  else items.forEach((it)=>blk.appendChild(folItemBlock(it)));
+  return blk; }
 // render the FOL-tab target box into #folView (only when the FOL tab is active).
-function renderFol(){ if(RIGHT_TAB!=='fol') return; const host=$('folView'); if(!host) return;
-  host.innerHTML=''; const box=folTargetId()&&find(folTargetId());
+function renderFol(){ const host=$('folView'); if(!host) return;
+  host.innerHTML=''; const tid=folTargetId(); const box=tid&&tid!=='root'?find(tid):null;
   const title=$('rightFolTitle');
-  const pinBtn=$('folPin'); if(pinBtn){ pinBtn.classList.toggle('on',!!FOL_PIN); pinBtn.disabled=!FOL_PIN&&!selId;
-    pinBtn.textContent=FOL_PIN?'📌 pinned':'📍 pin'; pinBtn.title=FOL_PIN?'unpin — follow selection again':'pin this box (selection won’t change the FOL)'; }
-  if(!box){ if(title) title.textContent='(select a box)';
-    const n=document.createElement('div'); n.className='folnone'; n.textContent='Select a box to see its FOL.'; host.appendChild(n); return; }
+  const pinBtn=$('folPin'); if(pinBtn){ pinBtn.classList.toggle('on',!!FOL_PIN); pinBtn.disabled=!FOL_PIN&&(levelId==='root');
+    pinBtn.textContent=FOL_PIN?'📌 pinned':'📍 pin'; pinBtn.title=FOL_PIN?'unpin — follow the current level again':'pin this box (level changes won’t change the FOL)'; }
+  if(!box){ if(title) title.textContent='(enter a level)';
+    const n=document.createElement('div'); n.className='folnone'; n.textContent='Enter a level (double-click a box) to see its FOL.'; host.appendChild(n); return; }
   if(title) title.textContent=(FOL_PIN?'📌 ':'')+(box.label?labelTag(box):box.id)+' · '+label(box);
   const v=CORE.folView(ROOT,box,folSymText);
   const H=(t)=>{ const d=document.createElement('div'); d.className='follabel'; d.textContent=t; host.appendChild(d); };
@@ -1167,9 +1261,9 @@ function renderFol(){ if(RIGHT_TAB!=='fol') return; const host=$('folView'); if(
       else { const w=document.createElement('div'); w.className='folnone'; w.textContent=sv.reason; m.appendChild(w); }
       host.appendChild(m); });
     return; }
-  if(v.kind==='parts'){ v.parts.forEach((p)=>host.appendChild(folPartBlock(p.label,p.items)));
+  if(v.kind==='parts'){ v.parts.forEach((p)=>host.appendChild(folPartBlock(p.label,p.items,p.inline)));
     H('signature'); host.appendChild(folSigBlock(v.sig)); return; }
-  if(v.kind==='list'){ host.appendChild(folPartBlock(v.title,v.items));
+  if(v.kind==='list'){ host.appendChild(folPartBlock(v.title,v.items,v.inline));
     H('signature'); host.appendChild(folSigBlock(v.sig)); return; }
   // single formula
   H('formula'); host.appendChild(folItemBlock({tokens:v.tokens}));
@@ -1234,6 +1328,34 @@ function setLabelPath(path){ const b=selId&&find(selId); if(!b) return;
 // set/clear the selected variable box's name (coreference = same name in scope).
 function setVarName(v){ const b=selId&&find(selId); if(!b||!CORE.isVariable(b)) return;
   v=(v||'').trim(); if(!v) delete b.var; else b.var=v; markDirty(); refreshAll(); }
+// dropdown change: picking an existing name → coreference THIS box with it; the
+// two action sentinels open the inline editor in the right mode.
+//   __new__    → NEW: name THIS box only (diverges into its own symbol)
+//   __rename__ → RENAME: change this symbol's name across ALL its co-referents
+function setSymName(v){ const b=selId&&find(selId); if(!b||!CORE.symKind(b)) return;
+  if(v==='__new__'){ showSymEdit('new'); return; }
+  if(v==='__rename__'){ showSymEdit('rename'); return; }
+  v=(v||'').trim(); if(!v) delete b.sym; else b.sym=v; markDirty(); refreshAll(); }
+// swap the sym dropdown for an inline text input. `mode`:
+//   'new'    → sets box.sym on THIS box only (empty = clear → slug default).
+//   'rename' → rewrites box.sym on EVERY co-referent of this symbol to the new
+//              name (so the whole group stays one symbol, just renamed).
+// Pre-filled with the current resolved name, selected; Enter/blur commits, Esc cancels.
+function showSymEdit(mode){ const b=selId&&find(selId); if(!b||!CORE.symKind(b)) return;
+  const sel=$('symInput'), inp=$('symEdit'); if(!sel||!inp) return;
+  inp.value=CORE.symNameOf(b,folSymText); inp.title=mode==='rename'?'rename this symbol everywhere it occurs':'name this occurrence only (diverges into a new symbol)';
+  sel.style.display='none'; inp.style.display='';
+  inp.focus(); inp.select();
+  const commit=(save)=>{ inp.style.display='none'; sel.style.display='';
+    if(save){ const v=inp.value.trim(); const b2=selId&&find(selId);
+      if(b2&&CORE.symKind(b2)){
+        if(mode==='rename'){ if(!v){ flash('rename needs a name — use + new name to diverge, or clear on a single box'); }
+          else { const cor=CORE.coreferentsOf(ROOT,b2,folSymText);
+            cor.forEach((x)=>{ x.sym=v; }); markDirty(); flash(`renamed ${cor.length} occurrence${cor.length===1?'':'s'} → “${v}”`); } }
+        else { if(!v) delete b2.sym; else b2.sym=v; markDirty(); } } }
+    refreshAll(); };
+  inp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); commit(true); } else if(e.key==='Escape'){ e.preventDefault(); commit(false); } };
+  inp.onblur=()=>commit(true); }
 // Lean toolbar: add (m), remove (r), none, clear + the verdict buttons.
 function updateLeanUI(){ const box=selId&&find(selId);
   const map=$('leanMap'),unmap=$('leanUnmap'),none=$('leanNone'),clr=$('leanClear'),info=$('leanInfo');
@@ -1290,6 +1412,23 @@ function setupSplitters(){ document.querySelectorAll('.splitter').forEach((sp)=>
     const up=(ev)=>{sp.releasePointerCapture(ev.pointerId);sp.classList.remove('drag');document.body.classList.remove('resizing');sp.removeEventListener('pointermove',mv);sp.removeEventListener('pointerup',up);};
     sp.addEventListener('pointermove',mv);sp.addEventListener('pointerup',up);}); }); }
 
+// apply the right-column vertical split: FOL sub-pane gets fraction `f` of the
+// height, Lean gets the rest. Both are flex items; we set flex-grow so they
+// share remaining space in ratio (keeps working when the window resizes).
+function applyRSplit(f){ RSPLIT=Math.max(0.12,Math.min(0.88,f));
+  const a=$('pane3a'), b=$('pane3b'); if(!a||!b) return;
+  a.style.flex=(1-RSPLIT)+' 1 0'; b.style.flex=RSPLIT+' 1 0'; }
+// horizontal splitter between the two right sub-panes (Lean over FOL).
+function setupHSplitter(){ const sp=document.querySelector('.hsplitter'); if(!sp) return;
+  const col=$('pane3');
+  sp.addEventListener('pointerdown',(e)=>{ e.preventDefault(); sp.setPointerCapture(e.pointerId); sp.classList.add('drag'); document.body.classList.add('resizingv');
+    const mv=(ev)=>{ const r=col.getBoundingClientRect(); const y=ev.clientY-r.top;
+      // FOL (bottom) fraction = how far the pointer is from the bottom
+      applyRSplit((r.height-y)/r.height); };
+    const up=(ev)=>{ sp.releasePointerCapture(ev.pointerId); sp.classList.remove('drag'); document.body.classList.remove('resizingv');
+      sp.removeEventListener('pointermove',mv); sp.removeEventListener('pointerup',up); scheduleViewSave(); };
+    sp.addEventListener('pointermove',mv); sp.addEventListener('pointerup',up); }); }
+
 // switch the left panel between the Boxes tree, Lean file tree, and Errors list.
 function switchTab(which){
   $('viewBoxes').style.display =which==='boxes' ?'':'none';
@@ -1300,21 +1439,9 @@ function switchTab(which){
   $('tabErrors').classList.toggle('active',which==='errors');
   if(which==='lean') renderLeanTree(); if(which==='errors') renderErrors(); scheduleViewSave(); }
 
-// switch the RIGHT pane between the Lean code+mapping view and the FOL view.
-// They share the one right column (tabs in the pane head).
-function switchRightTab(which){ RIGHT_TAB=which;
-  const leanOn=which==='lean';
-  $('leanScroll').style.display =leanOn?'':'none';
-  $('folScroll').style.display  =leanOn?'none':'';
-  $('rightLeanTools').style.display=leanOn?'':'none';
-  $('rightFolTitle').style.display =leanOn?'none':'';
-  $('folPin').style.display        =leanOn?'none':'';
-  $('rtabLean').classList.toggle('active',leanOn);
-  $('rtabFol').classList.toggle('active',!leanOn);
-  if(!leanOn) renderFol(); scheduleViewSave(); }
-// pin/unpin the FOL tab to the current box: pinned → selection no longer changes
-// what the FOL tab shows (until unpinned).
-function toggleFolPin(){ if(FOL_PIN) FOL_PIN=null; else { if(!selId){ flash('select a box to pin'); return; } FOL_PIN=selId; }
+// pin/unpin the FOL view to the current level: pinned → the level no longer
+// changes what the FOL view shows (until unpinned).
+function toggleFolPin(){ if(FOL_PIN) FOL_PIN=null; else { if(levelId==='root'){ flash('enter a level to pin'); return; } FOL_PIN=levelId; }
   renderFol(); scheduleViewSave(); }
 
 /* ───────────────── init ───────────────── */
@@ -1338,13 +1465,16 @@ async function init(){
   $('labelChip').onclick=(e)=>{ e.stopPropagation(); if(labelPopOpen) closeLabelPop(); else openLabelPop(); };
   $('countInput').onchange=(e)=>setCount(e.target.value);
   $('varInput').onchange=(e)=>setVarName(e.target.value);
+  $('symInput').onchange=(e)=>setSymName(e.target.value);
   // close the label popover on any outside click (but not clicks within it)
   document.addEventListener('mousedown',(e)=>{ if(!labelPopOpen) return; const pop=$('labelPop'); if(pop&&!pop.contains(e.target)&&e.target!==$('labelChip')) closeLabelPop(); });
   $('upLevel').onclick=upLevel; $('upLevelPdf').onclick=upLevel;
   $('jumpLevel').onclick=jumpToLevel; $('jumpLevelPdf').onclick=jumpToLevel;
-  $('folBtn').onclick=(e)=>{ e.stopPropagation(); switchRightTab('fol'); };
-  $('rtabLean').onclick=()=>switchRightTab('lean'); $('rtabFol').onclick=()=>switchRightTab('fol');
+  // the labelbar "∀ FOL" button just scrolls the always-visible FOL sub-pane into
+  // view (both Lean + FOL are shown at once now; no tabs to switch).
+  $('folBtn').onclick=(e)=>{ e.stopPropagation(); const p=$('pane3b'); if(p) p.scrollIntoView({block:'nearest',behavior:'smooth'}); $('folScroll').scrollTop=0; };
   $('folPin').onclick=toggleFolPin;
+  setupHSplitter();
   $('wireBtn').onclick=toggleWireframe;
   $('mkbox').onclick=makeBox; $('extendbox').onclick=extendBox; $('removebox').onclick=removeSel;
   $('mkimplicit').onclick=makeImplicitBox;
@@ -1384,7 +1514,7 @@ const VIEW_KEY='pdfseg:view:'+location.pathname;
 let _vt=null; function scheduleViewSave(){ clearTimeout(_vt); _vt=setTimeout(saveViewState,300); }
 function currentTab(){ return $('viewLean').style.display!=='none'?'lean':$('viewErrors').style.display!=='none'?'errors':'boxes'; }
 function saveViewState(){ try{ localStorage.setItem(VIEW_KEY, JSON.stringify({
-  levelId, selId, tab:currentTab(), rtab:RIGHT_TAB, wire:WIREFRAME,
+  levelId, selId, tab:currentTab(), fpin:FOL_PIN, wire:WIREFRAME, rsplit:RSPLIT,
   pdf:$('pdfScroll').scrollTop, lean:$('leanScroll').scrollTop, leanFile:LEAN_FILE,
 })); }catch(_){} }
 async function restoreViewState(){ let v; try{ v=JSON.parse(localStorage.getItem(VIEW_KEY)||'null'); }catch(_){ v=null; }
@@ -1394,7 +1524,8 @@ async function restoreViewState(){ let v; try{ v=JSON.parse(localStorage.getItem
   if(v.selId&&find(v.selId)) selId=v.selId;
   if(v.leanFile&&v.leanFile!==LEAN_FILE&&LEAN_FILES.includes(v.leanFile)) await showLeanFile(v.leanFile);
   if(v.tab&&v.tab!=='boxes') switchTab(v.tab);
-  if(v.rtab==='fol') switchRightTab('fol');
+  if(v.fpin&&find(v.fpin)) FOL_PIN=v.fpin;   // restore pinned FOL box (if still exists)
+  if(v.rsplit!=null) applyRSplit(v.rsplit);
   refreshAll();
   // scroll after layout settles
   requestAnimationFrame(()=>{ if(v.pdf!=null)$('pdfScroll').scrollTop=v.pdf; if(v.lean!=null)$('leanScroll').scrollTop=v.lean; });

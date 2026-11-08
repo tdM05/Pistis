@@ -76,5 +76,16 @@
 
   "COUNTED_SLOT": {
     "inputs": "term", "conditions": "formula", "relation": "term", "function-application": "term"
+  },
+
+  "_doc_SYM_KINDS": "Which concrete labels carry an AUTHORED non-logical symbol identity (box.sym), and which signature bucket they fall in. The language's signature is the set of distinct sym values in use, GLOBAL across the document (unlike variables, which are scoped per def/theorem). name = the definiendum (a new relation). Logical symbols (∀∃¬∧∨→=) are fixed/derived, never named.",
+  "SYM_KINDS": {
+    "relation-symbol": "rel",
+    "function-symbol": "fn",
+    "constant-symbol": "con",
+    "constant": "con",
+    "name": "rel",
+    "external-citation": "con",
+    "implicit-external-reference": "con"
   }
 }

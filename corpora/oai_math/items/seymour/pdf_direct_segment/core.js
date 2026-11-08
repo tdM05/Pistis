@@ -10,6 +10,7 @@
 
 export function makeCore(schema) {
   const { ISA, HASA, ROOT_SLOTS, LABEL_SHORT, DERIVED_SYM, CONDITIONS, COUNTED_SLOT } = schema;
+  const SYM_KINDS = schema.SYM_KINDS || {};
   const COMMENTARY_ANYWHERE = schema.COMMENTARY_ANYWHERE !== false;
 
   // ── tree helpers (root passed in) ──
@@ -133,6 +134,54 @@ export function makeCore(schema) {
   // next fresh v{N} not used in the scope
   const freshVarName = (root, scope) => { const used = varsInScope(root, scope); let i = 0; while (used['v' + i]) i++; return 'v' + i; };
 
+  // ── non-logical symbol identity (GLOBAL signature) ──
+  // A relation/function/constant symbol has an AUTHORED identity (box.sym), like
+  // a variable's name — but global across the whole document, not scoped. The
+  // language's signature is the set of distinct sym values in use. Two symbol
+  // boxes are the SAME symbol iff they carry the same sym string.
+  // symKind(box): which signature bucket ('rel'|'fn'|'con') this box's symbol
+  // falls in, or null if it carries no authored symbol.
+  const symKind = (box) => { const c = labelConcrete(box && box.label); return (c && SYM_KINDS[c]) || null; };
+  const isSymbolBox = (box) => symKind(box) != null;
+  // the printed/authored name of a symbol box. Prefer the authored box.sym; else
+  // fall back to the slugified span text via slugFn(box) (caller supplies it, as
+  // core has no text source); implicit boxes with no authored name → '∅'.
+  const symNameOf = (box, slugFn) => {
+    if (box && box.sym != null && box.sym !== '') return box.sym;
+    if (box && box.implicit) return '∅';
+    return (slugFn && slugFn(box)) || '∅';
+  };
+  // the global signature in use: {rel:{name:arity}, fn, con}. Arity is read from
+  // the symbol's structural parent (relation/function-application child count,
+  // definiendum from its definition's inputs); constants are arity 0. When the
+  // same name appears with differing arities we keep the max and note nothing —
+  // that's a (separate) validation concern, not a naming one.
+  const signatureInUse = (root, slugFn) => {
+    const sig = { rel: {}, fn: {}, con: {} };
+    const bump = (bucket, name, ar) => { if (name == null) return; sig[bucket][name] = Math.max(sig[bucket][name] || 0, ar || 0); };
+    walk(root, (n) => { const k = symKind(n); if (!k) return; const nm = symNameOf(n, slugFn);
+      let ar = 0; const par = parentOf(root, n.id); const pc = par && labelConcrete(par.label);
+      if (k === 'rel' && pc === 'relation') ar = (par.children || []).filter((c) => labelConcrete(c.label) !== 'relation-symbol' && labelConcrete(c.label) !== 'commentary').length;
+      else if (k === 'fn' && pc === 'function-application') ar = (par.children || []).filter((c) => labelConcrete(c.label) !== 'function-symbol' && labelConcrete(c.label) !== 'commentary').length;
+      else if (labelConcrete(n.label) === 'name' && pc === 'definition') { const inp = (par.children || []).find((c) => c.label && c.label[0] === 'inputs'); ar = inp ? (inp.children || []).filter(isVariable).length : 0; }
+      bump(k, nm, ar); });
+    return sig;
+  };
+  // existing names of a given kind ('rel'|'fn'|'con') across the document — the
+  // dropdown/datalist options for coreferencing a symbol (like var options).
+  const symNamesOfKind = (root, kind, slugFn) => { const s = signatureInUse(root, slugFn); return Object.keys(s[kind] || {}).sort(); };
+  // all boxes that CO-REFER with `box` (should flash together on click):
+  //  variable → same var-name within the same scope (def/theorem)
+  //  symbol   → same kind + same resolved name, document-wide
+  //  else     → just itself
+  // slugFn resolves a symbol's name when box.sym is unset (see symNameOf).
+  const coreferentsOf = (root, box, slugFn) => {
+    if (!box) return [];
+    if (isVariable(box)) { if (box.var == null) return [box]; const sc = scopeOf(root, box); const out = []; walk(sc, (n) => { if (isVariable(n) && n.var === box.var) out.push(n); }); return out; }
+    const k = symKind(box); if (k) { const nm = symNameOf(box, slugFn); const out = []; walk(root, (n) => { if (symKind(n) === k && symNameOf(n, slugFn) === nm) out.push(n); }); return out; }
+    return [box];
+  };
+
   // ── FOL rendering (Bilaniuk Def 5.2/5.3, extended with ∧∨∃↔ abbreviations) ──
   // Render a box to a FOL formula as a flat TOKEN LIST (not just a string), so
   // callers can render it richly (color by kind, subscripts) or flatten it to
@@ -149,9 +198,17 @@ export function makeCore(schema) {
   // Returns {str, tokens, sig}: str = tokens joined verbatim (back-compat).
   const INFIX = { conjunction: '∧', disjunction: '∨', implication: '→' };
   function toFOL(root, box, symText, sig) {
-    sig = sig || { rel: {}, fn: {}, con: {}, vars: new Set() };
-    const V = (s) => ({ t: 'var', s }); const REL = (s, impl) => ({ t: 'rel', s, impl });
-    const FN = (s, impl) => ({ t: 'fn', s, impl }); const CON = (s, impl) => ({ t: 'con', s, impl });
+    // sig.rel/fn/con = the PRIMITIVE signature (irreducible dictionary). A
+    // definiendum is NOT primitive — it's a defined, condition-guarded
+    // abbreviation (eliminable, like δ-reduction), so it goes in sig.defined,
+    // kept separate from the primitives.
+    sig = sig || { rel: {}, fn: {}, con: {}, defined: {}, vars: new Set() };
+    if (!sig.defined) sig.defined = {};
+    // identity-bearing tokens carry `box` (the id of the box they came from) so
+    // the UI can flash all co-referents on click, like the variable chip.
+    const bid = (b) => (b && b.id) || null;
+    const V = (s, b) => ({ t: 'var', s, box: bid(b) }); const REL = (s, impl, b) => ({ t: 'rel', s, impl, box: bid(b) });
+    const FN = (s, impl, b) => ({ t: 'fn', s, impl, box: bid(b) }); const CON = (s, impl, b) => ({ t: 'con', s, impl, box: bid(b) });
     const L = (s) => ({ t: 'logic', s }); const P = (s) => ({ t: 'punct', s }); const SP = { t: 'sp', s: ' ' };
     const Q = (s) => ({ t: 'logic', s });
     // flatten token-arrays, inserting `sep` (a token array) between them
@@ -159,22 +216,23 @@ export function makeCore(schema) {
     const rec = (b) => {
       const kids = (b.children || []).filter((c) => labelConcrete(c.label) !== 'commentary');
       const c = labelConcrete(b.label);
-      const symOf = (x) => (x.implicit ? '∅' : symText(x));
+      // authored identity (box.sym) wins; else slug the span via symText; ∅ if implicit
+      const symOf = (x) => symNameOf(x, symText);
       switch (c) {
-        case 'variable': case 'variable-symbol': { const v = b.var || '?'; sig.vars.add(v); return [V(v)]; }
-        case 'constant': { const s = symOf(b); sig.con[s] = 0; return [CON(s, b.implicit)]; }
-        case 'external-citation': case 'implicit-external-reference': { const s = symOf(b); sig.con[s] = 0; return [CON(s, b.implicit)]; }
+        case 'variable': case 'variable-symbol': { const v = b.var || '?'; sig.vars.add(v); return [V(v, b)]; }
+        case 'constant': { const s = symOf(b); sig.con[s] = 0; return [CON(s, b.implicit, b)]; }
+        case 'external-citation': case 'implicit-external-reference': { const s = symOf(b); sig.con[s] = 0; return [CON(s, b.implicit, b)]; }
         case 'function-application': {
           const fsym = kids.find((k) => labelConcrete(k.label) === 'function-symbol');
           const terms = kids.filter((k) => k !== fsym);
           const f = fsym ? symOf(fsym) : '∅'; sig.fn[f] = terms.length;
-          return [FN(f, fsym ? fsym.implicit : true), P('('), ...join(terms.map(rec), [P(','), SP]), P(')')];
+          return [FN(f, fsym ? fsym.implicit : true, fsym), P('('), ...join(terms.map(rec), [P(','), SP]), P(')')];
         }
         case 'relation': {
           const rsym = kids.find((k) => labelConcrete(k.label) === 'relation-symbol');
           const terms = kids.filter((k) => k !== rsym);
           const r = rsym ? symOf(rsym) : '∅'; sig.rel[r] = terms.length;
-          return [REL(r, rsym ? rsym.implicit : true), P('('), ...join(terms.map(rec), [P(','), SP]), P(')')];
+          return [REL(r, rsym ? rsym.implicit : true, rsym), P('('), ...join(terms.map(rec), [P(','), SP]), P(')')];
         }
         case 'equality': { const terms = kids.filter((k) => labelConcrete(k.label) !== 'equality-symbol'); return [...rec(terms[0]), SP, L('='), SP, ...rec(terms[1])]; }
         case 'negation': { const f = kids.find((k) => isFormulaish(k)); return [L('¬'), ...(f ? rec(f) : [P('?')])]; }
@@ -185,7 +243,7 @@ export function makeCore(schema) {
           const q = c === 'universal' ? '∀' : '∃';
           const vb = kids.find((k) => isVariable(k)); const body = kids.find((k) => isFormulaish(k));
           const v = vb ? (vb.var || '?') : '?'; sig.vars.add(v);
-          return [Q(q), V(v), SP, ...(body ? rec(body) : [P('?')])];
+          return [Q(q), V(v, vb), SP, ...(body ? rec(body) : [P('?')])];
         }
         case 'theorem': { const f = kids.find((k) => isFormulaish(k)); return f ? rec(f) : [P('?')]; }
         case 'body': case 'formula': case 'atomic-formula': case 'compound-formula': case 'quantified': case 'connective': case 'atomic-term': case 'composite-term': case 'term': {
@@ -198,20 +256,21 @@ export function makeCore(schema) {
           const inputs = kids.find((k) => head(k) === 'inputs');
           const conds = kids.find((k) => head(k) === 'conditions');
           const bodyB = kids.find((k) => head(k) === 'body');
-          const nm = name ? symText(name) : '∅';
-          const ivars = inputs ? (inputs.children || []).filter(isVariable).map((v) => { sig.vars.add(v.var); return v.var; }) : [];
-          sig.rel[nm] = ivars.length;   // the definiendum = a new relation symbol
-          const lhs = [REL(nm, name ? name.implicit : true), P('('), ...join(ivars.map((v) => [V(v)]), [P(','), SP]), P(')')];
+          const nm = name ? symOf(name) : '∅';
+          const ivboxes = inputs ? (inputs.children || []).filter(isVariable) : [];
+          const ivars = ivboxes.map((v) => { sig.vars.add(v.var); return v.var; });
+          sig.defined[nm] = ivars.length;   // defined abbreviation — NOT a primitive relation
+          const lhs = [REL(nm, name ? name.implicit : true, name), P('('), ...join(ivboxes.map((v) => [V(v.var, v)]), [P(','), SP]), P(')')];
           const rhs = bodyB ? rec(bodyB) : [P('?')];
           const condArr = conds ? (conds.children || []).filter(isFormulaish).map(rec) : [];
           const bicond = [...lhs, SP, L('↔'), SP, ...rhs];
           const body2 = condArr.length
             ? [P('('), ...join(condArr, [SP, L('∧'), SP]), P(')'), SP, L('→'), SP, P('('), ...bicond, P(')')]
             : bicond;
-          const pre = []; ivars.forEach((v) => pre.push(Q('∀'), V(v)));
-          return ivars.length ? [...pre, SP, ...body2] : body2;
+          const pre = []; ivboxes.forEach((vb) => pre.push(Q('∀'), V(vb.var, vb)));
+          return ivboxes.length ? [...pre, SP, ...body2] : body2;
         }
-        default: { const only = kids[0]; return only ? rec(only) : [CON(symOf(b) || '?', b.implicit)]; }
+        default: { const only = kids[0]; return only ? rec(only) : [CON(symOf(b) || '?', b.implicit, b)]; }
       }
     };
     const tokens = rec(box);
@@ -252,7 +311,7 @@ export function makeCore(schema) {
     const issues = [];
     walk(box, (n) => { const m = boxIssues(n); if (m.length) issues.push({ id: n.id, tag: n.label ? labelTag(root, n) : 'unlabelled', msgs: m }); });
     if (issues.length) return { kind: 'error', issues };
-    const sig = { rel: {}, fn: {}, con: {}, vars: new Set() };
+    const sig = { rel: {}, fn: {}, con: {}, defined: {}, vars: new Set() };
     // definition: show each slot broken out (conditions kept as a LIST). No
     // synthesized "whole" biconditional — the parts ARE the content.
     if (c === 'definition') {
@@ -263,18 +322,18 @@ export function makeCore(schema) {
       const conds = kids.find((k) => head(k) === 'conditions');
       const bodyB = kids.find((k) => head(k) === 'body');
       const parts = [];
-      const nm = name ? symText(name) : '∅';
+      const nm = name ? symNameOf(name, symText) : '∅';
       const ivs = inputs ? kidsOf(inputs).filter(isVariable) : [];
       ivs.forEach((v) => sig.vars.add(v.var));
-      sig.rel[nm] = ivs.length;   // definiendum = a new relation symbol
-      parts.push({ label: 'name', items: [{ tokens: [{ t: 'rel', s: nm, impl: name ? name.implicit : true }], id: name && name.id }] });
-      if (inputs) parts.push({ label: 'inputs', items: ivs.length ? ivs.map((v) => ({ tokens: [{ t: 'var', s: v.var || '?' }], id: v.id })) : [{ tokens: [{ t: 'punct', s: '— none' }] }] });
+      sig.defined[nm] = ivs.length;   // defined abbreviation — NOT a primitive relation
+      parts.push({ label: 'name', items: [{ tokens: [{ t: 'rel', s: nm, impl: name ? name.implicit : true, box: name && name.id }], id: name && name.id }] });
+      if (inputs) parts.push({ label: 'inputs', inline: true, items: ivs.length ? ivs.map((v) => ({ tokens: [{ t: 'var', s: v.var || '?', box: v.id }], id: v.id })) : [{ tokens: [{ t: 'punct', s: '— none' }] }] });
       if (conds) { const cfs = kidsOf(conds); parts.push({ label: 'conditions', items: cfs.length ? cfs.map((f) => ({ tokens: toFOL(root, f, symText, sig).tokens, id: f.id })) : [{ tokens: [{ t: 'punct', s: '— none' }] }] }); }
       if (bodyB) parts.push({ label: 'body', items: [{ tokens: toFOL(root, bodyB, symText, sig).tokens, id: bodyB.id }] });
       return { kind: 'parts', title: 'definition', parts, sig };
     }
     // a name slot clicked directly: just the definiendum symbol
-    if (c === 'name') return { kind: 'formula', tokens: [{ t: 'rel', s: symText(box) || '∅', impl: box.implicit }], sig };
+    if (c === 'name') return { kind: 'formula', tokens: [{ t: 'rel', s: symNameOf(box, symText), impl: box.implicit, box: box.id }], sig };
     // a single formula / term / theorem
     if (isFolable(box)) { const r = toFOL(root, box, symText, sig); return { kind: 'formula', tokens: r.tokens, sig }; }
     // a composite slot clicked directly (conditions, inputs, proof, …): list its
@@ -293,5 +352,6 @@ export function makeCore(schema) {
     lblShort, derivedSymbol, labelTag,
     mergeIntervals, coverageOf, boxIssues, allIssues,
     scopeOf, isVariable, varsInScope, freshVarName, toFOL, folView, isFormulaish, isFolable, subtreeHasIssue,
+    SYM_KINDS, symKind, isSymbolBox, symNameOf, signatureInUse, symNamesOfKind, coreferentsOf,
   };
 }

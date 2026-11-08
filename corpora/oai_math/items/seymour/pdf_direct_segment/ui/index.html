@@ -53,6 +53,7 @@
         <button id="folBtn" class="minibtn" title="show this box as a FOL formula + signature" style="display:none">∀ FOL</button>
         <span class="spacer"></span>
         <label id="varWrap" class="countwrap" style="display:none" title="variable (same variable = same identity within this definition/theorem)">var <select id="varInput" class="countsel"></select></label>
+        <label id="symWrap" class="countwrap" style="display:none" title="symbol identity (same name = same symbol in the language, document-wide). Pick an existing one to coreference, or choose + new/edit name… to type a custom one.">sym <select id="symInput" class="symsel"></select><input id="symEdit" class="symsel symedit" style="display:none" placeholder="name…"></label>
         <label id="countWrap" class="countwrap" style="display:none" title="declared number of arguments"># <select id="countInput" class="countsel"></select></label>
         <button id="labelChip" class="labelchip" disabled>label…</button>
       </div>
@@ -76,29 +77,36 @@
     <div id="pdfScroll" class="pdf-scroll"><div id="pages" class="pages"></div></div>
   </section>
   <div class="splitter" data-left="pane2" data-right="pane3"></div>
+  <!-- right column: Lean (top) and FOL (bottom), split vertically -->
   <section class="lean-pane" id="pane3">
-    <div class="pane-head lean-head">
-      <button id="rtabLean" class="tab active">Lean</button>
-      <button id="rtabFol" class="tab">∀ FOL</button>
-      <button id="folPin" class="minibtn" style="display:none" title="pin this box (selection won’t change the FOL)">📍 pin</button>
-      <span class="vsep"></span>
-      <span id="rightLeanTools">
-      <span id="leanFileLabel" class="leanfilelabel" title="current Lean file">(no file)</span>
-      <span class="lean-tools">
-        <button id="leanMap" class="minibtn" disabled title="add the Lean selection as a span of the selected box">+ map <kbd>m</kbd></button>
-        <button id="leanUnmap" class="minibtn" disabled title="remove the Lean selection from the selected box's spans">&minus; unmap <kbd>r</kbd></button>
-        <button id="leanNone" class="minibtn" disabled title="map selected box to nothing">&empty; none</button>
-        <button id="leanClear" class="minibtn" disabled title="clear this box's Lean mapping">clear</button>
-        <span class="vsep"></span>
-        <button id="vOk" class="minibtn okbtn" disabled title="leaf verdict: faithful (click again to clear)">&check; ok</button>
-        <button id="vNotok" class="minibtn notokbtn" disabled title="leaf verdict: not faithful (click again to clear)">&cross; not ok</button>
-        <button id="vUndec" class="minibtn undecbtn" disabled title="leaf verdict: undecidable / working on it (click again to clear)">? undecidable</button>
-      </span>
-      </span>
-      <span id="rightFolTitle" class="leanfilelabel" style="display:none" title="FOL view of the selected box">(select a box)</span>
+    <div class="rsub" id="pane3a">
+      <div class="pane-head lean-head">
+        <span class="rtitle">Lean</span>
+        <span id="rightLeanTools">
+        <span id="leanFileLabel" class="leanfilelabel" title="current Lean file">(no file)</span>
+        <span class="lean-tools">
+          <button id="leanMap" class="minibtn" disabled title="add the Lean selection as a span of the selected box">+ map <kbd>m</kbd></button>
+          <button id="leanUnmap" class="minibtn" disabled title="remove the Lean selection from the selected box's spans">&minus; unmap <kbd>r</kbd></button>
+          <button id="leanNone" class="minibtn" disabled title="map selected box to nothing">&empty; none</button>
+          <button id="leanClear" class="minibtn" disabled title="clear this box's Lean mapping">clear</button>
+          <span class="vsep"></span>
+          <button id="vOk" class="minibtn okbtn" disabled title="leaf verdict: faithful (click again to clear)">&check; ok</button>
+          <button id="vNotok" class="minibtn notokbtn" disabled title="leaf verdict: not faithful (click again to clear)">&cross; not ok</button>
+          <button id="vUndec" class="minibtn undecbtn" disabled title="leaf verdict: undecidable / working on it (click again to clear)">? undecidable</button>
+        </span>
+        </span>
+      </div>
+      <div id="leanScroll" class="lean-scroll"><div id="leanCode" class="lean-code"></div></div>
     </div>
-    <div id="leanScroll" class="lean-scroll"><div id="leanCode" class="lean-code"></div></div>
-    <div id="folScroll" class="fol-scroll" style="display:none"><div id="folView" class="fol-view"></div></div>
+    <div class="hsplitter" data-top="pane3a"></div>
+    <div class="rsub" id="pane3b">
+      <div class="pane-head lean-head">
+        <span class="rtitle">∀ FOL</span>
+        <button id="folPin" class="minibtn" title="pin this box (selection won’t change the FOL)">📍 pin</button>
+        <span id="rightFolTitle" class="leanfilelabel" title="FOL view of the selected box">(select a box)</span>
+      </div>
+      <div id="folScroll" class="fol-scroll"><div id="folView" class="fol-view"></div></div>
+    </div>
   </section>
 </main>
 <footer id="statusbar" class="statusbar">

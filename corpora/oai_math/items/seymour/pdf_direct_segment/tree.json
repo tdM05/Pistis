@@ -855,7 +855,7 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v2"
+                                      "var": "v3"
                                     }
                                   ],
                                   "label": [
@@ -886,34 +886,86 @@
                                   "id": "b138",
                                   "pieces": [],
                                   "implicit": true,
-                                  "children": [],
+                                  "children": [
+                                    {
+                                      "id": "b145",
+                                      "pieces": [],
+                                      "implicit": true,
+                                      "children": [],
+                                      "label": [
+                                        "term",
+                                        "atomic-term",
+                                        "variable"
+                                      ],
+                                      "var": "v3"
+                                    },
+                                    {
+                                      "id": "b146",
+                                      "pieces": [],
+                                      "implicit": true,
+                                      "children": [],
+                                      "label": [
+                                        "term",
+                                        "atomic-term",
+                                        "variable"
+                                      ],
+                                      "var": "v5"
+                                    },
+                                    {
+                                      "id": "b147",
+                                      "pieces": [],
+                                      "implicit": true,
+                                      "children": [],
+                                      "label": [
+                                        "symbol",
+                                        "non-logical",
+                                        "function-symbol"
+                                      ],
+                                      "sym": "val_at_entry"
+                                    }
+                                  ],
                                   "label": [
                                     "term",
-                                    "atomic-term",
-                                    "variable"
+                                    "composite-term",
+                                    "function-application"
                                   ],
-                                  "var": "v5"
+                                  "count": 2
                                 },
                                 {
-                                  "id": "b137",
+                                  "id": "b144",
                                   "pieces": [
                                     {
                                       "start": 16000,
-                                      "end": 16009
+                                      "end": 16005
                                     }
                                   ],
                                   "children": [],
                                   "label": [
                                     "symbol",
-                                    "non-logical",
-                                    "relation-symbol"
+                                    "logical",
+                                    "equality-symbol"
+                                  ]
+                                },
+                                {
+                                  "id": "b137",
+                                  "pieces": [
+                                    {
+                                      "start": 16005,
+                                      "end": 16009
+                                    }
+                                  ],
+                                  "children": [],
+                                  "label": [
+                                    "term",
+                                    "atomic-term",
+                                    "constant"
                                   ]
                                 }
                               ],
                               "label": [
                                 "formula",
                                 "atomic-formula",
-                                "relation"
+                                "equality"
                               ],
                               "count": 1
                             }
@@ -974,6 +1026,11 @@
               ],
               "lean": {
                 "spans": [
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 170,
+                    "end": 216
+                  },
                   {
                     "file": "lean/MaxSupportKernel.lean",
                     "start": 218,
