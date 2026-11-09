@@ -8,6 +8,41 @@
 section ExtractProbe
 open Lean Meta
 
+-- does this command's declId name equal `nm`? (the DEFINED name, not any ident it
+-- mentions — so a theorem that merely USES `SupportedOn` is not matched).
+def __declNameIs (nm : String) (cmd : Lean.Syntax) : Bool :=
+  match cmd.find? (fun n => n.getKind == ``Lean.Parser.Command.declId) with
+  | some declId => (declId.getArg 0).getId.toString == nm
+  | none => false
+
+-- byte-range JSON for a syntax node, or null.
+def __rangeJson (s : Lean.Syntax) : Json :=
+  match s.getRange? with
+  | some r => Json.mkObj [("start", Json.num r.start.byteIdx), ("stop", Json.num r.stop.byteIdx)]
+  | none => Json.null
+
+-- collect binder entries under `s`, IN ORDER (pre-order walk), ONE PER BOUND NAME.
+-- A binder `( <names> <: type> )` may bind SEVERAL names (`{I J : Type*}` → I, J):
+-- we emit one entry per individual name ident, each with that name's own range and
+-- the binder's shared TYPE-ascription range. This makes the emitted list line up
+-- 1:1 with the elaborated Expr binders (which are also one-per-name).
+partial def __collectBinders (s : Lean.Syntax) (acc : Array Json) : Array Json :=
+  let kinds : List Lean.Name := [``Lean.Parser.Term.explicitBinder, ``Lean.Parser.Term.implicitBinder, ``Lean.Parser.Term.instBinder, ``Lean.Parser.Term.strictImplicitBinder]
+  let acc := if kinds.contains s.getKind then
+      let args := s.getArgs
+      let nameGroup := args.getD 1 Lean.Syntax.missing
+      let typeR := if args.size > 2 then __rangeJson (args.getD 2 Lean.Syntax.missing) else Json.null
+      -- the name group is a `null` node whose children are the individual idents;
+      -- an instBinder may have an anonymous name group (just the type) → fall back
+      -- to the whole binder range as the "name".
+      let idents := nameGroup.getArgs.filter (fun n => n.isIdent)
+      if idents.isEmpty then
+        acc.push (Json.mkObj [("name", __rangeJson s), ("type", typeR)])
+      else
+        idents.foldl (fun a id => a.push (Json.mkObj [("name", __rangeJson id), ("type", typeR)])) acc
+    else acc
+  s.getArgs.foldl (fun a c => __collectBinders c a) acc
+
 -- explicitness of each argument of an application, read from the FUNCTION'S type
 -- (Meta.forallTelescopeReducing): a BinderInfo per positional arg. Lets the JS
 -- side keep only EXPLICIT args instead of guessing "last N" (which hid mismatches).
@@ -54,11 +89,59 @@ open Lean Elab in
   match env.find? declName with
   | none => IO.println "__EXTRACT_ERR__ declaration not found"
   | some ci =>
+      -- source ranges from the environment (no frontend/syntax-tree needed):
+      --   declRange = the whole declaration; nameRange = the definiendum token.
+      -- Both as 0-based {line,col}. The JS side turns these into char offsets and
+      -- parses per-binder spans within the signature region (decl start → `:=`).
+      let rangesJson : Json ← do
+        match ← Lean.findDeclarationRanges? declName with
+        | some r =>
+            pure <| Json.mkObj [
+              ("declStart", Json.mkObj [("line", Json.num r.range.pos.line), ("col", Json.num r.range.pos.column)]),
+              ("declEnd",   Json.mkObj [("line", Json.num r.range.endPos.line), ("col", Json.num r.range.endPos.column)]),
+              ("nameStart", Json.mkObj [("line", Json.num r.selectionRange.pos.line), ("col", Json.num r.selectionRange.pos.column)]),
+              ("nameEnd",   Json.mkObj [("line", Json.num r.selectionRange.endPos.line), ("col", Json.num r.selectionRange.endPos.column)])]
+        | none => pure Json.null
+      -- PER-BINDER source ranges, ONE ENTRY PER BOUND NAME, IN ORDER — exactly
+      -- matching the elaborated Expr's leading binders. Re-parse the module and
+      -- accumulate, in source order:
+      --   • binders from every `variable` command seen BEFORE the target decl
+      --     (these are injected as the LEADING Expr binders, when the decl uses them),
+      --   • then the target decl's OWN SIGNATURE binders (its `optDeclSig`, NOT the
+      --     body — so `∀ s j` in the body is excluded).
+      -- Stop at the target decl. The JS side zips these to the Expr binders by order
+      -- (aligning from the END, since `variable` binders the decl doesn't use are
+      -- dropped from the Expr).
+      let bindersJson : Json ← do
+        let srcText ← IO.FS.readFile "__SRCFILE__"
+        let inputCtx := Parser.mkInputContext srcText "__SRCFILE__"
+        let (_, pstate0, msgs) ← Parser.parseHeader inputCtx
+        let pmctx : Parser.ParserModuleContext := { env := env, options := {} }
+        let leaf := declName.components.getLast!.toString
+        let mut state := pstate0
+        let mut acc : Array Json := #[]
+        let mut done := false
+        let mut count := 0
+        repeat
+          let (cmdStx, state', _) := Parser.parseCommand inputCtx pmctx state msgs
+          let k := cmdStx.getKind
+          if __declNameIs leaf cmdStx then
+            -- the target decl: collect ONLY its signature (optDeclSig), not the body
+            let sig := cmdStx.find? (fun n => n.getKind == ``Lean.Parser.Command.optDeclSig
+                                           || n.getKind == ``Lean.Parser.Command.declSig)
+            acc := __collectBinders (sig.getD cmdStx) acc
+            done := true
+          else if k == ``Lean.Parser.Command.variable then
+            acc := __collectBinders cmdStx acc
+          state := state'
+          count := count + 1
+          if done || Parser.isTerminalCommand cmdStx || count > 500 then break
+        pure (Json.arr acc)
       -- run the Expr→JSON walk inside MetaM (needed for per-arg explicitness)
       let act : MetaM Json := do
         let tyj ← __exprToJson [] ci.type
         let valj ← match ci.value? with | some v => __exprToJson [] v | none => pure Json.null
-        pure <| Json.mkObj [("name", Json.str declName.toString), ("type", tyj), ("value", valj)]
+        pure <| Json.mkObj [("name", Json.str declName.toString), ("type", tyj), ("value", valj), ("ranges", rangesJson), ("binders", bindersJson)]
       let out ← Lean.Elab.Command.liftTermElabM act.run'
       IO.println s!"__EXTRACT__{out.compress}"
 

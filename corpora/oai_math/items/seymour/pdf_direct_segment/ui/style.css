@@ -106,6 +106,12 @@ body.resizing{cursor:col-resize;user-select:none;}
 .alignbadge.st-mismatch{color:#fff;background:#c0392b;border-radius:3px;}
 .alignbadge.st-unmapped{color:#fff;background:#b8860b;border-radius:3px;}
 .alignbadge.st-skipped{color:#aaa;}
+.structbadge{flex:none;font-size:10px;font-weight:700;padding:0 4px;border-radius:3px;cursor:help;}
+.structbadge.sv-ok{color:#1f9d55;}
+.structbadge.sv-notok{color:#fff;background:#c0392b;}
+.faithov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;}
+.faithcard{background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:16px 18px;max-width:560px;width:90%;max-height:80vh;overflow:auto;}
+.faithcard .faithhd{font-weight:700;color:#c0392b;margin-bottom:10px;font-size:14px;}
 .folinline{line-height:1.9;}   /* inputs row: variables flow inline, comma-separated */
 /* bracket matching: hover one paren, both it and its partner light up */
 .ftok.paren{cursor:default;border-radius:3px;}

@@ -302,7 +302,8 @@ function paintLeanHighlights(){ const host=$('leanCode'); if(!host) return;
   if(self){ leanSpans(level).forEach((p)=>{ if(p.file===LEAN_FILE) paintLeanRange(p.start,p.end,null,{level:true}); }); }
   // 2) its direct children: each in its own color
   children.forEach((id)=>{ const n=find(id); leanSpans(n).forEach((p)=>{ if(p.file===LEAN_FILE)
-    paintLeanRange(p.start,p.end,boxHex(id),{sel:id===selId}); }); }); }
+    paintLeanRange(p.start,p.end,boxHex(id),{sel:id===selId}); }); });
+}
 // draw highlight boxes over the Lean char range [s,e) by wrapping affected line
 // spans with absolutely-positioned overlays measured from Range rects.
 // opts.level => grey see-through (the current level node); opts.sel => stronger
@@ -590,7 +591,7 @@ function cleanTree(){ let clamped=0, removed=0;
   const visit=(node, region)=>{
     // region = parent's covering intervals (null at root = whole paper)
     for(const c of [...node.children]){
-      if(c.implicit){ visit(c, region); continue; }   // implicit: no span to clamp/remove; children clamp to parent region
+      if(c.implicit||c.bot){ visit(c, region); continue; }   // implicit / ⊥ (Lean-only): no NL span to clamp/remove
       let ps=pieces(c);
       if(region){ const cl=clampPieces(ps,region); if(cl.length!==ps.length || cl.some((q,k)=>!ps[k]||q.start!==ps[k].start||q.end!==ps[k].end)){ clamped++; } ps=cl; c.pieces=ps; }
       if(!c.pieces.length){ // nothing left → remove subtree
@@ -917,9 +918,10 @@ function treeRow(node,isRoot){
   const tw=document.createElement('span'); tw.className='twist'+(expandable?'':' leaf'); tw.textContent=expandable?(collapsed?'▸':'▾'):'·';
   if(expandable) tw.onclick=(e)=>{e.stopPropagation();COLLAPSED[node.id]=!collapsed;renderTree();};
   if(node.implicit) row.classList.add('implicit');
+  if(node.bot) row.classList.add('implicit');   // ⊥ box: render like implicit (no NL span)
   row.appendChild(tw);
   if(!isRoot){const sw=document.createElement('span');sw.className='rswatch';sw.style.background=boxColor(node.id);row.appendChild(sw);}
-  const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':(node.implicit?'∅ implicit':label(node)); row.appendChild(nm);
+  const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':(node.bot?'⊥ Lean-only':(node.implicit?'∅ implicit':label(node))); row.appendChild(nm);
   // label tag: ONE chip, first.last of the is-a path (symbol token inline if auto-derived).
   if(!isRoot && node.label&&node.label.length){ const lt=document.createElement('span'); lt.className='labeltag';
     lt.textContent=labelTag(node); const ds=derivedSymbol(node);
@@ -939,6 +941,24 @@ function treeRow(node,isRoot){
   if(!isRoot && ALIGN_STATUS[node.id]){ const a=ALIGN_STATUS[node.id];
     const w=document.createElement('span'); w.className='alignbadge st-'+a.status; w.textContent=ALIGN_MK[a.status]||'?';
     w.title='Lean align: '+a.status+(a.lean?' ↔ '+a.lean:'')+(a.note?' — '+a.note:''); row.appendChild(w); }
+  // STRUCTURAL-FAITHFULNESS badge (⊢): computed by the align run, persisted. Green =
+  // structurally ok (necessary conditions hold, ASSUMING atoms faithful); red = a
+  // necessary condition is violated (shape / order / var inconsistency) + reason.
+  // Distinct from the atom-level human verdict badge below.
+  if(!isRoot){ const sv=structuralOf(node); if(sv!=='unset'){
+    const w=document.createElement('span'); w.className='structbadge sv-'+sv; w.textContent='⊢';
+    // tooltip: own link → its own reason; a parent → count of problems below it.
+    const ownNotok=node.lean&&node.lean.v==='notok';
+    const nbad=sv==='notok'&&!ownNotok?notokLinks(node).length:0;
+    const why=ownNotok?(node.lean.why||'a necessary condition is violated'):(nbad?`${nbad} structural problem${nbad>1?'s':''} below — click for details`:'a necessary condition is violated');
+    w.title='structural faithfulness: '+(sv==='ok'?'ok (necessary conditions hold, assuming atomic predicates faithful)':'NOT ok — '+why+(ownNotok?' · click for details':''));
+    // a notok badge is CLICKABLE → opens the full faithfulness-error popup for the
+    // offending link (this box, or the first notok link beneath a rolled-up parent).
+    if(sv==='notok'){ w.style.cursor='pointer'; w.onclick=(e)=>{ e.stopPropagation();
+      // own notok link → its full error; a parent (notok only via children) → a LIST
+      // of its notok descendants, each a one-line summary opening that child's full error.
+      if(node.lean&&node.lean.v==='notok') openFaithPopup(node.id); else openFaithList(node.id); }; }
+    row.appendChild(w); } }
   // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
   if(!isRoot){ const out=linksFrom(node.id).length, inc=linksTo(node.id).length;
     if(out||inc){ const lb=document.createElement('span'); lb.className='linkbadge';
@@ -1282,6 +1302,82 @@ let ALIGN_STATUS={};
 function stampAlign(n){ if(n&&n.fol) ALIGN_STATUS[n.fol]={status:n.status,lean:n.lean,note:n.note};
   (n&&n.children||[]).forEach(stampAlign); }
 function clearAlignStatus(){ ALIGN_STATUS={}; renderTree(); }
+// STRUCTURAL FAITHFULNESS: given an align result, write a per-box structural verdict
+// onto the boxes it judged — `box.structural = {v:'ok'|'notok', why}`. This is
+// faithfulness ASSUMING the atomic predicates (constants/relations/functions) are
+// faithful: align checks the NECESSARY conditions (same logical shape, inputs/
+// conditions line up positionally, variables used consistently). It is EXACT, not a
+// guess — a violation (∀ vs ∧, wrong input order, …) is `notok` with the reason; all
+// checks passing is `ok` (necessary, not sufficient — atoms stay the human verdict).
+// Only leaf-ish aligner nodes carry a verdict; slot wrappers/groups just roll up.
+// a box's structural verdict, read FROM ITS LINK and rolled up. The verdict is a
+// property of the NL↔Lean LINK (box.lean.v), written by applyAlignSpans — a box with
+// no link has no verdict. A parent (which itself has no link) derives: notok if ANY
+// descendant link is notok; else ok if ANY descendant link is ok; else unset.
+function structuralOf(n){
+  if(n.lean&&n.lean.v) return n.lean.v;          // the verdict on THIS box's link
+  if(!n.children||!n.children.length) return 'unset';
+  let anyNotok=false, anyOk=false;
+  for(const c of n.children){ const v=structuralOf(c); if(v==='notok')anyNotok=true; else if(v==='ok')anyOk=true; }
+  if(anyNotok) return 'notok'; if(anyOk) return 'ok'; return 'unset';
+}
+// the short reason on a notok link (for the badge tooltip / popup).
+// the first box at/under n whose LINK is notok (so a click on a rolled-up parent can
+// jump to the actual offending link and open its popup).
+// every box at/under n whose OWN link is notok (the actual offending leaves).
+function notokLinks(n,out){ out=out||[]; if(n.lean&&n.lean.v==='notok') out.push(n);
+  (n.children||[]).forEach((c)=>notokLinks(c,out)); return out; }
+// FULL FAITHFULNESS-ERROR POPUP for a notok link: a modal showing the NL text, the
+// FOL formula (colored), the Lean it was compared against (+ file location), and the
+// error. Same content as the align report card, as a focused overlay.
+function openFaithPopup(id){ const b=find(id); if(!b||!b.lean||b.lean.v!=='notok') return;
+  closeFaithPopup();
+  const ov=document.createElement('div'); ov.className='faithov'; ov.id='faithOv';
+  ov.onclick=(e)=>{ if(e.target===ov) closeFaithPopup(); };
+  const card=document.createElement('div'); card.className='faithcard'; ov.appendChild(card);
+  const hd=document.createElement('div'); hd.className='faithhd'; hd.textContent='✗ structurally not faithful'; card.appendChild(hd);
+  // object: full label path
+  if(b.lean.path){ const pl=document.createElement('div'); pl.className='follabel'; pl.textContent='object'; card.appendChild(pl);
+    const pv=document.createElement('div'); pv.style.cssText='font-family:monospace;font-size:12px;color:#475569;'; pv.textContent=b.lean.path; card.appendChild(pv); }
+  // NL
+  const nlL=document.createElement('div'); nlL.className='follabel'; nlL.textContent='NL'; card.appendChild(nlL);
+  const nlv=document.createElement('div'); nlv.className='folcard-nl'; nlv.textContent=(pieces(b).length?CHARS.slice(pieces(b)[0].start,pieces(b)[0].end).replace(/\s+/g,' ').trim():'(implicit)'); card.appendChild(nlv);
+  // FOL
+  { const v=CORE.folView(ROOT,b,folSymText);
+    if(v.kind==='formula'){ const fl=document.createElement('div'); fl.className='follabel'; fl.textContent='FOL'; card.appendChild(fl); card.appendChild(folFormulaBlock(v.tokens)); } }
+  // Lean compared-against + location
+  const sp=leanSpans(b)[0];
+  const loc=sp?sp.file+':'+sp.start+'-'+sp.end:'';
+  const lL=document.createElement('div'); lL.className='follabel'; lL.textContent='Lean'+(loc?' ('+loc+')':''); card.appendChild(lL);
+  const lv=document.createElement('div'); lv.style.cssText='font-family:monospace;font-size:12px;color:#475569;white-space:pre-wrap;'; lv.textContent=b.lean.cmp||'(no Lean counterpart)'; card.appendChild(lv);
+  // error
+  const er=document.createElement('div'); er.className='folcard-err'; er.textContent='✗ '+(b.lean.why||'structures differ'); card.appendChild(er);
+  // actions
+  const act=document.createElement('div'); act.style.cssText='margin-top:10px;display:flex;gap:12px;';
+  const go=document.createElement('span'); go.className='er'; go.style.cssText='cursor:pointer;color:#2563eb;'; go.textContent='select box ⇢'; go.onclick=()=>{ selectBox(id); if(pieces(b).length) scrollToChar(pieces(b)[0].start); if(b.lean&&!b.lean.none) jumpToLean(b); closeFaithPopup(); };
+  const cl=document.createElement('span'); cl.className='er'; cl.style.cssText='cursor:pointer;color:#888;'; cl.textContent='✕ close'; cl.onclick=closeFaithPopup;
+  act.appendChild(go); act.appendChild(cl); card.appendChild(act);
+  document.body.appendChild(ov);
+}
+function closeFaithPopup(){ const ov=$('faithOv'); if(ov) ov.remove(); }
+// LIST popup for a PARENT that is notok only via its children: one row per notok
+// descendant with a ONE-LINE summary; clicking a row opens that child's FULL popup.
+function openFaithList(id){ const b=find(id); if(!b) return;
+  const bad=notokLinks(b); if(!bad.length) return;
+  if(bad.length===1){ openFaithPopup(bad[0].id); return; }   // only one → straight to its full error
+  closeFaithPopup();
+  const ov=document.createElement('div'); ov.className='faithov'; ov.id='faithOv';
+  ov.onclick=(e)=>{ if(e.target===ov) closeFaithPopup(); };
+  const card=document.createElement('div'); card.className='faithcard'; ov.appendChild(card);
+  const hd=document.createElement('div'); hd.className='faithhd'; hd.textContent=`✗ ${bad.length} structural problems below this box`; card.appendChild(hd);
+  bad.forEach((n)=>{ const row=document.createElement('div'); row.className='faithrow'; row.style.cssText='cursor:pointer;padding:6px 0;border-top:1px solid #eee;';
+    const p=document.createElement('div'); p.style.cssText='font-family:monospace;font-size:11px;color:#475569;'; p.textContent=(n.lean&&n.lean.path)||n.id; row.appendChild(p);
+    const w=document.createElement('div'); w.style.cssText='font-size:12px;color:#c0392b;'; w.textContent='✗ '+((n.lean&&n.lean.why)||'structures differ'); row.appendChild(w);
+    row.onclick=()=>openFaithPopup(n.id);   // → that child's FULL popup
+    card.appendChild(row); });
+  const cl=document.createElement('div'); cl.className='er'; cl.style.cssText='cursor:pointer;margin-top:10px;color:#888;'; cl.textContent='✕ close'; cl.onclick=closeFaithPopup; card.appendChild(cl);
+  document.body.appendChild(ov);
+}
 async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'?find(tid):null;
   const host=$('folView'); if(!host||!box) { flash('enter a definition/theorem level first'); return; }
   host.innerHTML=''; const wait=document.createElement('div'); wait.className='folnone';
@@ -1296,8 +1392,15 @@ async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'
     const back=document.createElement('div'); back.className='er'; back.textContent='← back to FOL'; back.style.cursor='pointer'; back.onclick=renderFol; host.appendChild(back); return; }
   // stamp tree badges
   stampAlign(res.alignment);
-  // CREATE THE MAP immediately: write the exact Lean spans onto the boxes so the
-  // Lean pane highlights them right away (this IS the point — not a report).
+  // (⊥,F) BOXES: each compiled Lean piece NL never covers becomes a real ⊥ box — an
+  // auto-generated child of the aligned top-level box, with EMPTY NL span and a
+  // formal link (box.lean) to the extra Lean piece, verdict notok. Like an implicit
+  // box but on the formal side. Auto-regenerated each align (tagged box.auto) so
+  // stale ones can't survive.
+  applyBotBoxes(box, res.leanRegions||[]);
+  // CREATE THE MAP + VERDICTS: write the Lean spans (LINKS) onto the boxes. The
+  // structural faithfulness verdict rides ON each link (box.lean.v), so a verdict
+  // only exists where a link exists.
   const applied=applyAlignSpans(res.spans||{}, true);
   renderTree();
 
@@ -1367,10 +1470,57 @@ async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'
 // so the Lean pane highlights FOL↔Lean. Skips 'approx' (whole-body fallback)
 // spans by default — only the boxes whose Lean text was located exactly get a
 // span, which is the honest, useful mapping. Undoable (markDirty).
+// (⊥,F) boxes: for each Lean-only piece (regions, from align), create an auto ⊥
+// child of the aligned top-level box `top` — empty NL span, box.lean link to the
+// Lean piece, with the region's verdict: bot_OK for scaffolding (def/:/:=/Prop and
+// other formal glue with no NL counterpart — fine) or bot_NOTOK for an extra binder
+// NL omits. Together with the mapped pieces this TILES the whole Lean decl: every
+// char is in exactly one span, each explicitly ok/notok. box.bot = formal-side ⊥
+// (empty NL); box.auto = align-generated. Old auto ⊥ children are dropped first so
+// each align rebuilds them fresh (never stale).
+function applyBotBoxes(top, regions){
+  top.children=(top.children||[]).filter((c)=>!c.auto);   // drop previous auto ⊥ boxes
+  // TWO objects at most: one ⊥_ok box collecting ALL ok Lean spans (scaffolding),
+  // one ⊥_notok box collecting ALL not-ok Lean spans — each a single box whose
+  // disjoint pieces are those spans (like commentary: one box, many pieces).
+  for(const v of ['ok','notok']){
+    const rs=regions.filter((r)=>(r.v||'notok')===v);
+    if(!rs.length) continue;
+    const box={ id:freshId(), pieces:[], bot:true, auto:true, children:[],
+      lean:{ spans:rs.map((r)=>({file:r.file,start:r.start,end:r.end})), v,
+             why:v==='notok'?rs.map((r)=>r.why).filter(Boolean).join('; '):'formal scaffolding (no NL counterpart)' } };
+    top.children.push(box);
+  }
+  if(regions.length) markDirty();
+}
 function applyAlignSpans(spans, silent){ let n=0;
+  const direct=new Set();   // ids that got a DIRECT link this run (real leaves)
   for(const [id,sp] of Object.entries(spans)){ const b=find(id); if(!b) continue;
-    if(sp.approx) continue;   // skip the coarse whole-body fallback — only exact spans
-    b.lean={spans:[{file:sp.file,start:sp.start,end:sp.end}]}; n++; }
+    // A LINK must exist wherever there is a VERDICT (the verdict is a property of the
+    // link). So apply the span if it carries a verdict `v`, EVEN if it is the coarse
+    // 'approx' region — a notok link (e.g. body ∧ vs Lean ∀) maps to the Lean region
+    // it was compared against and is flagged there. Plain unmapped boxes (no v, approx)
+    // are still skipped.
+    if(sp.approx && !sp.v) continue;
+    // a link to NOTHING (maps-to-∅, carries a notok verdict) vs a link to a span.
+    if(sp.none) b.lean={none:true}; else b.lean={spans:[{file:sp.file,start:sp.start,end:sp.end}]};
+    // THE VERDICT LIVES ON THE LINK: ok/notok + (for notok) the reason, the Lean text
+    // it was compared against, and the FOL label path — everything the popup needs.
+    if(sp.v){ b.lean.v=sp.v; if(sp.why) b.lean.why=sp.why; if(sp.cmp) b.lean.cmp=sp.cmp; if(sp.path) b.lean.path=sp.path; }
+    direct.add(id); n++; }
+  // PARENTS MAP TO THE CONCATENATION OF THEIR CHILDREN. Any box that did NOT get a
+  // direct link this run is a wrapper/composite: (RE)COMPUTE its link as the union of
+  // its descendants' spans — overwriting any STALE value from a previous run (that
+  // staleness was the bug where a parent kept old positions after children moved).
+  // Only directly-linked leaves are left untouched. Bottom-up so it composes.
+  (function rollup(b){
+    (b.children||[]).forEach(rollup);
+    if(direct.has(b.id)) return;                              // a real leaf link — keep
+    if(b.bot) return;                                         // ⊥ box carries its OWN link (not a rollup target)
+    const kid=(b.children||[]).flatMap((c)=>leanSpans(c));
+    if(kid.length) b.lean={spans:kid.map((p)=>({file:p.file,start:p.start,end:p.end}))};
+    else if(b.lean&&b.lean.spans) delete b.lean;             // had stale rollup, now no kids → clear
+  })(ROOT);
   if(n) markDirty();
   if(!silent){ refreshAll(); flash(`mapped ${n} box${n===1?'':'es'} to Lean spans`); }
   return n; }
@@ -1595,6 +1745,7 @@ async function init(){
     // undo/redo (Ctrl/Cmd+Z, Shift for redo; also Ctrl+Y)
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault(); if(e.shiftKey) redo(); else undo(); return;}
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='y'){e.preventDefault(); redo(); return;}
+    if(e.key==='Escape'&&$('faithOv')){e.preventDefault();closeFaithPopup();return;}
     if(e.key==='Escape'&&linkFrom){e.preventDefault();cancelLink();return;}
     if(e.key==='Enter'&&linkFrom&&linkTo){e.preventDefault();confirmLink();return;}
     if(e.key==='l'){e.preventDefault(); if(linkFrom) cancelLink(); else startLink(); return;}

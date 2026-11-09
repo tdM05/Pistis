@@ -93,6 +93,9 @@ export function makeCore(schema) {
   // ── validation: issues for ONE box (not recursive) ──
   const boxIssues = (box) => {
     const out = [];
+    // a ⊥ box is an auto, formal-side Lean-only piece (no NL span, no label by
+    // design) — it is not subject to NL structural validation.
+    if (box.bot) return out;
     if (!box.label || !box.label.length) { out.push('unlabelled'); return out; }
     const concrete = labelConcrete(box.label);
     if (isAbstract(concrete)) out.push('incomplete label (ends abstract)');

@@ -43,12 +43,13 @@ export function extract({ decl = DEFAULT_DECL, srcFile = DEFAULT_SRC, timeoutMs 
     try { const c = JSON.parse(readFileSync(cacheFile, 'utf8'));
       if (c.srcMtime === srcMtime && c.decl === decl) return c.tree; } catch (_) {}
   }
-  const tmpl = readFileSync(PROBE_TMPL, 'utf8').replaceAll('__DECL__', decl);
+  const probeFileName = `__leanx_${process.pid}.lean`;
+  const tmpl = readFileSync(PROBE_TMPL, 'utf8').replaceAll('__DECL__', decl).replaceAll('__SRCFILE__', probeFileName);
   // the probe must elaborate in the SAME module context as the source (so the
   // decl is in the environment), so we append it to a copy of the source and
   // place that copy INSIDE the project tree (so `lake env lean` uses the project).
   const dir = mkdtempSync(path.join(tmpdir(), 'leanx-'));
-  const probeFile = path.join(LEAN_PROJECT, `__leanx_${process.pid}.lean`);
+  const probeFile = path.join(LEAN_PROJECT, probeFileName);
   try {
     const src = readFileSync(absSrc, 'utf8');
     writeFileSync(probeFile, src + '\n' + tmpl, 'utf8');

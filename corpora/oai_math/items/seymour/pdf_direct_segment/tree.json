@@ -104,26 +104,7 @@
               ],
               "children": []
             }
-          ],
-          "lean": {
-            "spans": [
-              {
-                "file": "lean/AugmentedRankBound.lean",
-                "start": 0,
-                "end": 2063
-              },
-              {
-                "file": "lean/CoverPruning.lean",
-                "start": 0,
-                "end": 5776
-              },
-              {
-                "file": "lean/Pruning.lean",
-                "start": 0,
-                "end": 575
-              }
-            ]
-          }
+          ]
         },
         {
           "id": "b7",
@@ -164,6 +145,10 @@
                       "end": 15923
                     },
                     {
+                      "start": 15925,
+                      "end": 15933
+                    },
+                    {
                       "start": 15947,
                       "end": 15956
                     }
@@ -175,6 +160,14 @@
                         {
                           "start": 15897,
                           "end": 15901
+                        },
+                        {
+                          "start": 15917,
+                          "end": 15919
+                        },
+                        {
+                          "start": 15920,
+                          "end": 15922
                         }
                       ],
                       "children": [],
@@ -183,153 +176,183 @@
                       ]
                     },
                     {
-                      "id": "b63",
+                      "id": "b80",
                       "pieces": [
                         {
                           "start": 15901,
-                          "end": 15923
+                          "end": 15917
+                        },
+                        {
+                          "start": 15919,
+                          "end": 15920
                         }
                       ],
                       "children": [
                         {
-                          "id": "b82",
-                          "pieces": [],
-                          "implicit": true,
-                          "children": [],
-                          "label": [
-                            "symbol",
-                            "logical",
-                            "connective-symbol"
-                          ]
-                        },
-                        {
-                          "id": "b80",
+                          "id": "b84",
                           "pieces": [
                             {
                               "start": 15901,
                               "end": 15917
-                            },
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "symbol",
+                            "non-logical",
+                            "relation-symbol"
+                          ]
+                        },
+                        {
+                          "id": "b85",
+                          "pieces": [
                             {
                               "start": 15919,
                               "end": 15920
                             }
                           ],
-                          "children": [
-                            {
-                              "id": "b84",
-                              "pieces": [
-                                {
-                                  "start": 15901,
-                                  "end": 15917
-                                }
-                              ],
-                              "children": [],
-                              "label": [
-                                "symbol",
-                                "non-logical",
-                                "relation-symbol"
-                              ]
-                            },
-                            {
-                              "id": "b85",
-                              "pieces": [
-                                {
-                                  "start": 15919,
-                                  "end": 15920
-                                }
-                              ],
-                              "children": [],
-                              "label": [
-                                "term",
-                                "atomic-term",
-                                "variable"
-                              ],
-                              "var": "v0"
-                            }
-                          ],
+                          "children": [],
                           "label": [
-                            "formula",
-                            "atomic-formula",
-                            "relation"
+                            "term",
+                            "atomic-term",
+                            "variable"
                           ],
-                          "count": 1
+                          "var": "v0"
+                        }
+                      ],
+                      "label": [
+                        "formula",
+                        "atomic-formula",
+                        "relation"
+                      ],
+                      "count": 1,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 239,
+                            "end": 250
+                          }
+                        ],
+                        "v": "ok"
+                      }
+                    },
+                    {
+                      "id": "b81",
+                      "pieces": [
+                        {
+                          "start": 15901,
+                          "end": 15917
                         },
                         {
-                          "id": "b81",
+                          "start": 15922,
+                          "end": 15923
+                        }
+                      ],
+                      "children": [
+                        {
+                          "id": "b86",
                           "pieces": [
                             {
                               "start": 15901,
                               "end": 15917
-                            },
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "symbol",
+                            "non-logical",
+                            "relation-symbol"
+                          ]
+                        },
+                        {
+                          "id": "b87",
+                          "pieces": [
                             {
                               "start": 15922,
                               "end": 15923
                             }
                           ],
-                          "children": [
-                            {
-                              "id": "b86",
-                              "pieces": [
-                                {
-                                  "start": 15901,
-                                  "end": 15917
-                                }
-                              ],
-                              "children": [],
-                              "label": [
-                                "symbol",
-                                "non-logical",
-                                "relation-symbol"
-                              ]
-                            },
-                            {
-                              "id": "b87",
-                              "pieces": [
-                                {
-                                  "start": 15922,
-                                  "end": 15923
-                                }
-                              ],
-                              "children": [],
-                              "label": [
-                                "term",
-                                "atomic-term",
-                                "variable"
-                              ],
-                              "var": "v1"
-                            }
-                          ],
-                          "label": [
-                            "formula",
-                            "atomic-formula",
-                            "relation"
-                          ],
-                          "count": 1
-                        },
-                        {
-                          "id": "b83",
-                          "pieces": [
-                            {
-                              "start": 15917,
-                              "end": 15919
-                            },
-                            {
-                              "start": 15920,
-                              "end": 15922
-                            }
-                          ],
                           "children": [],
                           "label": [
-                            "commentary"
-                          ]
+                            "term",
+                            "atomic-term",
+                            "variable"
+                          ],
+                          "var": "v1"
                         }
                       ],
                       "label": [
                         "formula",
-                        "compound-formula",
-                        "connective",
-                        "conjunction"
-                      ]
+                        "atomic-formula",
+                        "relation"
+                      ],
+                      "count": 1,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 257,
+                            "end": 269
+                          }
+                        ],
+                        "v": "ok"
+                      }
+                    },
+                    {
+                      "id": "b148",
+                      "pieces": [
+                        {
+                          "start": 15925,
+                          "end": 15933
+                        }
+                      ],
+                      "children": [
+                        {
+                          "id": "b149",
+                          "pieces": [
+                            {
+                              "start": 15925,
+                              "end": 15933
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "symbol",
+                            "non-logical",
+                            "relation-symbol"
+                          ]
+                        },
+                        {
+                          "id": "b150",
+                          "pieces": [
+                            {
+                              "start": 15927,
+                              "end": 15933
+                            }
+                          ],
+                          "children": [],
+                          "label": [
+                            "term",
+                            "atomic-term",
+                            "variable"
+                          ],
+                          "var": "v4"
+                        }
+                      ],
+                      "label": [
+                        "formula",
+                        "atomic-formula",
+                        "relation"
+                      ],
+                      "count": 1,
+                      "lean": {
+                        "none": true,
+                        "v": "notok",
+                        "why": "condition #3 maps to nothing — Lean has no binder at this position (NL asserts a hypothesis the Lean statement does not)",
+                        "cmp": "(nothing)",
+                        "path": "formula.atomic-formula.relation"
+                      }
                     },
                     {
                       "id": "b65",
@@ -475,13 +498,42 @@
                         "atomic-formula",
                         "relation"
                       ],
-                      "count": 2
+                      "count": 2,
+                      "structural": {
+                        "v": "notok",
+                        "why": "condition #2 has no Lean constraint binder at this position"
+                      },
+                      "lean": {
+                        "none": true,
+                        "v": "notok",
+                        "why": "condition #4 maps to nothing — Lean has no binder at this position (NL asserts a hypothesis the Lean statement does not)",
+                        "cmp": "(nothing)",
+                        "path": "formula.atomic-formula.relation"
+                      }
                     }
                   ],
                   "label": [
                     "conditions"
                   ],
-                  "count": 2
+                  "count": 4,
+                  "structural": {
+                    "v": "notok",
+                    "why": "structural mismatch"
+                  },
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 239,
+                        "end": 250
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 257,
+                        "end": 269
+                      }
+                    ]
+                  }
                 },
                 {
                   "id": "b58",
@@ -514,7 +566,21 @@
                         "atomic-term",
                         "variable"
                       ],
-                      "var": "v0"
+                      "var": "v0",
+                      "structural": {
+                        "v": "ok",
+                        "why": ""
+                      },
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 180,
+                            "end": 181
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b118",
@@ -543,7 +609,21 @@
                         "atomic-term",
                         "variable"
                       ],
-                      "var": "v1"
+                      "var": "v1",
+                      "structural": {
+                        "v": "ok",
+                        "why": ""
+                      },
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 182,
+                            "end": 183
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b143",
@@ -559,7 +639,21 @@
                         "atomic-term",
                         "variable"
                       ],
-                      "var": "v3"
+                      "var": "v3",
+                      "structural": {
+                        "v": "ok",
+                        "why": ""
+                      },
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 235,
+                            "end": 236
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b119",
@@ -575,13 +669,51 @@
                         "atomic-term",
                         "variable"
                       ],
-                      "var": "v2"
+                      "var": "v2",
+                      "structural": {
+                        "v": "ok",
+                        "why": ""
+                      },
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 253,
+                            "end": 254
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     }
                   ],
                   "label": [
                     "inputs"
                   ],
-                  "count": 4
+                  "count": 4,
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 180,
+                        "end": 181
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 182,
+                        "end": 183
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 235,
+                        "end": 236
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 253,
+                        "end": 254
+                      }
+                    ]
+                  }
                 },
                 {
                   "id": "b60",
@@ -594,7 +726,21 @@
                   "children": [],
                   "label": [
                     "name"
-                  ]
+                  ],
+                  "structural": {
+                    "v": "ok",
+                    "why": ""
+                  },
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 222,
+                        "end": 233
+                      }
+                    ],
+                    "v": "ok"
+                  }
                 },
                 {
                   "id": "b90",
@@ -824,16 +970,7 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v5",
-                                      "lean": {
-                                        "spans": [
-                                          {
-                                            "file": "lean/MaxSupportKernel.lean",
-                                            "start": 299,
-                                            "end": 300
-                                          }
-                                        ]
-                                      }
+                                      "var": "v5"
                                     },
                                     {
                                       "id": "b135",
@@ -864,16 +1001,7 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v3",
-                                      "lean": {
-                                        "spans": [
-                                          {
-                                            "file": "lean/MaxSupportKernel.lean",
-                                            "start": 290,
-                                            "end": 296
-                                          }
-                                        ]
-                                      }
+                                      "var": "v3"
                                     }
                                   ],
                                   "label": [
@@ -881,16 +1009,7 @@
                                     "atomic-formula",
                                     "relation"
                                   ],
-                                  "count": 2,
-                                  "lean": {
-                                    "spans": [
-                                      {
-                                        "file": "lean/MaxSupportKernel.lean",
-                                        "start": 290,
-                                        "end": 300
-                                      }
-                                    ]
-                                  }
+                                  "count": 2
                                 }
                               ],
                               "label": [
@@ -898,16 +1017,7 @@
                                 "compound-formula",
                                 "connective",
                                 "conjunction"
-                              ],
-                              "lean": {
-                                "spans": [
-                                  {
-                                    "file": "lean/MaxSupportKernel.lean",
-                                    "start": 290,
-                                    "end": 300
-                                  }
-                                ]
-                              }
+                              ]
                             },
                             {
                               "id": "b128",
@@ -933,16 +1043,7 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v3",
-                                      "lean": {
-                                        "spans": [
-                                          {
-                                            "file": "lean/MaxSupportKernel.lean",
-                                            "start": 303,
-                                            "end": 304
-                                          }
-                                        ]
-                                      }
+                                      "var": "v3"
                                     },
                                     {
                                       "id": "b146",
@@ -954,16 +1055,7 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v5",
-                                      "lean": {
-                                        "spans": [
-                                          {
-                                            "file": "lean/MaxSupportKernel.lean",
-                                            "start": 305,
-                                            "end": 306
-                                          }
-                                        ]
-                                      }
+                                      "var": "v5"
                                     },
                                     {
                                       "id": "b147",
@@ -983,16 +1075,7 @@
                                     "composite-term",
                                     "function-application"
                                   ],
-                                  "count": 2,
-                                  "lean": {
-                                    "spans": [
-                                      {
-                                        "file": "lean/MaxSupportKernel.lean",
-                                        "start": 303,
-                                        "end": 308
-                                      }
-                                    ]
-                                  }
+                                  "count": 2
                                 },
                                 {
                                   "id": "b144",
@@ -1022,16 +1105,7 @@
                                     "term",
                                     "atomic-term",
                                     "constant"
-                                  ],
-                                  "lean": {
-                                    "spans": [
-                                      {
-                                        "file": "lean/MaxSupportKernel.lean",
-                                        "start": 311,
-                                        "end": 312
-                                      }
-                                    ]
-                                  }
+                                  ]
                                 }
                               ],
                               "label": [
@@ -1039,16 +1113,7 @@
                                 "atomic-formula",
                                 "equality"
                               ],
-                              "count": 1,
-                              "lean": {
-                                "spans": [
-                                  {
-                                    "file": "lean/MaxSupportKernel.lean",
-                                    "start": 303,
-                                    "end": 312
-                                  }
-                                ]
-                              }
+                              "count": 1
                             }
                           ],
                           "label": [
@@ -1056,16 +1121,7 @@
                             "compound-formula",
                             "connective",
                             "implication"
-                          ],
-                          "lean": {
-                            "spans": [
-                              {
-                                "file": "lean/MaxSupportKernel.lean",
-                                "start": 290,
-                                "end": 312
-                              }
-                            ]
-                          }
+                          ]
                         }
                       ],
                       "label": [
@@ -1082,7 +1138,24 @@
                     "compound-formula",
                     "connective",
                     "conjunction"
-                  ]
+                  ],
+                  "structural": {
+                    "v": "notok",
+                    "why": "your text conjoins 2 things here, but the Lean body is a single forall (no ∧) — structures differ"
+                  },
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 280,
+                        "end": 312
+                      }
+                    ],
+                    "v": "notok",
+                    "why": "this conjunction has no Lean counterpart of the same shape — Lean here is a ∀ (forall) — structures differ",
+                    "cmp": "∀ s : I, ∀ j : J, (s, j) ∉ T → D s j = 0",
+                    "path": "body.formula.compound-formula.connective.conjunction"
+                  }
                 },
                 {
                   "id": "b89",
@@ -1112,19 +1185,142 @@
                   "label": [
                     "commentary"
                   ]
+                },
+                {
+                  "id": "b155",
+                  "pieces": [],
+                  "bot": true,
+                  "auto": true,
+                  "children": [],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 170,
+                        "end": 180
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 181,
+                        "end": 182
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 183,
+                        "end": 222
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 233,
+                        "end": 235
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 236,
+                        "end": 239
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 250,
+                        "end": 253
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 254,
+                        "end": 257
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 269,
+                        "end": 280
+                      }
+                    ],
+                    "v": "ok",
+                    "why": "formal scaffolding (no NL counterpart)"
+                  }
                 }
               ],
               "lean": {
                 "spans": [
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 170,
-                    "end": 216
+                    "start": 239,
+                    "end": 250
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 218,
+                    "start": 257,
+                    "end": 269
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 180,
+                    "end": 181
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 182,
+                    "end": 183
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 235,
+                    "end": 236
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 253,
+                    "end": 254
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 222,
+                    "end": 233
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 280,
                     "end": 312
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 170,
+                    "end": 180
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 181,
+                    "end": 182
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 183,
+                    "end": 222
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 233,
+                    "end": 235
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 236,
+                    "end": 239
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 250,
+                    "end": 253
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 254,
+                    "end": 257
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 269,
+                    "end": 280
                   }
                 ]
               },
@@ -1135,7 +1331,91 @@
           ],
           "label": [
             "organizer-section"
-          ]
+          ],
+          "lean": {
+            "spans": [
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 239,
+                "end": 250
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 257,
+                "end": 269
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 180,
+                "end": 181
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 182,
+                "end": 183
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 235,
+                "end": 236
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 253,
+                "end": 254
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 222,
+                "end": 233
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 280,
+                "end": 312
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 170,
+                "end": 180
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 181,
+                "end": 182
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 183,
+                "end": 222
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 233,
+                "end": 235
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 236,
+                "end": 239
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 250,
+                "end": 253
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 254,
+                "end": 257
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 269,
+                "end": 280
+              }
+            ]
+          }
         },
         {
           "id": "b4",
@@ -1286,16 +1566,7 @@
                   ],
                   "children": []
                 }
-              ],
-              "lean": {
-                "spans": [
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3666
-                  }
-                ]
-              }
+              ]
             },
             {
               "id": "b10",
@@ -1406,37 +1677,98 @@
                   ],
                   "children": []
                 }
-              ],
-              "lean": {
-                "spans": [
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 314,
-                    "end": 3338
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3667,
-                    "end": 3772
-                  }
-                ]
-              }
+              ]
             }
-          ],
-          "lean": {
-            "spans": [
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 0,
-                "end": 3844
-              }
-            ]
-          }
+          ]
         }
       ],
       "label": [
         "organizer-section"
-      ]
+      ],
+      "lean": {
+        "spans": [
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 239,
+            "end": 250
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 257,
+            "end": 269
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 180,
+            "end": 181
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 182,
+            "end": 183
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 235,
+            "end": 236
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 253,
+            "end": 254
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 222,
+            "end": 233
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 280,
+            "end": 312
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 170,
+            "end": 180
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 181,
+            "end": 182
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 183,
+            "end": 222
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 233,
+            "end": 235
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 236,
+            "end": 239
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 250,
+            "end": 253
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 254,
+            "end": 257
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 269,
+            "end": 280
+          }
+        ]
+      }
     },
     {
       "id": "b29",
@@ -1484,5 +1816,89 @@
       "from": "b16",
       "to": "b14"
     }
-  ]
+  ],
+  "lean": {
+    "spans": [
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 239,
+        "end": 250
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 257,
+        "end": 269
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 180,
+        "end": 181
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 182,
+        "end": 183
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 235,
+        "end": 236
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 253,
+        "end": 254
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 222,
+        "end": 233
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 280,
+        "end": 312
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 170,
+        "end": 180
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 181,
+        "end": 182
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 183,
+        "end": 222
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 233,
+        "end": 235
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 236,
+        "end": 239
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 250,
+        "end": 253
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 254,
+        "end": 257
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 269,
+        "end": 280
+      }
+    ]
+  }
 }
