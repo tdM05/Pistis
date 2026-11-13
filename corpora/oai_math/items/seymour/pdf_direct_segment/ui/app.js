@@ -44,7 +44,7 @@ const LEAN_CACHE = {};     // path -> text
 let leanCurSel = null;     // {file,start,end} current selection inside Lean pane
 let dirty = false;
 let WIREFRAME = false;     // wireframe mode: draw highlights as own-color outlines, no fill
-let JUNK_MODE = false;     // junk mode: n/e operate on all uncovered whitespace/punctuation
+let JUNK_MODE = false;     // junk mode: n/e operate on all uncovered text under the level
 let DRAG_ID = null;        // id of the tree row currently being dragged (reparent)
 let RSPLIT = 0.5;          // right column vertical split: FOL sub-pane's fraction (0..1)
 let FOL_PIN = null;        // if set, the FOL view shows THIS box id regardless of selection
@@ -549,9 +549,9 @@ function clampOff(node,off,span){ if(node.nodeType===3) return Math.min(off, spa
 function withinLevel(s,e){ const level=find(levelId); if(!level||level===ROOT) return true;
   const reg=mergeIntervals(pieces(level)); return reg.some((p)=>p.start<=s&&e<=p.end); }
 async function makeBox(){
-  // JUNK mode: new box = all uncovered whitespace/punctuation under this level.
+  // JUNK mode: new box = ALL uncovered text under this level (the greyed-out leftover).
   let newPieces;
-  if(JUNK_MODE){ const jp=junkPieces(); if(!jp.length){flash('no uncovered whitespace/punctuation here');return;} newPieces=jp; }
+  if(JUNK_MODE){ const jp=junkPieces(); if(!jp.length){flash('nothing uncovered here');return;} newPieces=jp; }
   else { if(!curSel) return;
     if(!withinLevel(curSel.start,curSel.end)){ flash('selection extends outside the current level — denied'); return; }
     newPieces=[{start:curSel.start,end:curSel.end}]; }
@@ -562,7 +562,7 @@ async function makeBox(){
   const box={id:freshId(),pieces:newPieces,children:[]};
   parent.children.push(box); sortKids(parent);
   selId=box.id; markDirty(); if(!JUNK_MODE) clearSel(); refreshAll();
-  if(JUNK_MODE) flash('boxed '+newPieces.length+' junk fragment'+(newPieces.length>1?'s':'')+' — label it commentary');
+  if(JUNK_MODE) flash('boxed '+newPieces.length+' uncovered fragment'+(newPieces.length>1?'s':'')+' — label it commentary');
 }
 // make an IMPLICIT box (no text span) under the current level — for symbols with
 // no glyph, like the ∧ hidden in "sets I, J". It has pieces:[] + implicit:true,
@@ -571,18 +571,16 @@ function makeImplicitBox(){ const parent=find(levelId)||ROOT;
   const box={id:freshId(),pieces:[],implicit:true,children:[]};
   parent.children.push(box); sortKids(parent);
   selId=box.id; markDirty(); refreshAll(); flash('added implicit (no-span) box — label it (e.g. the missing ∧)'); }
-// "junk" = whitespace or punctuation (connective glue like , . ; ' ( ) etc.).
-const JUNK_RE=/[\s.,;:!?'"`´’‘“”«»()\[\]{}\-–—…·|/\\]/;
-// all JUNK chars in the current level's region NOT already inside a direct child,
-// grouped into contiguous pieces. [] if none. Used by n/e when JUNK mode is on.
+// ALL characters in the current level's region NOT already inside a direct child
+// (the greyed-out leftover text — whitespace, punctuation, or words alike), grouped
+// into contiguous pieces. [] if none. Used by n/e when JUNK mode is on.
 function junkPieces(){ const level=find(levelId)||ROOT;
   const region = level===ROOT ? [{start:0,end:CHARS.length}] : mergeIntervals(pieces(level));
   const covered = mergeIntervals(level.children.flatMap((c)=>pieces(c)));
   const isCovered=(i)=>covered.some((k)=>k.start<=i&&i<k.end);
   const out=[]; let run=null;
   for(const seg of region){ for(let i=seg.start;i<seg.end;i++){
-    const junk = JUNK_RE.test(CHARS[i]) && !isCovered(i);
-    if(junk){ if(run&&run.end===i) run.end=i+1; else { run&&out.push(run); run={start:i,end:i+1}; } }
+    if(!isCovered(i)){ if(run&&run.end===i) run.end=i+1; else { run&&out.push(run); run={start:i,end:i+1}; } }
     else if(run){ out.push(run); run=null; } }
     run&&out.push(run); run=null; }
   return out; }
@@ -616,9 +614,9 @@ function focusLevel(){
 }
 function extendBox(){
   const box=selId&&find(selId); if(!box){flash('select a box first');return;}
-  if(JUNK_MODE){ const jp=junkPieces(); if(!jp.length){flash('no uncovered whitespace/punctuation here');return;}
+  if(JUNK_MODE){ const jp=junkPieces(); if(!jp.length){flash('nothing uncovered here');return;}
     jp.forEach((p)=>box.pieces.push(p)); mergePieces(box); markDirty(); refreshAll();
-    flash('added '+jp.length+' junk fragment'+(jp.length>1?'s':'')+' to “'+label(box)+'”'); return; }
+    flash('added '+jp.length+' uncovered fragment'+(jp.length>1?'s':'')+' to “'+label(box)+'”'); return; }
   if(!curSel) return;
   if(!withinLevel(curSel.start,curSel.end)){ flash('selection extends outside the current level — denied'); return; }
   box.pieces.push({start:curSel.start,end:curSel.end}); mergePieces(box);
@@ -823,7 +821,7 @@ function renderLevelStats(){ const el=$('levelStats'); if(!el) return; el.innerH
 
 function toggleWireframe(){ WIREFRAME=!WIREFRAME; const b=$('wireBtn'); if(b) b.classList.toggle('on',WIREFRAME); refreshAll(); }
 function toggleJunk(){ JUNK_MODE=!JUNK_MODE; const b=$('junkbox'); if(b) b.classList.toggle('armed',JUNK_MODE); updateSelUI();
-  flash(JUNK_MODE?'junk mode ON — n = box all junk, e = add junk to selected':'junk mode off'); }
+  flash(JUNK_MODE?'junk mode ON — n = box all uncovered text, e = add it to selected':'junk mode off'); }
 // right-click popover: SHOW the id/text (and path) in auto-selected inputs so you
 // can just press Ctrl/Cmd+C — no clipboard API needed (works over SSH http).
 function showIdPopover(x,y,idText,pathText){ closeCtxMenu();
@@ -1199,7 +1197,7 @@ function updateLabelUI(){ const chip=$('labelChip'); if(!chip) return;
   // FOL button: shown for a labelled formula / term / definition / theorem box
   const fb=$('folBtn');
   if(fb){ const c=box&&labelConcrete(box.label);
-    const folable = c && (c==='definition'||c==='theorem'||isFormulaish(box)||canonPath(c).includes('term'));
+    const folable = c && (c==='definition'||c==='theorem'||c==='statement'||isFormulaish(box)||canonPath(c).includes('term'));
     fb.style.display = folable ? '' : 'none'; }
   // status-bar issue note for the selected box
   const ls=$('labelStatus'); if(ls){ const iss=box?boxIssues(box):[]; ls.textContent=iss.length?('⚠ '+iss.join('; ')):''; ls.classList.toggle('warn',!!iss.length); }
@@ -1424,6 +1422,19 @@ function openFaithPopup(id){ const b=find(id); if(!b||!b.lean||b.lean.v!=='notok
   document.body.appendChild(ov);
 }
 function closeFaithPopup(){ const ov=$('faithOv'); if(ov) ov.remove(); }
+// LOCATION PATH from an ancestor box down to a descendant node, in DISPLAY labels —
+// the labelTag of every box along the way (e.g. conds, form.rel), joined by '/'. A
+// segment gets a #n suffix when it has same-labelTag siblings, so it reads as a
+// position: from a def box, condition #3 shows as "conds/form.rel#3".
+function locPath(fromBox,node){
+  const chain=[]; let x=node;
+  while(x && x!==fromBox && (!fromBox||x.id!==fromBox.id)){ chain.unshift(x); x=parentOf(x.id); }
+  return chain.map((b)=>{
+    const tag=labelTag(b)||b.id; const par=parentOf(b.id);
+    const sibs=par?(par.children||[]).filter((c)=>(labelTag(c)||c.id)===tag):[b];
+    return sibs.length>1?tag+'#'+(sibs.indexOf(b)+1):tag;
+  }).join('/');
+}
 // LIST popup for a PARENT that is notok only via its children: one row per notok
 // descendant with a ONE-LINE summary; clicking a row opens that child's FULL popup.
 function openFaithList(id){ const b=find(id); if(!b) return;
@@ -1435,7 +1446,7 @@ function openFaithList(id){ const b=find(id); if(!b) return;
   const card=document.createElement('div'); card.className='faithcard'; ov.appendChild(card);
   const hd=document.createElement('div'); hd.className='faithhd'; hd.textContent=`✗ ${bad.length} structural problems below this box`; card.appendChild(hd);
   bad.forEach((n)=>{ const row=document.createElement('div'); row.className='faithrow'; row.style.cssText='cursor:pointer;padding:6px 0;border-top:1px solid #eee;';
-    const p=document.createElement('div'); p.style.cssText='font-family:monospace;font-size:11px;color:#475569;'; p.textContent=(n.lean&&n.lean.path)||n.id; row.appendChild(p);
+    const p=document.createElement('div'); p.style.cssText='font-family:monospace;font-size:11px;color:#475569;'; p.textContent=locPath(b,n)||((n.lean&&n.lean.path)||n.id); row.appendChild(p);
     const w=document.createElement('div'); w.style.cssText='font-size:12px;color:#c0392b;'; w.textContent='✗ '+((n.lean&&n.lean.why)||'structures differ'); row.appendChild(w);
     row.onclick=()=>openFaithPopup(n.id);   // → that child's FULL popup
     card.appendChild(row); });

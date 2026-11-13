@@ -47,6 +47,26 @@ export function alignBox({ core, root, box, chars, dict }) {
   const typeBinders = peelTypeBinders(raw.type).map((b) => ({ binder: b.binder, info: b.info, dom: b.dom, typeConsts: constNames(b.dom || {}) }));
   const A = makeAligner(C, dict.symbols || {}, symText, { binders: typeBinders, tuples: dict.tuples || {} });
 
+  // attach SOURCE POSITIONS (from the parsed syntax tree, raw.binders) to the Expr
+  // binders, so inputs↔binder-NAME and conditions↔binder-TYPE spans resolve to exact
+  // source ranges. raw.binders is the full ordered source binder list (the `variable`
+  // line(s) AND the signature); the elaborated Expr keeps only the binders the decl
+  // actually uses (e.g. Fintypes dropped), a SUPERSET in the same relative order.
+  // Reconcile by walking both in order, consuming a source binder when NAMES agree
+  // (this only SKIPS dropped binders; order is still the model, not name-matching).
+  // Shared by the definition and theorem paths.
+  {
+    const srcBuf = (() => { try { return readFileSync(path.join(SEG_DIR, deriveLeanRel(assoc)), 'utf8'); } catch (_) { return ''; } })();
+    const b2c = srcBuf ? Buffer.from(srcBuf, 'utf8') : null;
+    const nameOf = (r) => { if (!r || !b2c) return ''; return b2c.slice(r.start, r.stop).toString('utf8').replace(/[[\]{}()]/g, '').trim(); };
+    const synB = raw.binders || [];
+    let si = 0;
+    for (const tb of typeBinders) {
+      while (si < synB.length && nameOf(synB[si].name) !== tb.binder) si++;
+      if (si < synB.length) { tb.synName = synB[si].name; tb.synType = synB[si].type; si++; }
+    }
+  }
+
   if (concrete === 'definition') {
     const { binders } = peelBinders(normVal || {});
     const lamInputs = binders.filter((b) => b.kind === 'lam');
@@ -61,27 +81,7 @@ export function alignBox({ core, root, box, chars, dict }) {
     //   inputs     → the binders (typeBinders: I J T D), matched BY NAME
     //   conditions → the binder TYPES (e.g. T⊆I×J ↔ `T : Set (I×J)`), by subject var
     //   body       → the peeled body, via the structural aligner (halts on mismatch)
-    // attach SOURCE POSITIONS (from the parsed syntax tree, raw.binders) to the Expr
-    // binders. raw.binders is the full ordered source binder list — one per bound
-    // name — from the `variable` line(s) AND the def signature (e.g. I, J, [Fintype
-    // I], [Fintype J], T, D). The elaborated Expr keeps only the binders the decl
-    // actually uses (e.g. the Fintypes are dropped), so the source list is a SUPERSET
-    // in the same relative order. Reconcile by walking both in order and consuming a
-    // source binder for an Expr binder when their NAMES agree — this only SKIPS the
-    // binders Lean dropped; it is not alignment-by-name (order is still the model).
-    {
-      const srcBuf = (() => { try { return readFileSync(path.join(SEG_DIR, deriveLeanRel(assoc)), 'utf8'); } catch (_) { return ''; } })();
-      const b2c = srcBuf ? Buffer.from(srcBuf, 'utf8') : null;
-      const nameOf = (r) => { if (!r || !b2c) return ''; return b2c.slice(r.start, r.stop).toString('utf8').replace(/[[\]{}()]/g, '').trim(); };
-      const synB = raw.binders || [];
-      let si = 0;
-      for (const tb of typeBinders) {
-        // advance past source binders whose name isn't this Expr binder (dropped ones)
-        while (si < synB.length && nameOf(synB[si].name) !== tb.binder) si++;
-        if (si < synB.length) { tb.synName = synB[si].name; tb.synType = synB[si].type; si++; }
-      }
-    }
-
+    // (binder source positions were reconciled above — shared with the theorem path.)
     const children = [];
     children.push(alignName(slot('name'), assoc.decl));
     children.push(alignInputs(slot('inputs'), typeBinders));
@@ -91,7 +91,36 @@ export function alignBox({ core, root, box, chars, dict }) {
     const alignment = { fol: box.id, lean: null, leanNode: null, status: 'match', note: '', children };
     return finish(alignment, assoc, lamInputs, { leanBody, typeBinders, ranges: raw.ranges });
   }
-  // theorem / formula: align the box against the Lean TYPE (the statement)
+  if (concrete === 'theorem') {
+    // theorem = statement + proof. The STATEMENT mirrors a definition, so its slots
+    // map to the SAME parts of the decl's signature:
+    //   name       → the decl name
+    //   inputs     → the binders (typeBinders), matched BY NAME
+    //   conditions → the binder TYPES, by subject var
+    //   conclusion → the decl's RESULT TYPE: normType with ALL its binders peeled
+    // The difference from a def is only WHERE the body comes from: a def's body is the
+    // VALUE (after :=); a theorem's conclusion is the TYPE (after the last : before :=).
+    // The `proof` (the value) is OUT OF SCOPE for structural alignment (align-todo.md).
+    const stmtBox = (box.children || []).find((c) => c.label && c.label[0] === 'statement');
+    if (!stmtBox) return { ok: false, reason: 'theorem has no statement slot to align (expected a statement child with name/inputs/conditions/conclusion)' };
+    const sslot = (k) => (stmtBox.children || []).find((c) => c.label && c.label[0] === k);
+    const conclWrap = sslot('conclusion');
+    if (!conclWrap) return { ok: false, reason: 'theorem statement has no conclusion slot to align' };
+    // the conclusion wrapper holds ONE formula box — that is what aligns to Lean.
+    const conclBox = (conclWrap.children || []).find((c) => C.isFormulaish(c)) || conclWrap;
+    // Lean conclusion = the type with ALL binders peeled (used→forall, unused→arrow).
+    let leanConcl = normType; for (let i = 0; i < typeBinders.length && leanConcl; i++) leanConcl = leanConcl.body;
+
+    const children = [];
+    children.push(alignName(sslot('name'), assoc.decl));
+    children.push(alignInputs(sslot('inputs'), typeBinders));
+    children.push(alignConditions(sslot('conditions'), typeBinders));
+    children.push(labelNode(conclBox, A.align(conclBox, leanConcl), 'conclusion'));
+
+    const alignment = { fol: box.id, lean: null, leanNode: null, status: 'match', note: '', children };
+    return finish(alignment, assoc, [], { leanBody: leanConcl, typeBinders, ranges: raw.ranges });
+  }
+  // bare top-level `formula` box (no statement wrapper): align against the Lean TYPE.
   const alignment = A.align(box, normType);
   return finish(alignment, assoc, [], { leanBody: normType, typeBinders, ranges: raw.ranges });
 
@@ -177,11 +206,12 @@ export function alignBox({ core, root, box, chars, dict }) {
       const nameLeaf = assoc.decl.split('.').pop();
       // decl start: prefer the EXACT range Lean gives (extra.ranges, from
       // findDeclarationRanges? — 1-based line, 0-based col); fall back to a text
-      // search for `def <name>` only if Lean gave no range.
+      // search for `def <name>`/`theorem <name>` only if Lean gave no range.
       const lineColToOffset = (ln, col) => { // ln 1-based, col 0-based → char offset
         let off = 0, line = 1; while (line < ln) { const nl = text.indexOf('\n', off); if (nl < 0) return text.length; off = nl + 1; line++; } return off + col; };
         const rg = extra.ranges;
-      const declAt = rg && rg.declStart ? lineColToOffset(rg.declStart.line, rg.declStart.col) : text.indexOf('def ' + nameLeaf);
+      let declAt = rg && rg.declStart ? lineColToOffset(rg.declStart.line, rg.declStart.col) : -1;
+      if (declAt < 0) { for (const kw of ['def ', 'theorem ', 'lemma ']) { const i = text.indexOf(kw + nameLeaf); if (i >= 0) { declAt = i; break; } } }
       const asgn = declAt >= 0 ? text.indexOf(':=', declAt) : text.indexOf(':=');
       // region boundaries within the source:
       //   [sigLo, sigHi)  = the signature (name + binders + result type), before :=
@@ -340,25 +370,36 @@ export function alignBox({ core, root, box, chars, dict }) {
   function humanFinding(n) {
     const obj = labelPath(n.fol);
     const kind = obj ? obj.split('.').pop() : (n.note.match(/FOL (\w+)/) || [])[1] || 'object';
+    // one NL variable forced to mean two different Lean terms
     if (/INCONSISTENT/.test(n.note)) {
       const m = n.note.match(/variable (\S+) maps to INCONSISTENT Lean terms \(([^)]+)\)/);
       const v = m ? m[1] : '?';
       const parts = m ? m[2].split(', ').map((x) => x.replace(/^v:|^c:|^app:c:|^app:|^lit:|^tuple:/, '')) : [];
-      return `variable ${v} maps to multiple Lean terms {${parts.join(', ')}} — must denote one thing`;
+      return `NL ${v} maps to {${parts.join(', ')}}. must be one thing.`;
     }
-    const single = n.note.match(/single (\w+)/);               // ∧-vs-non-∧ (body halt)
-    if (single) return `this ${kind} has no Lean counterpart of the same shape — Lean here is a ${leanShapeName(single[1])} — structures differ`;
-    const vs = n.note.match(/FOL (\w+) vs Lean (\w+)/);         // connective mismatch
-    if (vs) return `this ${kind} is a ${vs[1]}, Lean counterpart is a ${leanShapeName(vs[2])} — structures differ`;
-    if (/no Lean binder/.test(n.note) || /no Lean binder-type/.test(n.note)) return `${n.note} (present in NL, absent in Lean)`;
-    if (/Lean binds|Lean defines/.test(n.note)) return n.note;  // Lean-side extra (fol is null)
-    if (/no .*counterpart/.test(n.note)) return n.note;
-    if (/another ∀/.test(n.note)) return `NL binds one variable, Lean binds two`;
+    // one ∀ vs two ∀ (note mentions "Lean binds another ∀", so test before Lean-only)
+    if (/another ∀/.test(n.note)) return `NL binds 1 variable, Lean binds 2. does not match.`;
+    // Lean has something NL does not (Lean-only piece / extra binder / extra operand)
+    if (n.fol == null || /Lean binds|Lean defines|operand has no FOL|extra Lean/.test(n.note)) return `in Lean, not in NL.`;
+    // NL has something Lean does not (maps to nothing / no counterpart)
+    if (/maps to nothing|no Lean binder|no Lean counterpart|has no Lean counterpart|operand has no Lean|extra FOL/.test(n.note)) return `in NL, not in Lean.`;
+    // body ∧-halt: Lean body is a single non-∧ shape
+    const single = n.note.match(/single (\w+)/);
+    if (single) return `Lean body is ${plainLean(single[1])}. NL body is ${plainKind(kind)}. does not match.`;
+    // count mismatch: N conjuncts vs M
+    const cnt = n.note.match(/has (\d+) parts, Lean ∧ has (\d+)/);
+    if (cnt) return `NL has ${cnt[1]} parts, Lean has ${cnt[2]}. does not match.`;
+    // generic shape mismatch: "… vs Lean X" / "… but Lean is X"
+    const vs = n.note.match(/(?:vs|but) Lean (?:is )?(\w+)/);
+    if (vs) return `Lean is ${plainLean(vs[1])}. NL is ${plainKind(kind)}. does not match.`;
     return n.note;
   }
-  // readable name for a Lean structural kind.
-  function leanShapeName(t) {
-    return ({ forall: '∀ (forall)', exists: '∃ (exists)', arrow: '→ (implication)', and: '∧ (and)', or: '∨ (or)', not: '¬ (not)', eq: '= (equality)', mem: '∈ (membership)', app: 'application' })[t] || t;
+  // plain one-word names (no symbols) for the simple body shape-mismatch message.
+  function plainLean(t) {
+    return ({ forall: 'forall', exists: 'exists', arrow: 'implication', and: 'and', or: 'or', not: 'not', eq: 'equality', mem: 'membership', app: 'application' })[t] || t;
+  }
+  function plainKind(k) {
+    return ({ conjunction: 'and', disjunction: 'or', implication: 'implication', negation: 'not', universal: 'forall', existential: 'exists', equality: 'equality', relation: 'relation' })[k] || k;
   }
   // the .lean file path as stored in box.lean.spans (relative to pdf_direct_segment/,
   // i.e. "lean/MaxSupportKernel.lean") — matches how the Lean pane references files.

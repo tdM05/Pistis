@@ -379,7 +379,7 @@
                       "lean": {
                         "none": true,
                         "v": "notok",
-                        "why": "condition #3 maps to nothing — Lean has no binder at this position (NL asserts a hypothesis the Lean statement does not)",
+                        "why": "in NL, not in Lean.",
                         "cmp": "(nothing)",
                         "path": "formula.atomic-formula.relation"
                       }
@@ -536,7 +536,7 @@
                       "lean": {
                         "none": true,
                         "v": "notok",
-                        "why": "condition #4 maps to nothing — Lean has no binder at this position (NL asserts a hypothesis the Lean statement does not)",
+                        "why": "in NL, not in Lean.",
                         "cmp": "(nothing)",
                         "path": "formula.atomic-formula.relation"
                       }
@@ -1182,7 +1182,7 @@
                       }
                     ],
                     "v": "notok",
-                    "why": "this conjunction has no Lean counterpart of the same shape — Lean here is a ∀ (forall) — structures differ",
+                    "why": "Lean body is forall. NL body is and. does not match.",
                     "cmp": "∀ s : I, ∀ j : J, (s, j) ∉ T → D s j = 0",
                     "path": "body.formula.compound-formula.connective.conjunction"
                   }
@@ -1473,130 +1473,247 @@
                       "end": 16090
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "label": [
+                    "name"
+                  ]
                 },
                 {
-                  "id": "b34",
+                  "id": "b165",
                   "pieces": [
                     {
                       "start": 16090,
-                      "end": 16105
+                      "end": 16094
+                    },
+                    {
+                      "start": 16103,
+                      "end": 16111
+                    },
+                    {
+                      "start": 16129,
+                      "end": 16144
+                    },
+                    {
+                      "start": 16212,
+                      "end": 16220
+                    },
+                    {
+                      "start": 16299,
+                      "end": 16300
                     }
                   ],
-                  "children": []
+                  "children": [],
+                  "label": [
+                    "commentary"
+                  ]
                 },
                 {
-                  "id": "b35",
+                  "id": "b158",
                   "pieces": [
                     {
-                      "start": 16105,
-                      "end": 16131
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "id": "b15",
-                  "pieces": [
+                      "start": 16094,
+                      "end": 16095
+                    },
                     {
-                      "start": 16131,
-                      "end": 16213
+                      "start": 16098,
+                      "end": 16099
+                    },
+                    {
+                      "start": 16102,
+                      "end": 16103
+                    },
+                    {
+                      "start": 16144,
+                      "end": 16145
                     }
                   ],
                   "children": [
                     {
-                      "id": "b41",
+                      "id": "b160",
                       "pieces": [
                         {
-                          "start": 16131,
-                          "end": 16144
+                          "start": 16094,
+                          "end": 16095
                         }
                       ],
-                      "children": []
+                      "children": [],
+                      "label": [
+                        "term",
+                        "atomic-term",
+                        "variable"
+                      ],
+                      "var": "v0"
                     },
                     {
-                      "id": "b42",
+                      "id": "b161",
+                      "pieces": [
+                        {
+                          "start": 16098,
+                          "end": 16099
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "term",
+                        "atomic-term",
+                        "variable"
+                      ],
+                      "var": "v2"
+                    },
+                    {
+                      "id": "b162",
+                      "pieces": [
+                        {
+                          "start": 16102,
+                          "end": 16103
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "term",
+                        "atomic-term",
+                        "variable"
+                      ],
+                      "var": "v1"
+                    },
+                    {
+                      "id": "b163",
                       "pieces": [
                         {
                           "start": 16144,
-                          "end": 16156
+                          "end": 16145
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "term",
+                        "atomic-term",
+                        "variable"
+                      ],
+                      "var": "v3"
+                    }
+                  ],
+                  "label": [
+                    "inputs"
+                  ],
+                  "count": 4
+                },
+                {
+                  "id": "b164",
+                  "pieces": [
+                    {
+                      "start": 16094,
+                      "end": 16103
+                    },
+                    {
+                      "start": 16111,
+                      "end": 16129
+                    },
+                    {
+                      "start": 16144,
+                      "end": 16212
+                    }
+                  ],
+                  "children": [
+                    {
+                      "id": "b166",
+                      "pieces": [
+                        {
+                          "start": 16094,
+                          "end": 16103
+                        }
+                      ],
+                      "children": [],
+                      "label": [
+                        "formula",
+                        "atomic-formula",
+                        "relation"
+                      ],
+                      "count": 2
+                    },
+                    {
+                      "id": "b167",
+                      "pieces": [
+                        {
+                          "start": 16111,
+                          "end": 16112
+                        },
+                        {
+                          "start": 16123,
+                          "end": 16129
                         }
                       ],
                       "children": []
                     },
                     {
-                      "id": "b43",
+                      "id": "b170",
                       "pieces": [
+                        {
+                          "start": 16117,
+                          "end": 16118
+                        },
+                        {
+                          "start": 16123,
+                          "end": 16129
+                        }
+                      ],
+                      "children": []
+                    },
+                    {
+                      "id": "b171",
+                      "pieces": [
+                        {
+                          "start": 16144,
+                          "end": 16155
+                        }
+                      ],
+                      "children": []
+                    },
+                    {
+                      "id": "b172",
+                      "pieces": [
+                        {
+                          "start": 16144,
+                          "end": 16145
+                        },
                         {
                           "start": 16156,
-                          "end": 16197
-                        }
-                      ],
-                      "children": []
-                    },
-                    {
-                      "id": "b16",
-                      "pieces": [
-                        {
-                          "start": 16197,
-                          "end": 16212
+                          "end": 16211
                         }
                       ],
                       "children": []
                     }
+                  ],
+                  "label": [
+                    "conditions"
                   ]
                 },
                 {
-                  "id": "b36",
-                  "pieces": [
-                    {
-                      "start": 16214,
-                      "end": 16220
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "id": "b37",
+                  "id": "b159",
                   "pieces": [
                     {
                       "start": 16220,
-                      "end": 16241
+                      "end": 16299
                     }
                   ],
-                  "children": []
-                },
-                {
-                  "id": "b38",
-                  "pieces": [
-                    {
-                      "start": 16241,
-                      "end": 16259
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "id": "b39",
-                  "pieces": [
-                    {
-                      "start": 16259,
-                      "end": 16282
-                    }
-                  ],
-                  "children": []
-                },
-                {
-                  "id": "b40",
-                  "pieces": [
-                    {
-                      "start": 16282,
-                      "end": 16300
-                    }
-                  ],
-                  "children": []
+                  "children": [],
+                  "label": [
+                    "conclusion"
+                  ]
                 }
-              ]
+              ],
+              "label": [
+                "statement"
+              ],
+              "lean": {
+                "spans": [
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3772
+                  }
+                ]
+              }
             },
             {
               "id": "b10",
@@ -1707,8 +1824,14 @@
                   ],
                   "children": []
                 }
+              ],
+              "label": [
+                "proof"
               ]
             }
+          ],
+          "label": [
+            "theorem"
           ]
         }
       ],
@@ -1853,12 +1976,7 @@
       ]
     }
   ],
-  "links": [
-    {
-      "from": "b16",
-      "to": "b14"
-    }
-  ],
+  "links": [],
   "lean": {
     "spans": [
       {

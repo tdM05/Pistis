@@ -56,47 +56,54 @@ Top level (root) allows: commentary, definition, theorem, organizer-section.
     - →term
     - →formula
 - theorem [hasa]
-  - formula [isa]
-    - external-citation (base)
-    - atomic-formula [isa]
-      - relation [hasa]
-        - relation-symbol (base)
-        - term [isa]
-          - external-citation (base)
-          - implicit-external-reference (base)
-          - atomic-term [isa]
-            - variable (base)
-            - constant (base)
-          - composite-term [isa]
-            - function-application [hasa]
-              - function-symbol (base)
-              - →term
-      - equality [hasa]
-        - equality-symbol (base)
-        - →term
-    - compound-formula [isa]
-      - quantified [isa]
-        - universal [hasa]
-          - quantifier (base)
-          - variable-symbol (base)
-          - →formula
-        - existential [hasa]
-          - quantifier (base)
-          - variable-symbol (base)
-          - →formula
-      - connective [isa]
-        - negation [hasa]
-          - connective-symbol (base)
-          - →formula
-        - implication [hasa]
-          - connective-symbol (base)
-          - →formula
-        - conjunction [hasa]
-          - connective-symbol (base)
-          - →formula
-        - disjunction [hasa]
-          - connective-symbol (base)
-          - →formula
+  - statement [hasa]
+    - name [hasa]
+    - inputs [hasa]
+      - term [isa]
+        - external-citation (base)
+        - implicit-external-reference (base)
+        - atomic-term [isa]
+          - variable (base)
+          - constant (base)
+        - composite-term [isa]
+          - function-application [hasa]
+            - function-symbol (base)
+            - →term
+    - conditions [hasa]
+      - formula [isa]
+        - external-citation (base)
+        - atomic-formula [isa]
+          - relation [hasa]
+            - relation-symbol (base)
+            - →term
+          - equality [hasa]
+            - equality-symbol (base)
+            - →term
+        - compound-formula [isa]
+          - quantified [isa]
+            - universal [hasa]
+              - quantifier (base)
+              - variable-symbol (base)
+              - →formula
+            - existential [hasa]
+              - quantifier (base)
+              - variable-symbol (base)
+              - →formula
+          - connective [isa]
+            - negation [hasa]
+              - connective-symbol (base)
+              - →formula
+            - implication [hasa]
+              - connective-symbol (base)
+              - →formula
+            - conjunction [hasa]
+              - connective-symbol (base)
+              - →formula
+            - disjunction [hasa]
+              - connective-symbol (base)
+              - →formula
+    - conclusion [hasa]
+      - →formula
   - proof [hasa]
     - →formula
     - →theorem
@@ -152,7 +159,12 @@ Top level (root) allows: commentary, definition, theorem, organizer-section.
       - →term
       - →formula
   - theorem [hasa]
-    - →formula
+    - statement [hasa]
+      - →name
+      - →inputs
+      - →conditions
+      - conclusion [hasa]
+        - →formula
     - proof [hasa]
       - →formula
       - →theorem

@@ -4,8 +4,10 @@ Required child composition per label. A child counts as a slot if its concrete l
 
 | label | required children |
 |---|---|
-| definition | 1 name, 1 body |
-| theorem | 1 formula, 1 proof |
+| definition | 1 name, 1 inputs, 1 conditions, 1 body |
+| theorem | 1 statement, 1 proof |
+| statement | 1 name, 1 inputs, 1 conditions, 1 conclusion |
+| conclusion | 1 formula |
 | relation | 1 relation-symbol, 1+ term |
 | equality | 1 equality-symbol, 2 term |
 | universal | 1 quantifier, 1 variable-symbol, 1 formula |

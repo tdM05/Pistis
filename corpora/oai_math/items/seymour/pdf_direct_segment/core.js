@@ -248,7 +248,25 @@ export function makeCore(schema) {
           const v = vb ? (vb.var || '?') : '?'; sig.vars.add(v);
           return [Q(q), V(v, vb), SP, ...(body ? rec(body) : [P('?')])];
         }
-        case 'theorem': { const f = kids.find((k) => isFormulaish(k)); return f ? rec(f) : [P('?')]; }
+        case 'theorem': { const st = kids.find((k) => k.label && k.label[0] === 'statement'); return st ? rec(st) : [P('?')]; }
+        case 'statement': {
+          // ∀ inputs, (conditions) → conclusion. Same shape as a def body, but the RHS
+          // is the conclusion directly — there is no name↔ biconditional.
+          const head = (k) => k.label && k.label[0];
+          const inputs = kids.find((k) => head(k) === 'inputs');
+          const conds = kids.find((k) => head(k) === 'conditions');
+          const conclB = kids.find((k) => head(k) === 'conclusion');
+          const ivboxes = inputs ? (inputs.children || []).filter(isVariable) : [];
+          ivboxes.forEach((v) => sig.vars.add(v.var));
+          const concl = conclB ? rec(conclB) : [P('?')];
+          const condArr = conds ? (conds.children || []).filter(isFormulaish).map(rec) : [];
+          const core = condArr.length
+            ? [P('('), ...join(condArr, [SP, L('∧'), SP]), P(')'), SP, L('→'), SP, ...concl]
+            : concl;
+          const pre = []; ivboxes.forEach((vb) => pre.push(Q('∀'), V(vb.var, vb)));
+          return ivboxes.length ? [...pre, SP, ...core] : core;
+        }
+        case 'conclusion':
         case 'body': case 'formula': case 'atomic-formula': case 'compound-formula': case 'quantified': case 'connective': case 'atomic-term': case 'composite-term': case 'term': {
           // abstract wrapper: should have exactly one concrete child to render
           const only = kids[0]; return only ? rec(only) : [P('?')];
@@ -283,7 +301,7 @@ export function makeCore(schema) {
   const isFormulaish = (b) => { const c = labelConcrete(b.label); return c && (c === 'formula' || canonPath(c).includes('formula') || c === 'body'); };
   // can this box be rendered as a FOL formula at all? (vs commentary / a bare
   // symbol / an organizer — those have their own view in folView)
-  const isFolable = (b) => { const c = labelConcrete(b && b.label); return !!c && (c === 'definition' || c === 'theorem' || isFormulaish(b) || canonPath(c).includes('term') || canonPath(c).includes('formula')); };
+  const isFolable = (b) => { const c = labelConcrete(b && b.label); return !!c && (c === 'definition' || c === 'theorem' || c === 'statement' || isFormulaish(b) || canonPath(c).includes('term') || canonPath(c).includes('formula')); };
   // does `box` or any descendant have a structural issue? (a half-labelled
   // subtree can't render a meaningful formula — folView suppresses it)
   const subtreeHasIssue = (box) => { let bad = false; walk(box, (n) => { if (boxIssues(n).length) bad = true; }); return bad; };
@@ -334,6 +352,29 @@ export function makeCore(schema) {
       if (conds) { const cfs = kidsOf(conds); parts.push({ label: 'conditions', items: cfs.length ? cfs.map((f) => ({ tokens: toFOL(root, f, symText, sig).tokens, id: f.id })) : [{ tokens: [{ t: 'punct', s: '— none' }] }] }); }
       if (bodyB) parts.push({ label: 'body', items: [{ tokens: toFOL(root, bodyB, symText, sig).tokens, id: bodyB.id }] });
       return { kind: 'parts', title: 'definition', parts, sig };
+    }
+    // theorem: render its statement broken out (same parts view as a def).
+    if (c === 'theorem') {
+      const st = kidsOf(box).find((k) => (k.label && k.label[0]) === 'statement');
+      if (st) { const v = folView(root, st, symText); return v.kind === 'parts' ? { ...v, title: 'theorem' } : v; }
+    }
+    // statement: name / inputs / conditions / conclusion broken out (like a def, but
+    // the last slot is the conclusion — a claim — rather than a definiens body).
+    if (c === 'statement') {
+      const head = (k) => k.label && k.label[0];
+      const kids = kidsOf(box);
+      const name = kids.find((k) => head(k) === 'name');
+      const inputs = kids.find((k) => head(k) === 'inputs');
+      const conds = kids.find((k) => head(k) === 'conditions');
+      const conclB = kids.find((k) => head(k) === 'conclusion');
+      const parts = [];
+      const ivs = inputs ? kidsOf(inputs).filter(isVariable) : [];
+      ivs.forEach((v) => sig.vars.add(v.var));
+      if (name) parts.push({ label: 'name', items: [{ tokens: [{ t: 'rel', s: symNameOf(name, symText), impl: name.implicit, box: name.id }], id: name.id }] });
+      if (inputs) parts.push({ label: 'inputs', inline: true, items: ivs.length ? ivs.map((v) => ({ tokens: [{ t: 'var', s: v.var || '?', box: v.id }], id: v.id })) : [{ tokens: [{ t: 'punct', s: '— none' }] }] });
+      if (conds) { const cfs = kidsOf(conds); parts.push({ label: 'conditions', items: cfs.length ? cfs.map((f) => ({ tokens: toFOL(root, f, symText, sig).tokens, id: f.id })) : [{ tokens: [{ t: 'punct', s: '— none' }] }] }); }
+      if (conclB) parts.push({ label: 'conclusion', items: [{ tokens: toFOL(root, conclB, symText, sig).tokens, id: conclB.id }] });
+      return { kind: 'parts', title: 'statement', parts, sig };
     }
     // a name slot clicked directly: just the definiendum symbol
     if (c === 'name') return { kind: 'formula', tokens: [{ t: 'rel', s: symNameOf(box, symText), impl: box.implicit, box: box.id }], sig };
