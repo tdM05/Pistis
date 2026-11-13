@@ -198,6 +198,16 @@ async function showLeanFile(path){ if(!path) return; LEAN_FILE=path; LEAN_TEXT=a
   lines.forEach((ln,i)=>{ const row=document.createElement('div'); row.className='lean-line';
     const gut=document.createElement('span'); gut.className='lean-gut'; gut.textContent=i+1; row.appendChild(gut);
     const code=document.createElement('span'); code.className='lean-src'; code.dataset.start=off; code.textContent=ln.length?ln:'​';
+    // click a Lean char → select the box whose Lean span covers that char (like
+    // clicking NL text selects its box). Only on a plain click (no drag-select).
+    code.onclick=(e)=>{ const sel=window.getSelection(); if(sel&&!sel.isCollapsed) return;
+      const base=+code.dataset.start;
+      // char offset within this line from the click point. caretRangeFromPoint
+      // (Chromium) or caretPositionFromPoint (Firefox); fall back to line start.
+      let within=0;
+      if(document.caretRangeFromPoint){ const cr=document.caretRangeFromPoint(e.clientX,e.clientY); if(cr&&cr.startContainer===code.firstChild) within=cr.startOffset; }
+      else if(document.caretPositionFromPoint){ const cp=document.caretPositionFromPoint(e.clientX,e.clientY); if(cp&&cp.offsetNode===code.firstChild) within=cp.offset; }
+      leanSelectAt(LEAN_FILE, base+within); };
     row.appendChild(code); host.appendChild(row); off+=ln.length+1; });  // +1 for the '\n'
   paintLeanHighlights();
   if(typeof scheduleViewSave==='function') scheduleViewSave();
@@ -284,25 +294,74 @@ function mapLeanNone(){ const b=selId&&find(selId); if(!b){flash('select an NL b
   b.lean={none:true}; markDirty(); flash('“'+label(b)+'” → mapped to nothing'); refreshAll(); }
 function clearLean(){ const b=selId&&find(selId); if(!b)return; delete b.lean; markDirty(); refreshAll(); }
 
-// jump the Lean pane to a box's FIRST mapped span and highlight it.
+// jump the Lean pane to a box's mapped span(s) and paint the SELECTION (blue) on
+// them — this is the "click Lean → select (blue)" indicator. Only this box's spans
+// are painted; no persistent level-view.
 async function jumpToLean(b){ const spans=leanSpans(b); if(!spans.length) return; const first=spans[0];
   if(first.file!==LEAN_FILE) await showLeanFile(first.file);
-  paintLeanHighlights();
+  paintLeanHighlights();   // clear (keeps any live flash)
+  spans.forEach((p)=>{ if(p.file===LEAN_FILE) paintLeanRange(p.start,p.end,SEL_OUTLINE,{sel:true}); });
   const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=first.start);
   if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); }
 
-// paint the Lean pane with the SAME focus view as the PDF: the current LEVEL
-// node's mapped spans show grey (like the level outline), and its DIRECT
-// CHILDREN's mapped spans show in their own colors. Spans outside the focus are
-// not drawn — identical scoping to paintHighlights.
+// click in the Lean pane → select the box whose Lean span covers char `ch`. When
+// EXACT MIRROR of the PDF's boxAtChar: among the CURRENT LEVEL's direct children,
+// pick the one whose Lean span covers char `ch` (smallest if several), and select
+// it. Lean side ↔ PDF side, same scoping, same rule.
+function leanSelectAt(file, ch){
+  const kids=(find(levelId)||ROOT).children;
+  let best=null, bw=Infinity;
+  kids.forEach((n)=>{ leanSpans(n).forEach((p)=>{ if(p.file===file&&p.start<=ch&&ch<p.end){ const w=p.end-p.start; if(w<bw){ bw=w; best=n; } } }); });
+  if(best) selectBox(best.id);
+  else if(selId){ selId=null; render(); }   // clicked Lean but over no box → DESELECT (like the PDF)
+  return !!best; }
+// FLASH a FOL box's Lean counterpart.
+//  - box has its OWN spans → PURPLE flash on them.
+//  - box has no own span (maps to ∅, i.e. an ERROR, OR not yet judged) → climb to the
+//    nearest ANCESTOR with spans and flash those. Color: RED (error style) if this
+//    box is a notok/∅ error, else purple. So an error box lights up its enclosing
+//    piece in red — you see WHERE it belongs and that it's unfaithful.
+let _leanFlashT=null;
+async function flashLean(box){ if(!box) return false;
+  // ERROR status comes from the nearest ancestor (incl. self) that carries a VERDICT
+  // — so clicking a token inside a ∅/notok box (e.g. the `a_matrix` symbol inside the
+  // maps-to-nothing condition) is recognized as an error, not sailed past to a
+  // mapped grandparent.
+  let v=box; while(v && !(v.lean && (v.lean.v || v.lean.none))) v=parentOf(v.id);
+  const isErr = !!(v && v.lean && (v.lean.v==='notok' || v.lean.none));
+  let b=box;
+  while(b && !leanSpans(b).length) b=parentOf(b.id);   // climb to nearest box with spans
+  if(!b) return false;
+  const spans=leanSpans(b); const first=spans[0];
+  if(first.file!==LEAN_FILE) await showLeanFile(first.file);
+  paintLeanHighlights();
+  // EXACT PDF flash colors: purple (.varflash) normally, red (.gapflash) if error.
+  const color = isErr ? '#e04620' : '#7a4fd0';
+  spans.forEach((p)=>{ if(p.file===LEAN_FILE) paintLeanRange(p.start,p.end,color,{flash:true}); });
+  const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=first.start);
+  if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
+  clearTimeout(_leanFlashT); _leanFlashT=setTimeout(()=>{ $('leanCode')&&$('leanCode').querySelectorAll('.lean-hl.flash').forEach((e)=>e.remove()); }, 2200);
+  return true; }
+// paint the Lean pane — STRUCTURAL MIRROR of paintHighlights (the PDF). Same
+// focusView; the current LEVEL node is drawn as an OUTLINE and its DIRECT CHILDREN
+// in their own colors, segmented+blended on overlap, selected child gets the blue
+// ring. Only difference from the PDF: box.lean spans instead of pieces(). Persistent
+// (not flash-only). Preserves any live flash on top.
 function paintLeanHighlights(){ const host=$('leanCode'); if(!host) return;
-  host.querySelectorAll('.lean-hl').forEach((e)=>e.remove());
-  const {level,self,children}=focusView();
-  // 1) the level node itself: grey (skip at root = whole paper)
-  if(self){ leanSpans(level).forEach((p)=>{ if(p.file===LEAN_FILE) paintLeanRange(p.start,p.end,null,{level:true}); }); }
-  // 2) its direct children: each in its own color
-  children.forEach((id)=>{ const n=find(id); leanSpans(n).forEach((p)=>{ if(p.file===LEAN_FILE)
-    paintLeanRange(p.start,p.end,boxHex(id),{sel:id===selId}); }); });
+  host.querySelectorAll('.lean-hl:not(.flash)').forEach((e)=>e.remove());
+  const {level}=focusView();
+  const spansIn=(n)=>leanSpans(n).filter((p)=>p.file===LEAN_FILE);
+  // 1) the level box itself: outline only (skip for root)
+  if(level!==ROOT){ spansIn(level).forEach((p)=>paintLeanRange(p.start,p.end,boxHex(level.id),{outline:true})); }
+  // 2) its direct children: filled (blended where children overlap), selected → ring
+  const ranges=[]; level.children.forEach((n)=>spansIn(n).forEach((p)=>ranges.push({start:p.start,end:p.end,id:n.id})));
+  if(ranges.length){
+    const pts=new Set(); ranges.forEach((r)=>{pts.add(r.start);pts.add(r.end);});
+    const sorted=[...pts].sort((a,b)=>a-b);
+    for(let k=0;k<sorted.length-1;k++){ const s=sorted[k],e=sorted[k+1];
+      const cover=ranges.filter((r)=>r.start<=s&&e<=r.end); if(!cover.length) continue;
+      paintLeanRange(s,e,blendHex(cover.map((r)=>r.id)),{sel: selId&&cover.some((r)=>r.id===selId)}); }
+  }
 }
 // draw highlight boxes over the Lean char range [s,e) by wrapping affected line
 // spans with absolutely-positioned overlays measured from Range rects.
@@ -317,13 +376,18 @@ function paintLeanRange(s,e,color,opts){ opts=opts||{}; const host=$('leanCode')
     const rng=document.createRange();
     try{ rng.setStart(tn,Math.max(0,Math.min(ls,tn.length))); rng.setEnd(tn,Math.max(0,Math.min(le,tn.length))); }catch(_){ continue; }
     const rects=rng.getClientRects(); const hostBox=host.getBoundingClientRect();
-    for(const rc of rects){ const d=document.createElement('div'); d.className='lean-hl';
+    for(const rc of rects){ const d=document.createElement('div'); d.className='lean-hl'+(opts.flash?' flash':'');
       d.style.left=(rc.left-hostBox.left+host.scrollLeft)+'px'; d.style.top=(rc.top-hostBox.top+host.scrollTop)+'px';
       d.style.width=rc.width+'px'; d.style.height=rc.height+'px';
+      // opts-handling IDENTICAL to the PDF's drawRange (outline/dep/sel/WIREFRAME):
       const rings=[];
-      if(opts.level){ d.style.background='rgba(110,110,110,0.28)'; }       // level: darker grey fill
-      else { d.style.background=color+'55'; }                              // normal: fill
-      if(WIREFRAME){ rings.push(opts.level ? 'inset 0 0 0 1px rgba(90,90,90,0.7)' : 'inset 0 0 0 1px '+color+'cc'); }
+      if(opts.outline){ d.style.background='rgba(110,110,110,0.28)'; }  // current level: darker grey fill
+      else if(opts.dep){
+        d.style.backgroundImage=`repeating-linear-gradient(45deg, ${color}66 0 5px, ${color}1a 5px 10px)`;
+        rings.push('inset 0 0 0 1px '+color+'88'); }
+      else if(opts.flash){ d.style.background='transparent'; rings.push('inset 0 0 0 2px '+color); }  // flash: UNFILLED ring only
+      else { d.style.background=color+'55'; }
+      if(WIREFRAME){ rings.push(opts.outline ? 'inset 0 0 0 1px rgba(90,90,90,0.7)' : 'inset 0 0 0 1px '+color+'cc'); }
       if(opts.sel) rings.push('inset 0 0 0 2px '+SEL_OUTLINE+'cc');
       if(rings.length) d.style.boxShadow=rings.join(', ');
       host.appendChild(d); } }
@@ -453,7 +517,7 @@ function boxAtCharGlobal(i){ let best=null,bw=Infinity; walk(ROOT,(n)=>{ if(n===
   if(pieces(n).some((p)=>p.start<=i&&i<p.end)){ const w=regionLen(n); if(w<bw){bw=w;best=n;} } }); return best; }
 // select a box (blue) + reveal it in the tree (expand ancestors, scroll to row)
 function selectBox(id){ selId=id; let p=parentOf(id); while(p){COLLAPSED[p.id]=false;p=parentOf(p.id);} render();
-  const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.scrollIntoView({block:'nearest'});
+  const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.scrollIntoView({block:'center',behavior:'smooth'});
   const b=find(id); if(b&&b.lean&&!b.lean.none) jumpToLean(b); scheduleViewSave(); }
 // plain left-click on the PDF (no text selected) over a box -> select that box;
 // clicking empty space (not over any box) DESELECTS.
@@ -1177,7 +1241,7 @@ function folTokensEl(tokens){ const frag=document.createDocumentFragment();
       const kindName={var:'variable',rel:'relation',fn:'function',con:'constant'}[t.t];
       const key=(t.t==='var'?'v':t.t)+':'+t.s; sp.dataset.folkey=key;
       sp.title='flash all occurrences of '+kindName+' “'+t.s+'”';
-      sp.onclick=(e)=>{ e.stopPropagation(); const b=find(t.box); if(b) flashCoref(b); flashFolKey(key); }; }
+      sp.onclick=(e)=>{ e.stopPropagation(); const b=find(t.box); if(b){ flashCoref(b); flashLean(b); } flashFolKey(key); }; }
     frag.appendChild(sp); });
   return frag; }
 // light up every identity token in the FOL view that shares `key` (same var
@@ -1715,6 +1779,9 @@ async function init(){
     if(curSel) leanCurSel=null; updateSelUI(); });
   $('pages').addEventListener('click', onPdfClick);
   $('pages').addEventListener('dblclick', onPdfDblClick);
+  // click the Lean pane's EMPTY space (not on code text) → deselect, like the PDF.
+  $('leanCode').addEventListener('click',(e)=>{ if(e.target.closest('.lean-src')) return;   // text clicks handled per-line
+    const sel=window.getSelection(); if(sel&&!sel.isCollapsed) return; if(selId){ selId=null; render(); } });
   $('leanMap').onclick=mapLean; $('leanUnmap').onclick=removeLeanSel; $('leanNone').onclick=mapLeanNone; $('leanClear').onclick=clearLean;
   $('vOk').onclick=()=>setVerdict('ok'); $('vNotok').onclick=()=>setVerdict('notok'); $('vUndec').onclick=()=>setVerdict('undecidable');
   $('tabBoxes').onclick=()=>switchTab('boxes'); $('tabLean').onclick=()=>switchTab('lean'); $('tabErrors').onclick=()=>switchTab('errors');

@@ -294,6 +294,7 @@ body.resizingv{cursor:row-resize;user-select:none;}
 .lean-src{flex:1;white-space:pre;}
 .lean-src::selection{background:rgba(37,99,235,.35);}
 .lean-hl{position:absolute;pointer-events:none;z-index:0;}   /* fill/outline set inline */
+.lean-hl.flash{z-index:2;border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}   /* FOL-click flash: unfilled ring, pulsing (matches PDF) */
 
 /* left-panel tabs (Boxes / Lean files) */
 .tabhead{display:flex;align-items:center;gap:4px;padding:5px 10px;}
