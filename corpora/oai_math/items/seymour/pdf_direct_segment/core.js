@@ -153,6 +153,23 @@ export function makeCore(schema) {
     if (box.children && box.children.length && !isLeafLabel(concrete)) {
       const cov = coverageOf(box); if (cov.gaps.length) { const pct = cov.total ? Math.round(100 * cov.covered / cov.total) : 100; out.push(`children cover ${pct}% (${cov.gaps.length} gap${cov.gaps.length > 1 ? 's' : ''})`); }
     }
+    // ARITY CONSISTENCY: a relation/function symbol is one symbol in the language, so
+    // every occurrence must supply the SAME number of arguments. If this relation /
+    // function-application uses an authored symbol that appears elsewhere with more
+    // args, flag it (e.g. real_matrix(D,J,I) elsewhere but real_matrix(D′) here).
+    if ((concrete === 'relation' || concrete === 'function-application') && root) {
+      const symTag = concrete === 'relation' ? 'relation-symbol' : 'function-symbol';
+      const argc = (b) => (b.children || []).filter((c) => { const cc = labelConcrete(c.label); return cc !== symTag && cc !== 'commentary'; }).length;
+      const symC = (box.children || []).find((c) => labelConcrete(c.label) === symTag);
+      const nm = symC && symC.sym != null && symC.sym !== '' ? symC.sym : null;
+      if (nm) {
+        const here = argc(box); let want = here;
+        walk(root, (n) => { if (labelConcrete(n.label) !== concrete) return;
+          const s = (n.children || []).find((c) => labelConcrete(c.label) === symTag);
+          if (s && s.sym === nm) want = Math.max(want, argc(n)); });
+        if (here !== want) out.push(`${concrete === 'relation' ? 'relation' : 'function'} ‘${nm}’ takes ${want} argument${want === 1 ? '' : 's'} elsewhere but has ${here} here`);
+      }
+    }
     return out;
   };
   const allIssues = (root) => { const out = []; walk(root, (n) => { if (n === root) return; const iss = boxIssues(n, root); if (iss.length) out.push({ id: n.id, box: n, issues: iss }); }); return out; };

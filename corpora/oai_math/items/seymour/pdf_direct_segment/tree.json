@@ -423,7 +423,31 @@
                             "atomic-term",
                             "variable"
                           ],
-                          "var": "v4"
+                          "var": "v3"
+                        },
+                        {
+                          "id": "b366",
+                          "label": [
+                            "term",
+                            "atomic-term",
+                            "variable"
+                          ],
+                          "var": "v1",
+                          "implicit": true,
+                          "pieces": [],
+                          "children": []
+                        },
+                        {
+                          "id": "b367",
+                          "label": [
+                            "term",
+                            "atomic-term",
+                            "variable"
+                          ],
+                          "var": "v0",
+                          "implicit": true,
+                          "pieces": [],
+                          "children": []
                         }
                       ],
                       "label": [
@@ -431,7 +455,7 @@
                         "atomic-formula",
                         "relation"
                       ],
-                      "count": 1,
+                      "count": 3,
                       "lean": {
                         "none": true,
                         "v": "notok",
@@ -2089,6 +2113,30 @@
                                         "relation-symbol"
                                       ],
                                       "sym": "real_matrix"
+                                    },
+                                    {
+                                      "id": "b368",
+                                      "label": [
+                                        "term",
+                                        "atomic-term",
+                                        "variable"
+                                      ],
+                                      "var": "v1",
+                                      "implicit": true,
+                                      "pieces": [],
+                                      "children": []
+                                    },
+                                    {
+                                      "id": "b369",
+                                      "label": [
+                                        "term",
+                                        "atomic-term",
+                                        "variable"
+                                      ],
+                                      "var": "v2",
+                                      "implicit": true,
+                                      "pieces": [],
+                                      "children": []
                                     }
                                   ],
                                   "label": [
@@ -2096,7 +2144,7 @@
                                     "atomic-formula",
                                     "relation"
                                   ],
-                                  "count": 1
+                                  "count": 3
                                 },
                                 {
                                   "id": "b281",
