@@ -1775,6 +1775,28 @@ function switchTab(which){
 function toggleFolPin(){ if(FOL_PIN) FOL_PIN=null; else { if(levelId==='root'){ flash('enter a level to pin'); return; } FOL_PIN=levelId; }
   renderFol(); scheduleViewSave(); }
 
+/* ───────────────── reload from disk ───────────────── */
+// Re-read ../tree.json (bypassing cache) and rebuild the in-memory tree, so edits
+// made outside the UI (e.g. tools/edit.js) show up without a full page refresh.
+// Keeps the current level/selection if those boxes still exist. Discards unsaved
+// UI edits (confirm first if dirty), and cancels any pending autosave so the fresh
+// data is not clobbered.
+async function reloadTree(){
+  if(dirty && !confirm('Discard unsaved UI changes and reload tree.json from disk?')) return;
+  clearTimeout(_t);   // cancel a pending autosave
+  let t; try{ t=await fetch('../tree.json',{cache:'no-store'}).then((r)=>r.ok?r.json():null); }
+  catch(e){ flash('reload failed: '+e.message); return; }
+  if(!(t&&t.children)){ flash('reload failed: could not read tree.json'); return; }
+  ROOT=t; idCounter=1; walk(ROOT,(n)=>{const m=/^b(\d+)$/.exec(n.id||'');if(m)idCounter=Math.max(idCounter,+m[1]+1);});
+  normalizeLean(); simplifyAllPieces();
+  if(levelId!=='root' && !find(levelId)) levelId='root';   // level gone → up to root
+  if(selId && !find(selId)) selId=null;
+  if(FOL_PIN && !find(FOL_PIN)) FOL_PIN=null;
+  histInit(); dirty=false; $('status').textContent='';
+  refreshAll();
+  flash('reloaded tree.json from disk');
+}
+
 /* ───────────────── init ───────────────── */
 async function init(){
   try{ const t=await fetch('../tree.json').then((r)=>r.ok?r.json():null); if(t&&t.children){ ROOT=t; walk(ROOT,(n)=>{const m=/^b(\d+)$/.exec(n.id||'');if(m)idCounter=Math.max(idCounter,+m[1]+1);}); } }catch(_){}
@@ -1818,6 +1840,7 @@ async function init(){
   $('confirmlink').onclick=()=>confirmLink();
   $('junkbox').onclick=toggleJunk;
   $('save').onclick=()=>save(true);
+  $('reloadBtn').onclick=reloadTree;
   $('undoBtn').onclick=undo; $('redoBtn').onclick=redo; $('cleanBtn').onclick=cleanTree;
   document.addEventListener('keydown',(e)=>{ const t=document.activeElement; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'))return;
     // undo/redo (Ctrl/Cmd+Z, Shift for redo; also Ctrl+Y)

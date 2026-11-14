@@ -14,6 +14,8 @@
 //   node tools/edit.js rm     <id>                    # delete a box + its subtree
 //   node tools/edit.js move   <id> <newParentId|root> # reparent
 //   node tools/edit.js wrap   <id,id,…> <a.b.c>       # wrap siblings in a new box
+//   node tools/edit.js add-json <parentId> <@file|json>  # splice a whole subtree
+//        (spec node: {label:"a.b.c", pieces:"s-e,s-e", var, sym, count, implicit, children:[…]})
 //
 // Label paths are the DOTTED full path as printed by inspect/allowed lists, e.g.
 // `formula.atomic-formula.relation` or a slot like `inputs`. An invalid label is
@@ -59,6 +61,25 @@ const parsePieces = (s) => s === '-' ? [] : s.split(',').map((seg) => { const m 
   if (CHARS && end > CHARS.length) die(`piece ${seg} past end of text (${CHARS.length})`); return { start, end }; });
 const parseLabel = (s) => s === '-' ? null : s.split('.');
 const must = (id) => { const b = C.find(ROOT, id); if (!b) die(`no such box: ${id}`); return b; };
+
+// build a detached subtree from a spec {label?,pieces?,var?,sym?,count?,implicit?,
+// children?}: mints ids, normalizes label (dotted→array) and pieces ("s-e,…"→objs),
+// validates each node's label against ITS parent, recurses. Used by add-json.
+const buildNode = (spec, parentNode) => {
+  const node = { id: mintId(), pieces: [], children: [] };
+  if (spec.label) node.label = typeof spec.label === 'string' ? spec.label.split('.') : spec.label;
+  if (spec.pieces) node.pieces = typeof spec.pieces === 'string' ? parsePieces(spec.pieces)
+    : spec.pieces.map((p) => Array.isArray(p) ? { start: p[0], end: p[1] } : p);
+  mergePieces(node);
+  if (spec.implicit) node.implicit = true;
+  if (spec.var != null) node.var = spec.var;
+  if (spec.sym != null) node.sym = spec.sym;
+  if (spec.count != null) node.count = spec.count;
+  checkLabel(parentNode, node.label);
+  for (const ch of (spec.children || [])) node.children.push(buildNode(ch, node));
+  sortKids(node);
+  return node;
+};
 
 // validate a label-path against what the schema allows under `parent` (null = no
 // check possible). Rejects unless --force. ROOT as parent uses ROOT_SLOTS.
@@ -182,5 +203,38 @@ else if (cmd === 'wrap') {
   console.log(`✓ wrap ${ids.join(',')} under ${wrap.id}${label ? ' [' + label.join('.') + ']' : ''}`);
   const iss = C.boxIssues(wrap); console.log(`  ${wrap.id}: ${iss.length ? '⚠ ' + iss.join('; ') : 'ok'}`);
   console.log('  new id: ' + wrap.id);
+}
+else if (cmd === 'add-json') {
+  const [parentId, src] = pos; if (!parentId || src === undefined) die('usage: add-json <parentId> <@file.json|json-string>');
+  const parent = parentId === 'root' ? ROOT : must(parentId);
+  const raw = src.startsWith('@') ? readFileSync(src.slice(1), 'utf8') : src;
+  let spec; try { spec = JSON.parse(raw); } catch (e) { die('bad json: ' + e.message); }
+  const specs = Array.isArray(spec) ? spec : [spec];
+  parent.children = parent.children || [];
+  const added = [];
+  for (const s of specs) { const n = buildNode(s, parent); parent.children.push(n); added.push(n.id); }
+  sortKids(parent);
+  writeFileSync(TREE, JSON.stringify(ROOT, null, 2));
+  console.log(`✓ add-json: ${added.length} subtree(s) under ${parentId} → ${added.join(', ')}`);
+  if (parent !== ROOT) { const i = C.boxIssues(parent); console.log(`  ${parent.id} [${parent.label ? C.labelTag(ROOT, parent) : 'unlabelled'}]: ${i.length ? '⚠ ' + i.join('; ') : 'ok'}`); }
+  const all = C.allIssues(ROOT); console.log(`  tree: ${all.length ? all.length + ' box(es) with issues' : 'no structural issues'}`);
+}
+else if (cmd === 'fill-gaps') {
+  // recursive "junk mop": for every non-leaf box in the subtree whose children
+  // leave gaps in its span, add ONE commentary child covering exactly those gaps.
+  const [id] = pos; if (!id) die('usage: fill-gaps <id>');
+  const root = id === 'root' ? ROOT : must(id);
+  const jobs = [];
+  C.walk(root, (n) => { const c = n.label && C.labelConcrete(n.label);
+    if (!n.children || !n.children.length) return;
+    if (c && C.isLeafLabel(c)) return;          // leaf labels carry no sub-structure
+    const cov = C.coverageOf(n); if (cov.gaps.length) jobs.push([n, cov.gaps]); });
+  for (const [n, gaps] of jobs) {
+    n.children.push({ id: mintId(), label: ['commentary'], pieces: gaps.map((g) => ({ start: g.start, end: g.end })), children: [] });
+    sortKids(n);
+  }
+  writeFileSync(TREE, JSON.stringify(ROOT, null, 2));
+  console.log(`✓ fill-gaps under ${id}: added ${jobs.length} commentary box(es)`);
+  const all = C.allIssues(ROOT); console.log(`  tree: ${all.length ? all.length + ' box(es) with issues' : 'no structural issues'}`);
 }
 else die(`unknown command "${cmd}" — see header for commands`);
