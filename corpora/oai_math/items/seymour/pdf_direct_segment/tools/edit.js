@@ -15,7 +15,8 @@
 //   node tools/edit.js move   <id> <newParentId|root> # reparent
 //   node tools/edit.js wrap   <id,id,…> <a.b.c>       # wrap siblings in a new box
 //   node tools/edit.js add-json <parentId> <@file|json>  # splice a whole subtree
-//        (spec node: {label:"a.b.c", pieces:"s-e,s-e", var, sym, count, implicit, children:[…]})
+//        (spec node: {label:"a.b.c", pieces:"s-e,s-e", var, sym, count, implicit, keepOrder, children:[…]})
+//        keepOrder:true keeps children in spec order instead of sorting by position
 //
 // Label paths are the DOTTED full path as printed by inspect/allowed lists, e.g.
 // `formula.atomic-formula.relation` or a slot like `inputs`. An invalid label is
@@ -77,7 +78,11 @@ const buildNode = (spec, parentNode) => {
   if (spec.count != null) node.count = spec.count;
   checkLabel(parentNode, node.label);
   for (const ch of (spec.children || [])) node.children.push(buildNode(ch, node));
-  sortKids(node);
+  // normally children are ordered by text position (matches reading order); set
+  // "keepOrder": true to preserve the spec order instead — needed for order-sensitive
+  // operators whose operands don't linearize (e.g. an implication whose NL states the
+  // conclusion before the hypothesis), where position-sorting would flip them.
+  if (!spec.keepOrder) sortKids(node);
   return node;
 };
 
