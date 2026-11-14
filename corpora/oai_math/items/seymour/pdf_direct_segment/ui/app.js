@@ -1238,8 +1238,13 @@ function folTokensEl(tokens){ const frag=document.createDocumentFragment();
     if(t.box && (t.t==='var'||t.t==='rel'||t.t==='fn'||t.t==='con')){ sp.classList.add('clk');
       const kindName={var:'variable',rel:'relation',fn:'function',con:'constant'}[t.t];
       const key=(t.t==='var'?'v':t.t)+':'+t.s; sp.dataset.folkey=key;
-      sp.title='flash all occurrences of '+kindName+' “'+t.s+'”';
-      sp.onclick=(e)=>{ e.stopPropagation(); const b=find(t.box); if(b){ flashCoref(b); flashLean(b); } flashFolKey(key); }; }
+      sp.title='select & jump to this '+kindName+' box “'+t.s+'” (and flash all its occurrences)';
+      // SELECT the exact box this token came from (selectBox expands its ancestors
+      // and scrolls the tree to it), scroll the PDF to its span, then flash all
+      // co-referents (PDF + tree + Lean) and light up matching FOL tokens.
+      sp.onclick=(e)=>{ e.stopPropagation(); const b=find(t.box);
+        if(b){ selectBox(t.box); if(pieces(b).length) scrollToChar(pieces(b)[0].start); flashCoref(b); flashLean(b); }
+        flashFolKey(key); }; }
     frag.appendChild(sp); });
   return frag; }
 // light up every identity token in the FOL view that shares `key` (same var
