@@ -168,6 +168,59 @@
               ],
               "children": [
                 {
+                  "id": "b157",
+                  "pieces": [],
+                  "bot": true,
+                  "auto": true,
+                  "children": [],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 170,
+                        "end": 180
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 181,
+                        "end": 182
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 183,
+                        "end": 222
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 233,
+                        "end": 235
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 236,
+                        "end": 239
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 250,
+                        "end": 253
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 254,
+                        "end": 257
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 269,
+                        "end": 280
+                      }
+                    ],
+                    "v": "ok",
+                    "why": "formal scaffolding (no NL counterpart)"
+                  }
+                },
+                {
                   "id": "b61",
                   "pieces": [
                     {
@@ -231,7 +284,8 @@
                             "symbol",
                             "non-logical",
                             "relation-symbol"
-                          ]
+                          ],
+                          "sym": "finite"
                         },
                         {
                           "id": "b85",
@@ -293,7 +347,8 @@
                             "symbol",
                             "non-logical",
                             "relation-symbol"
-                          ]
+                          ],
+                          "sym": "finite"
                         },
                         {
                           "id": "b87",
@@ -351,7 +406,8 @@
                             "symbol",
                             "non-logical",
                             "relation-symbol"
-                          ]
+                          ],
+                          "sym": "real_matrix"
                         },
                         {
                           "id": "b150",
@@ -746,6 +802,35 @@
                   }
                 },
                 {
+                  "id": "b89",
+                  "pieces": [
+                    {
+                      "start": 15923,
+                      "end": 15925
+                    },
+                    {
+                      "start": 15933,
+                      "end": 15934
+                    },
+                    {
+                      "start": 15946,
+                      "end": 15947
+                    },
+                    {
+                      "start": 15956,
+                      "end": 15962
+                    },
+                    {
+                      "start": 16009,
+                      "end": 16045
+                    }
+                  ],
+                  "children": [],
+                  "label": [
+                    "commentary"
+                  ]
+                },
+                {
                   "id": "b60",
                   "pieces": [
                     {
@@ -770,7 +855,8 @@
                       }
                     ],
                     "v": "ok"
-                  }
+                  },
+                  "sym": "supported_on"
                 },
                 {
                   "id": "b90",
@@ -1135,7 +1221,8 @@
                                     "term",
                                     "atomic-term",
                                     "constant"
-                                  ]
+                                  ],
+                                  "sym": "0"
                                 }
                               ],
                               "label": [
@@ -1185,88 +1272,6 @@
                     "why": "Lean body is forall. NL body is and. does not match.",
                     "cmp": "∀ s : I, ∀ j : J, (s, j) ∉ T → D s j = 0",
                     "path": "body.formula.compound-formula.connective.conjunction"
-                  }
-                },
-                {
-                  "id": "b89",
-                  "pieces": [
-                    {
-                      "start": 15923,
-                      "end": 15925
-                    },
-                    {
-                      "start": 15933,
-                      "end": 15934
-                    },
-                    {
-                      "start": 15946,
-                      "end": 15947
-                    },
-                    {
-                      "start": 15956,
-                      "end": 15962
-                    },
-                    {
-                      "start": 16009,
-                      "end": 16045
-                    }
-                  ],
-                  "children": [],
-                  "label": [
-                    "commentary"
-                  ]
-                },
-                {
-                  "id": "b157",
-                  "pieces": [],
-                  "bot": true,
-                  "auto": true,
-                  "children": [],
-                  "lean": {
-                    "spans": [
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 170,
-                        "end": 180
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 181,
-                        "end": 182
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 183,
-                        "end": 222
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 233,
-                        "end": 235
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 236,
-                        "end": 239
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 250,
-                        "end": 253
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 254,
-                        "end": 257
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 269,
-                        "end": 280
-                      }
-                    ],
-                    "v": "ok",
-                    "why": "formal scaffolding (no NL counterpart)"
                   }
                 }
               ],
@@ -2187,7 +2192,8 @@
                                         "non-logical",
                                         "function-symbol"
                                       ],
-                                      "implicit": true
+                                      "implicit": true,
+                                      "sym": "rank"
                                     },
                                     {
                                       "id": "b288",
