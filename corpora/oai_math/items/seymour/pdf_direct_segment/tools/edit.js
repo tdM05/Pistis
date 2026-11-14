@@ -14,6 +14,9 @@
 //   node tools/edit.js rm     <id>                    # delete a box + its subtree
 //   node tools/edit.js move   <id> <newParentId|root> # reparent
 //   node tools/edit.js wrap   <id,id,…> <a.b.c>       # wrap siblings in a new box
+//   node tools/edit.js def-link <useBox> <defBox> --inputs <json> --conditions <json>
+//        # folded definition-application: --inputs [{input:<defInputId>,by:<argId>},…]
+//        #                                --conditions [{cond:<defCondId>,by:<factId>},…]
 //   node tools/edit.js add-json <parentId> <@file|json>  # splice a whole subtree
 //        (spec node: {label:"a.b.c", pieces:"s-e,s-e", var, sym, count, implicit, keepOrder, children:[…]})
 //        keepOrder:true keeps children in spec order instead of sorting by position
@@ -103,7 +106,7 @@ const commit = (action, touched) => {
   writeFileSync(TREE, JSON.stringify(ROOT, null, 2));   // byte-identical to serve.py
   console.log('✓ ' + action);
   for (const id of touched) { const b = C.find(ROOT, id); if (!b) continue;
-    const iss = C.boxIssues(b);
+    const iss = C.boxIssues(b, ROOT);
     console.log(`  ${id} [${b.label ? C.labelTag(ROOT, b) : 'unlabelled'}]: ${iss.length ? '⚠ ' + iss.join('; ') : 'ok'}`); }
   const all = C.allIssues(ROOT);
   console.log(`  tree: ${all.length ? all.length + ' box(es) with issues' : 'no structural issues'}`);
@@ -153,7 +156,7 @@ else if (cmd === 'add') {
   parent.children = parent.children || []; parent.children.push(box); sortKids(parent);
   writeFileSync(TREE, JSON.stringify(ROOT, null, 2));
   console.log(`✓ add ${box.id} under ${parentId}${label ? ' [' + label.join('.') + ']' : ''}`);
-  const iss = C.boxIssues(box); console.log(`  ${box.id}: ${iss.length ? '⚠ ' + iss.join('; ') : 'ok'}`);
+  const iss = C.boxIssues(box, ROOT); console.log(`  ${box.id}: ${iss.length ? '⚠ ' + iss.join('; ') : 'ok'}`);
   const pIss = C.boxIssues(parent === ROOT ? { children: parent.children } : parent);
   if (parent !== ROOT) console.log(`  ${parent.id} [${parent.label ? C.labelTag(ROOT, parent) : 'unlabelled'}]: ${pIss.length ? '⚠ ' + pIss.join('; ') : 'ok'}`);
   console.log('  new id: ' + box.id);
@@ -166,7 +169,7 @@ else if (cmd === 'rm') {
   if (ROOT.links) ROOT.links = ROOT.links.filter((l) => !gone.has(l.from) && !gone.has(l.to));
   writeFileSync(TREE, JSON.stringify(ROOT, null, 2));
   console.log(`✓ rm ${id} (${gone.size} box${gone.size > 1 ? 'es' : ''} removed)`);
-  if (parent !== ROOT) console.log(`  ${parent.id} [${parent.label ? C.labelTag(ROOT, parent) : 'unlabelled'}]: ${(() => { const i = C.boxIssues(parent); return i.length ? '⚠ ' + i.join('; ') : 'ok'; })()}`);
+  if (parent !== ROOT) console.log(`  ${parent.id} [${parent.label ? C.labelTag(ROOT, parent) : 'unlabelled'}]: ${(() => { const i = C.boxIssues(parent, ROOT); return i.length ? '⚠ ' + i.join('; ') : 'ok'; })()}`);
   const all = C.allIssues(ROOT); console.log(`  tree: ${all.length ? all.length + ' box(es) with issues' : 'no structural issues'}`);
 }
 else if (cmd === 'move') {
@@ -206,7 +209,7 @@ else if (cmd === 'wrap') {
   parent.children.push(wrap); sortKids(parent);
   writeFileSync(TREE, JSON.stringify(ROOT, null, 2));
   console.log(`✓ wrap ${ids.join(',')} under ${wrap.id}${label ? ' [' + label.join('.') + ']' : ''}`);
-  const iss = C.boxIssues(wrap); console.log(`  ${wrap.id}: ${iss.length ? '⚠ ' + iss.join('; ') : 'ok'}`);
+  const iss = C.boxIssues(wrap, ROOT); console.log(`  ${wrap.id}: ${iss.length ? '⚠ ' + iss.join('; ') : 'ok'}`);
   console.log('  new id: ' + wrap.id);
 }
 else if (cmd === 'add-json') {
@@ -221,8 +224,26 @@ else if (cmd === 'add-json') {
   sortKids(parent);
   writeFileSync(TREE, JSON.stringify(ROOT, null, 2));
   console.log(`✓ add-json: ${added.length} subtree(s) under ${parentId} → ${added.join(', ')}`);
-  if (parent !== ROOT) { const i = C.boxIssues(parent); console.log(`  ${parent.id} [${parent.label ? C.labelTag(ROOT, parent) : 'unlabelled'}]: ${i.length ? '⚠ ' + i.join('; ') : 'ok'}`); }
+  if (parent !== ROOT) { const i = C.boxIssues(parent, ROOT); console.log(`  ${parent.id} [${parent.label ? C.labelTag(ROOT, parent) : 'unlabelled'}]: ${i.length ? '⚠ ' + i.join('; ') : 'ok'}`); }
   const all = C.allIssues(ROOT); console.log(`  tree: ${all.length ? all.length + ' box(es) with issues' : 'no structural issues'}`);
+}
+else if (cmd === 'def-link') {
+  // create the FOLDED definition-application link: use-box → def-box, carrying the
+  // input bindings and condition discharges as pointer lists (see definition-application).
+  const [from, to] = pos; if (!from || !to) die('usage: def-link <useBox> <defBox> [--inputs <json>] [--conditions <json>]');
+  must(from); must(to);
+  const parseRefs = (s, keyName, tgtKey) => { if (!s || s === true) return [];
+    let arr; try { arr = JSON.parse(s); } catch (e) { die(`bad json for --${keyName}: ` + e.message); }
+    return arr.map((x) => { const tgt = x[tgtKey], by = x.by;
+      if (!C.find(ROOT, tgt)) die(`--${keyName}: no such box ${tgt}`);
+      if (!C.find(ROOT, by)) die(`--${keyName}: no such box ${by}`);
+      return { [tgtKey]: tgt, by }; }); };
+  const inputs = parseRefs(flags.inputs, 'inputs', 'input');
+  const conditions = parseRefs(flags.conditions, 'conditions', 'cond');
+  ROOT.links = (ROOT.links || []).filter((l) => !(l.from === from && l.kind === 'def'));   // one def-link per use
+  ROOT.links.push({ from, to, kind: 'def', inputs, conditions });
+  writeFileSync(TREE, JSON.stringify(ROOT, null, 2));
+  console.log(`✓ def-link ${from} → ${to} (${inputs.length} inputs, ${conditions.length} conditions)`);
 }
 else if (cmd === 'fill-gaps') {
   // recursive "junk mop": for every non-leaf box in the subtree whose children

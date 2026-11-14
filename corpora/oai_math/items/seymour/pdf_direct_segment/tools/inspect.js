@@ -89,7 +89,7 @@ if (rawIdx >= 0) {
   console.log('text:', JSON.stringify(boxText(b)));
   if (b.lean) console.log('lean:', JSON.stringify(b.lean), b.lean.spans ? '\n  → ' + b.lean.spans.map((s) => JSON.stringify(snippet(leanText(s.file).slice(s.start, s.end), 60))).join('\n  → ') : '');
   const ds = C.derivedSymbol(ROOT, b); if (ds) console.log('derived symbol:', ds.sym, '(' + ds.reason + ')');
-  console.log('issues:', JSON.stringify(C.boxIssues(b)));
+  console.log('issues:', JSON.stringify(C.boxIssues(b, ROOT)));
   console.log('children:', (b.children || []).map((c) => c.id).join(', ') || '(none)');
   process.exit(0);
 }
@@ -198,7 +198,7 @@ if (!start) { console.error('no such box: ' + subId); process.exit(1); }
 const baseDepth = subId ? 0 : 0;
 const printNode = (n, d) => {
   if (n !== ROOT) {
-    const iss = C.boxIssues(n);
+    const iss = C.boxIssues(n, ROOT);
     if (errorsOnly && !iss.length) { /* still recurse */ }
     else {
       const tag = n.label ? C.labelTag(ROOT, n) : '·unlabelled';

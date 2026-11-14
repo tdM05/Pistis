@@ -2102,40 +2102,82 @@
                                   "id": "b281",
                                   "pieces": [
                                     {
-                                      "start": 16196,
+                                      "start": 16094,
+                                      "end": 16103
+                                    },
+                                    {
+                                      "start": 16111,
+                                      "end": 16112
+                                    },
+                                    {
+                                      "start": 16117,
+                                      "end": 16118
+                                    },
+                                    {
+                                      "start": 16123,
+                                      "end": 16129
+                                    },
+                                    {
+                                      "start": 16183,
                                       "end": 16211
                                     }
                                   ],
                                   "children": [
                                     {
-                                      "id": "b283",
-                                      "pieces": [],
-                                      "children": [],
+                                      "id": "b365",
                                       "label": [
-                                        "term",
-                                        "atomic-term",
-                                        "variable"
+                                        "name-evidence"
                                       ],
-                                      "implicit": true,
-                                      "var": "v8"
-                                    },
-                                    {
-                                      "id": "b282",
                                       "pieces": [
                                         {
                                           "start": 16196,
                                           "end": 16210
                                         }
                                       ],
-                                      "children": [],
-                                      "label": [
-                                        "symbol",
-                                        "non-logical",
-                                        "relation-symbol"
-                                      ]
+                                      "children": []
                                     },
                                     {
-                                      "id": "b284",
+                                      "id": "b357",
+                                      "label": [
+                                        "input-evidence"
+                                      ],
+                                      "pieces": [
+                                        {
+                                          "start": 16098,
+                                          "end": 16099
+                                        }
+                                      ],
+                                      "children": [],
+                                      "var": "v2"
+                                    },
+                                    {
+                                      "id": "b358",
+                                      "label": [
+                                        "input-evidence"
+                                      ],
+                                      "pieces": [
+                                        {
+                                          "start": 16102,
+                                          "end": 16103
+                                        }
+                                      ],
+                                      "children": [],
+                                      "var": "v1"
+                                    },
+                                    {
+                                      "id": "b359",
+                                      "label": [
+                                        "input-evidence"
+                                      ],
+                                      "pieces": [],
+                                      "children": [],
+                                      "var": "v8"
+                                    },
+                                    {
+                                      "id": "b360",
+                                      "label": [
+                                        "input-evidence"
+                                      ],
                                       "pieces": [
                                         {
                                           "start": 16210,
@@ -2143,20 +2185,73 @@
                                         }
                                       ],
                                       "children": [],
-                                      "label": [
-                                        "term",
-                                        "atomic-term",
-                                        "variable"
-                                      ],
                                       "var": "v0"
+                                    },
+                                    {
+                                      "id": "b361",
+                                      "label": [
+                                        "condition-evidence"
+                                      ],
+                                      "pieces": [
+                                        {
+                                          "start": 16111,
+                                          "end": 16112
+                                        },
+                                        {
+                                          "start": 16123,
+                                          "end": 16129
+                                        }
+                                      ],
+                                      "children": []
+                                    },
+                                    {
+                                      "id": "b362",
+                                      "label": [
+                                        "condition-evidence"
+                                      ],
+                                      "pieces": [
+                                        {
+                                          "start": 16117,
+                                          "end": 16118
+                                        },
+                                        {
+                                          "start": 16123,
+                                          "end": 16129
+                                        }
+                                      ],
+                                      "children": []
+                                    },
+                                    {
+                                      "id": "b363",
+                                      "label": [
+                                        "condition-evidence"
+                                      ],
+                                      "pieces": [
+                                        {
+                                          "start": 16183,
+                                          "end": 16196
+                                        }
+                                      ],
+                                      "children": []
+                                    },
+                                    {
+                                      "id": "b364",
+                                      "label": [
+                                        "condition-evidence"
+                                      ],
+                                      "pieces": [
+                                        {
+                                          "start": 16094,
+                                          "end": 16103
+                                        }
+                                      ],
+                                      "children": []
                                     }
                                   ],
                                   "label": [
                                     "formula",
-                                    "atomic-formula",
-                                    "relation"
-                                  ],
-                                  "count": 2
+                                    "definition-application"
+                                  ]
                                 }
                               ],
                               "label": [
@@ -3491,7 +3586,53 @@
       ]
     }
   ],
-  "links": [],
+  "links": [
+    {
+      "from": "b357",
+      "to": "b116",
+      "kind": "def"
+    },
+    {
+      "from": "b358",
+      "to": "b117",
+      "kind": "def"
+    },
+    {
+      "from": "b359",
+      "to": "b143",
+      "kind": "def"
+    },
+    {
+      "from": "b360",
+      "to": "b119",
+      "kind": "def"
+    },
+    {
+      "from": "b361",
+      "to": "b80",
+      "kind": "def"
+    },
+    {
+      "from": "b362",
+      "to": "b81",
+      "kind": "def"
+    },
+    {
+      "from": "b363",
+      "to": "b148",
+      "kind": "def"
+    },
+    {
+      "from": "b364",
+      "to": "b65",
+      "kind": "def"
+    },
+    {
+      "from": "b365",
+      "to": "b60",
+      "kind": "def"
+    }
+  ],
   "lean": {
     "spans": [
       {

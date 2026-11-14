@@ -91,13 +91,53 @@ export function makeCore(schema) {
   };
 
   // ── validation: issues for ONE box (not recursive) ──
-  const boxIssues = (box) => {
+  // `root` is optional; it is only needed to validate a definition-application box
+  // (whose completeness lives on an outgoing kind:'def' link, not in its children).
+  const boxIssues = (box, root) => {
     const out = [];
     // a ⊥ box is an auto, formal-side Lean-only piece (no NL span, no label by
     // design) — it is not subject to NL structural validation.
     if (box.bot) return out;
     if (!box.label || !box.label.length) { out.push('unlabelled'); return out; }
     const concrete = labelConcrete(box.label);
+    // A FOLDED definition-application is complete iff it links to a def (kind:'def')
+    // AND every one of that def's inputs is bound and every condition discharged.
+    // (Needs root to see the link + the def; without root we can't judge it.)
+    // Complete iff it links to a def (kind:'def') AND, for every one of that def's
+    // inputs/conditions, it CONTAINS an evidence child pinned to that slot (child.slot):
+    // input-evidence carries the coref `var` of the argument; condition-evidence just
+    // marks the discharging fact (its own span). The def-app's OWN span must also be
+    // covered by its children like any box (a bare "supported on T" with no child
+    // covering it is flagged, same coverage rule as everything else).
+    // def-app-SPECIFIC checks (need root for the link+def); these are ADDED to `out`,
+    // then we FALL THROUGH to the normal checks below (child-allowed, coverage, …) so
+    // nothing is bypassed. Without root we can only skip the link-dependent part.
+    if (concrete === 'definition-application' && root) {
+      // A def is applied by NAMING it: the def-app must CONTAIN a `name-evidence` child
+      // that spans the NL word(s) calling the def and links (kind:'def') to the def's
+      // `name` box. The applied def is resolved from THAT link — no name, no application.
+      const ev = (kind) => (box.children || []).filter((c) => c.label && c.label[0] === kind);
+      const slotOf = (e) => { const l = (root.links || []).find((x) => x.from === e.id && x.kind === 'def'); return l ? l.to : null; };
+      const nameEv = ev('name-evidence');
+      if (!nameEv.length) out.push('no name evidence — map the word(s) that name the definition');
+      else {
+        const nt = find(root, slotOf(nameEv[0]));
+        if (!nt) out.push('name evidence not linked to a definition');
+        else { const def = nt.label && nt.label[0] === 'name' ? parentOf(root, nt.id) : nt;
+          if (!def) out.push('applied def is missing');
+          else {
+            const dslot = (k) => (def.children || []).find((c) => c.label && c.label[0] === k);
+            const inpSlot = dslot('inputs'), condSlot = dslot('conditions');
+            const defInputs = inpSlot ? (inpSlot.children || []).filter((k) => isVariable(k)) : [];
+            const defConds = condSlot ? (condSlot.children || []).filter((c) => isFormulaish(c)) : [];
+            const inpEv = ev('input-evidence'), condEv = ev('condition-evidence');
+            defInputs.forEach((di, i) => { const e = inpEv.find((x) => slotOf(x) === di.id); const nm = di.var || ('#' + (i + 1));
+              if (!e) out.push(`input ${nm}: no evidence box`);
+              else if (e.var == null) out.push(`input ${nm}: evidence has no variable`); });
+            defConds.forEach((dc, i) => { if (!condEv.find((x) => slotOf(x) === dc.id)) out.push(`condition #${i + 1}: no evidence box`); });
+          } }
+      }
+    }
     if (isAbstract(concrete)) out.push('incomplete label (ends abstract)');
     for (const c of (CONDITIONS[concrete] || [])) {
       const n = (box.children || []).filter((ch) => childCountsAs(ch, c.slot)).length;
@@ -115,7 +155,7 @@ export function makeCore(schema) {
     }
     return out;
   };
-  const allIssues = (root) => { const out = []; walk(root, (n) => { if (n === root) return; const iss = boxIssues(n); if (iss.length) out.push({ id: n.id, box: n, issues: iss }); }); return out; };
+  const allIssues = (root) => { const out = []; walk(root, (n) => { if (n === root) return; const iss = boxIssues(n, root); if (iss.length) out.push({ id: n.id, box: n, issues: iss }); }); return out; };
 
   // ── variable naming / scope ──
   // A VARIABLE's identity is its name (v0, v1, …), matched within its SCOPE unit.
@@ -131,7 +171,11 @@ export function makeCore(schema) {
   // both a `variable` TERM (used occurrence) and a `variable-symbol` (the bound
   // symbol after ∀/∃) carry variable identity and share the var-name namespace,
   // so coreference across binder + uses works (∀x. P(x) → both x are the same name).
-  const isVariable = (box) => { const c = labelConcrete(box.label); return c === 'variable' || c === 'variable-symbol'; };
+  // A variable is: a `variable` term, the `variable-symbol` after a binder, OR an
+  // `input-evidence` — which IS a variable (the argument supplied to a def-application,
+  // a real occurrence in this unit's scope) that additionally HAS a kind:'def' link to
+  // the def input slot it fills. So it coreferences by `var` like any other variable.
+  const isVariable = (box) => { const c = labelConcrete(box.label); return c === 'variable' || c === 'variable-symbol' || c === 'input-evidence'; };
   // every variable name currently used inside a scope (for freshness / coref view)
   const varsInScope = (root, scope) => { const names = {}; walk(scope, (n) => { if (isVariable(n) && n.var != null) names[n.var] = (names[n.var] || 0) + 1; }); return names; };
   // next fresh v{N} not used in the scope
@@ -237,6 +281,26 @@ export function makeCore(schema) {
           const r = rsym ? symOf(rsym) : '∅'; sig.rel[r] = terms.length;
           return [REL(r, rsym ? rsym.implicit : true, rsym), P('('), ...join(terms.map(rec), [P(','), SP]), P(')')];
         }
+        // FOLDED application of a definition. The def it instantiates is the target of
+        // its kind:'def' link; the arguments are its `input-evidence` children, each
+        // pinned to a def input (child.slot) and carrying the argument's coref `var`.
+        // Render defName(arg1,…) in the def's input order. Body NOT inlined.
+        case 'definition-application': {
+          const nameEv = (b.children || []).find((c) => c.label && c.label[0] === 'name-evidence');
+          const nlink = nameEv && (root.links || []).find((l) => l.from === nameEv.id && l.kind === 'def');
+          if (!nlink) return [REL('?undef', true, b)];
+          const _t = find(root, nlink.to); const def = _t && _t.label && _t.label[0] === 'name' ? parentOf(root, _t.id) : _t;
+          const nameBox = def && (def.children || []).find((c) => c.label && c.label[0] === 'name');
+          const nm = nameBox ? symNameOf(nameBox, symText) : '?';
+          const inpSlot = def && (def.children || []).find((c) => c.label && c.label[0] === 'inputs');
+          const defInputs = inpSlot ? (inpSlot.children || []).filter((k) => isVariable(k)) : [];
+          sig.defined[nm] = defInputs.length;
+          const inpEv = (b.children || []).filter((c) => c.label && c.label[0] === 'input-evidence');
+          const slotOf = (e) => { const l = (root.links || []).find((x) => x.from === e.id && x.kind === 'def'); return l ? l.to : null; };
+          const argToks = defInputs.map((di) => { const e = inpEv.find((x) => slotOf(x) === di.id);
+            if (e && e.var != null) { sig.vars.add(e.var); return [V(e.var, e)]; } return [P('∅')]; });
+          return [REL(nm, nameBox ? nameBox.implicit : true, nameBox), P('('), ...join(argToks, [P(','), SP]), P(')')];
+        }
         case 'equality': { const terms = kids.filter((k) => labelConcrete(k.label) !== 'equality-symbol'); return [...rec(terms[0]), SP, L('='), SP, ...rec(terms[1])]; }
         case 'negation': { const f = kids.find((k) => isFormulaish(k)); return [L('¬'), ...(f ? rec(f) : [P('?')])]; }
         case 'conjunction': case 'disjunction': case 'implication': {
@@ -330,7 +394,7 @@ export function makeCore(schema) {
     }
     // suppress on errors anywhere in the subtree we'd render
     const issues = [];
-    walk(box, (n) => { const m = boxIssues(n); if (m.length) issues.push({ id: n.id, tag: n.label ? labelTag(root, n) : 'unlabelled', msgs: m }); });
+    walk(box, (n) => { const m = boxIssues(n, root); if (m.length) issues.push({ id: n.id, tag: n.label ? labelTag(root, n) : 'unlabelled', msgs: m }); });
     if (issues.length) return { kind: 'error', issues };
     const sig = { rel: {}, fn: {}, con: {}, defined: {}, vars: new Set() };
     // definition: show each slot broken out (conditions kept as a LIST). No

@@ -238,13 +238,17 @@ body.resizing{cursor:col-resize;user-select:none;}
 .pieceflash{background:rgba(217,119,6,.28);box-shadow:inset 0 0 0 2px rgba(217,119,6,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
 /* variable occurrences flash: purple (var color), pulsing — PDF + tree row */
 .varflash{background:rgba(122,79,208,.26);box-shadow:inset 0 0 0 2px rgba(122,79,208,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
+/* span-less occurrence (implicit / no-span evidence): dashed OUTLINE of its container,
+   no fill — clearly "the var lives in here", not the var's own span */
+.varflashbox{background:transparent;border:1.5px dashed rgba(122,79,208,.85);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
 .tree .row.varrow{background:#f1ebff;box-shadow:inset 0 0 0 2px #7a4fd0;border-radius:3px;animation:gappulse 0.7s ease-in-out infinite;}
 /* link arrows: one SVG over the whole pages stack, above canvases/highlights
    but click-through so text selection + box picking still work underneath */
 .arrow-layer{position:absolute;left:0;top:0;pointer-events:none;z-index:4;overflow:visible;}
 
 /* link badge on a tree row + link sub-rows */
-.linkbadge{flex:none;font-size:10px;font-weight:700;color:#7a4fd0;padding:0 5px;letter-spacing:.02em;}
+.linkbadge{flex:none;font-size:10px;font-weight:700;color:#7a4fd0;padding:0 5px;letter-spacing:.02em;border-radius:4px;}
+.linkbadge:hover{background:#efe8fd;outline:1px solid #c9b6f2;}  /* clickable: jumps to the linked box */
 .linkrow{font-size:11.5px;color:#6b5bbf;}
 .linkrow .rname{font-style:normal;}
 .linkrow.incoming{color:#9a93b8;}

@@ -72,7 +72,7 @@ function labelTag(box){ return CORE.labelTag(ROOT,box); }
 function allowedLabelPaths(parentBox){ return CORE.allowedLabelPaths(ROOT,parentBox); }
 function allIssues(){ return CORE.allIssues(ROOT); }
 // whole-subtree: does this box or any descendant have an issue?
-function subtreeHasIssue(box){ if(box!==ROOT && boxIssues(box).length) return true;
+function subtreeHasIssue(box){ if(box!==ROOT && boxIssues(box,ROOT).length) return true;
   return (box.children||[]).some(subtreeHasIssue); }
 // normalize an issue string to a GROUP key (so "needs 2 formula (has 1)" and
 // "needs 2 formula (has 0)" group together). 'unlabelled' is forced to sort last.
@@ -142,8 +142,44 @@ function stageLink(toId){ if(!linkFrom) return false; if(toId===linkFrom){ linkT
   linkTo=toId; refreshAll(); return true; }
 // confirm button / Enter: actually create the staged link.
 function confirmLink(){ if(!linkFrom||!linkTo){flash('pick a target node first');return;}
-  const ok=addLink(linkFrom,linkTo); const from=linkFrom, to=linkTo; linkFrom=null; linkTo=null;
+  const fb=find(linkFrom), tb=find(linkTo), from=linkFrom, to=linkTo;
+  // the ONLY true link is a definition-application applying a definition: set the
+  // applies-link and auto-generate one evidence child per def input/condition.
+  if(isDefApp(fb)){
+    if(!isDef(tb)){ flash('a definition-application must link to a definition'); return; }
+    applyDefToDef(from,to); linkFrom=null; linkTo=null; selId=from;
+    flash('applies “'+label(tb)+'” — span the name evidence on the word(s) that name it, give each input-evidence its variable + condition-evidence its span'); refreshAll(); return; }
+  const ok=addLink(from,to); linkFrom=null; linkTo=null;
   selId=from; flash(ok?'linked → “'+label(find(to))+'”':'that link already exists'); refreshAll(); }
+// ── definition-application (folded def use; the def-app CONTAINS the evidence as child
+// boxes: input-evidence carries the arg's coref `var` (+ optional span); condition-
+// evidence spans the discharging fact. Only the applies-link is a real link.) ──
+function labelConc(b){ return b&&b.label&&b.label.length?labelConcrete(b.label):null; }
+function isDefApp(b){ return labelConc(b)==='definition-application'; }
+function isDef(b){ return labelConc(b)==='definition'; }
+function isEvidence(b){ const c=labelConc(b); return c==='name-evidence'||c==='input-evidence'||c==='condition-evidence'; }
+function defLinkOf(id){ return links().find((l)=>l.from===id&&l.kind==='def'); }
+function defSlotKids(def,slot){ const s=(def.children||[]).find((c)=>c.label&&c.label[0]===slot); if(!s) return [];
+  return (s.children||[]).filter((c)=> slot==='inputs'?CORE.isVariable(c):isFormulaish(c)); }
+// apply def `to` from def-application `from`: set the applies-link (kind:'def') and
+// (re)generate the evidence children — one input-evidence per def input, one condition-
+// evidence per def condition — each pinned to its def slot (box.slot), initially empty
+// (input-evidence has no var, condition-evidence no span) until the user fills them.
+function applyDefToDef(from,to){ const app=find(from), def=find(to); if(!app||!def) return;
+  const oldEv=new Set((app.children||[]).filter((c)=>isEvidence(c)).map((c)=>c.id));
+  ROOT.links=links().filter((l)=>!(l.from===from&&l.kind==='def')&&!oldEv.has(l.from));   // drop old applies + slot-links
+  app.children=(app.children||[]).filter((c)=>!isEvidence(c));
+  // every evidence child carries a kind:'def' link to the def slot it fills (name,
+  // input, or condition); the def-app box itself has NO link — the def is identified
+  // by the NAME evidence (you can't apply a def unless the NL calls it by name).
+  const mk=(kind,slotId)=>{ const id=freshId(); app.children.push({id,label:[kind],pieces:[],children:[]}); links().push({from:id,to:slotId,kind:'def'}); };
+  const nameBox=(def.children||[]).find((c)=>c.label&&c.label[0]==='name');
+  if(nameBox) mk('name-evidence',nameBox.id);
+  defSlotKids(def,'inputs').forEach((di)=>mk('input-evidence',di.id));
+  defSlotKids(def,'conditions').forEach((dc)=>mk('condition-evidence',dc.id));
+  markDirty(); }
+// the def-slot (or def) a box's single kind:'def' link points at — the arrow target.
+function defRefTarget(id){ const l=links().find((x)=>x.from===id&&x.kind==='def'); return l?l.to:null; }
 
 /* ───────────────── Lean mapping ───────────────── */
 // load the list of available .lean files, build a nested folder tree, render it
@@ -516,9 +552,33 @@ function boxAtChar(i){
 function boxAtCharGlobal(i){ let best=null,bw=Infinity; walk(ROOT,(n)=>{ if(n===ROOT)return;
   if(pieces(n).some((p)=>p.start<=i&&i<p.end)){ const w=regionLen(n); if(w<bw){bw=w;best=n;} } }); return best; }
 // select a box (blue) + reveal it in the tree (expand ancestors, scroll to row)
-function selectBox(id){ selId=id; let p=parentOf(id); while(p){COLLAPSED[p.id]=false;p=parentOf(p.id);} render();
+// central "go to this box": records nav history, selects, expands ancestors, and moves
+// BOTH panes (tree row + PDF span) to it — so every jump (link rows, back, …) just
+// calls selectBox and the panes follow as a consequence.
+function selectBox(id){ recordHist();
+  selId=id; let p=parentOf(id); while(p){COLLAPSED[p.id]=false;p=parentOf(p.id);} render();
   const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.scrollIntoView({block:'center',behavior:'smooth'});
-  const b=find(id); if(b&&b.lean&&!b.lean.none) jumpToLean(b); scheduleViewSave(); }
+  const b=find(id); if(b){ if(pieces(b).length) scrollToChar(pieces(b)[0].start); if(b.lean&&!b.lean.none) jumpToLean(b); } scheduleViewSave(); }
+// ── navigation history (VS Code-style back/forward): each entry is {sel, level} so
+// a jump and its reversal restore BOTH the selection and the focused level. ──
+let BACK=[], FWD=[];
+function histEntry(){ return {sel:selId, level:levelId}; }
+function recordHist(){ const e=histEntry(); const top=BACK[BACK.length-1];
+  if(top && top.sel===e.sel && top.level===e.level) return;   // dedup consecutive
+  BACK.push(e); FWD.length=0; }
+function restoreHist(e){ selId=(e.sel&&find(e.sel))?e.sel:null; levelId=(e.level&&e.level!=='root'&&find(e.level))?e.level:'root'; focusLevel();
+  if(selId){ let p=parentOf(selId); while(p){COLLAPSED[p.id]=false;p=parentOf(p.id);} }   // keep the restored selection visible
+  refreshAll();
+  const r=selId&&[...$('tree').querySelectorAll('.row')].find((x)=>x._id===selId); if(r) r.scrollIntoView({block:'center',behavior:'smooth'});
+  const b=selId&&find(selId); if(b&&pieces(b).length) scrollToChar(pieces(b)[0].start); scheduleViewSave(); }
+function navBack(){ if(!BACK.length){ flash('nothing to go back to'); return; } FWD.push(histEntry()); restoreHist(BACK.pop()); }
+function navForward(){ if(!FWD.length){ flash('nothing to go forward to'); return; } BACK.push(histEntry()); restoreHist(FWD.pop()); }
+// follow a link to `id`: SELECT it and focus the level at its PARENT (so it shows as a
+// direct child), recording history so Alt+←/→ restore both selection and level.
+function navToLinkTarget(id){ if(!find(id)) return; recordHist();
+  const par=parentOf(id); selId=id; levelId=par?par.id:'root'; focusLevel(); refreshAll();
+  const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.scrollIntoView({block:'center',behavior:'smooth'});
+  const b=find(id); if(b&&pieces(b).length) scrollToChar(pieces(b)[0].start); if(b&&b.lean&&!b.lean.none) jumpToLean(b); scheduleViewSave(); }
 // plain left-click on the PDF (no text selected) over a box -> select that box;
 // clicking empty space (not over any box) DESELECTS.
 function onPdfClick(e){
@@ -746,10 +806,18 @@ function drawArrows(){ const svg=$('arrowLayer'); if(!svg) return; const host=$(
     // control points: bow the curve outward horizontally
     const dx=Math.max(40,Math.abs(tx-sx)*0.5), dir=tx>=sx?1:-1;
     const c1x=sx+dir*dx, c1y=sy, c2x=tx-dir*dx, c2y=ty;
+    const dstr=`M ${sx} ${sy} C ${c1x} ${c1y} ${c2x} ${c2y} ${tx} ${ty}`;
+    // fat transparent hit path so the thin curve is easy to click → scroll back to source
+    const hit=document.createElementNS(NS,'path'); hit.setAttribute('d',dstr);
+    hit.setAttribute('fill','none'); hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width','14');
+    hit.style.cursor='pointer'; hit.style.pointerEvents='stroke';
+    hit.onclick=()=>{ const tb=find(l.to); if(tb&&pieces(tb).length) scrollToChar(pieces(tb)[0].start); };   // follow arrow → scroll to target
+    svg.appendChild(hit);
     const path=document.createElementNS(NS,'path');
-    path.setAttribute('d',`M ${sx} ${sy} C ${c1x} ${c1y} ${c2x} ${c2y} ${tx} ${ty}`);
+    path.setAttribute('d',dstr);
     path.setAttribute('fill','none'); path.setAttribute('stroke',col);
     path.setAttribute('stroke-width',emph?2.5:1.5); path.setAttribute('opacity',emph?0.95:0.5);
+    path.style.pointerEvents='none';
     svg.appendChild(path);
     // arrowhead at target, oriented along the incoming tangent (c2 → t)
     const ang=Math.atan2(ty-c2y,tx-c2x), hlen=9, spread=0.42;
@@ -811,7 +879,7 @@ function renderLevelStats(){ const el=$('levelStats'); if(!el) return; el.innerH
     else { txt=`${lvl.children.length} children`; }
     // show the level's own issues here ONLY if it isn't the selected box
     // (else labelStatus already shows them → avoid the duplicate).
-    if(lvl.id!==selId){ const iss=boxIssues(lvl); if(iss.length){ warn=true; txt+='  ·  ⚠ '+iss.join('; '); } }
+    if(lvl.id!==selId){ const iss=boxIssues(lvl,ROOT); if(iss.length){ warn=true; txt+='  ·  ⚠ '+iss.join('; '); } }
   }
   el.appendChild(document.createTextNode(txt));
   if(gaps.length){ const g=document.createElement('span'); g.className='gaplink';
@@ -859,18 +927,22 @@ function flashPiece(p){ clearTimeout(_pieceT); _pieceT=flashRuns([p],'pieceflash
 let _varT=null;
 function flashBoxes(boxes, msg){ clearTimeout(_varT);
   document.querySelectorAll('.tree .row.varrow').forEach((r)=>r.classList.remove('varrow'));
-  // PDF: a box with its own span flashes that span; an IMPLICIT (span-less) box
-  // has nothing to show, so flash the nearest non-implicit ancestor's span
-  // instead (the containing word/formula) — and highlight that ancestor's row.
-  const rowIds=new Set(); const ranges=[];
-  boxes.forEach((b)=>{ let f=b; while(f && !pieces(f).length){ f=parentOf(f.id); }
-    if(f){ ranges.push(...pieces(f)); rowIds.add(b.id); if(f!==b) rowIds.add(f.id); }
-    else rowIds.add(b.id); });
+  // PDF highlighting distinguishes the TWO cases so you can always tell which box is
+  // the actual variable: a box with its OWN span gets a solid fill (varflash); a
+  // span-less box (implicit, or a no-span input-evidence) gets only a thin DASHED
+  // OUTLINE of its nearest containing span (varflashbox) — "the var lives in here",
+  // never a solid fill that competes with the real occurrences.
+  const rowIds=new Set(); const ranges=[]; const boxRanges=[];
+  boxes.forEach((b)=>{ rowIds.add(b.id); const ps=pieces(b);
+    if(ps.length){ ranges.push(...ps); return; }
+    let f=parentOf(b.id); while(f && !pieces(f).length){ f=parentOf(f.id); }
+    if(f) boxRanges.push(...pieces(f)); });
   _varT=flashRuns(ranges,'varflash',2600);
+  const _varT2=flashRuns(boxRanges,'varflashbox',2600);
   rowIds.forEach((id)=>{ const r=[...$('tree').querySelectorAll('.row')].find((x)=>x._id===id); if(r) r.classList.add('varrow'); });
   setTimeout(()=>document.querySelectorAll('.tree .row.varrow').forEach((r)=>r.classList.remove('varrow')), 2600);
-  const n=boxes.length, impl=boxes.filter((b)=>b.implicit).length;
-  if(msg!=null) flash(`${msg}: ${n} occurrence${n===1?'':'s'}${impl?` (${impl} implicit → shown on container)`:''}`); }
+  const n=boxes.length, noSpan=boxes.filter((b)=>!pieces(b).length).length;
+  if(msg!=null) flash(`${msg}: ${n} occurrence${n===1?'':'s'}${noSpan?` (${noSpan} without a span — shown as a dashed outline of their container)`:''}`); }
 // flash ALL occurrences of variable `name` within `scopeBox` (the var chip).
 function flashVar(name, scopeBox){ const boxes=[]; walk(scopeBox,(n)=>{ if(CORE.isVariable(n)&&n.var===name) boxes.push(n); }); flashBoxes(boxes, name); }
 // flash everything that co-refers with `box` — same variable (in scope) or same
@@ -897,8 +969,11 @@ function focusView(){ const level=find(levelId)||ROOT;
 // and we are not at the top level. Showing a link reveals its DEPENDENT (to),
 // which gets faint-highlighted (see paintHighlights) so the arrow has a visible
 // destination even when the target isn't itself a block at this level.
-function shownLinks(){ const {level,painted}=focusView(); if(level===ROOT) return [];
-  return links().filter((l)=>painted.has(l.from)); }
+// arrows are shown ONLY for the SELECTED box: selecting a box with a link draws the
+// arrow(s) touching it (outgoing + incoming). No reveal button — the ➜ link badge is
+// the "has a link" icon; selecting is what shows the arrow. Click the arrow on the PDF
+// to scroll to its target.
+function shownLinks(){ if(!selId) return []; return links().filter((l)=>l.from===selId||l.to===selId); }
 
 function paintHighlights(){
   for(const p of Object.values(pageEls)) p.hl.innerHTML='';
@@ -983,7 +1058,11 @@ function treeRow(node,isRoot){
   if(node.bot) row.classList.add('implicit');   // ⊥ box: render like implicit (no NL span)
   row.appendChild(tw);
   if(!isRoot){const sw=document.createElement('span');sw.className='rswatch';sw.style.background=boxColor(node.id);row.appendChild(sw);}
-  const nm=document.createElement('span'); nm.className='rname'; nm.textContent=isRoot?'paper':(node.bot?'⊥ Lean-only':(node.implicit?'∅ implicit':label(node))); row.appendChild(nm);
+  const nm=document.createElement('span'); nm.className='rname';
+  // a span-less evidence box is shown EXPLICITLY as having no span: ∅ (plus its coref
+  // variable, e.g. "∅ v₈"), so it's clearly not a text box like its I/J/T siblings.
+  const spanlessEv = isEvidence(node) && !pieces(node).length;
+  nm.textContent=isRoot?'paper':(node.bot?'⊥ Lean-only':(node.implicit?'∅ implicit':(spanlessEv?('∅'+(node.var!=null?' '+sub(node.var):'')):label(node)))); row.appendChild(nm);
   // label tag: ONE chip, first.last of the is-a path (symbol token inline if auto-derived).
   if(!isRoot && node.label&&node.label.length){ const lt=document.createElement('span'); lt.className='labeltag';
     lt.textContent=labelTag(node); const ds=derivedSymbol(node);
@@ -998,7 +1077,7 @@ function treeRow(node,isRoot){
     st.title=({rel:'relation',fn:'function',con:'constant'}[kind])+' “'+nm+'” — click to flash all occurrences';
     st.onclick=(e)=>{ e.stopPropagation(); flashCoref(node); }; row.appendChild(st); }
   // loose-end marker: ⚠ if this box violates a structural condition (soft flag)
-  if(!isRoot){ const iss=boxIssues(node); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
+  if(!isRoot){ const iss=boxIssues(node,ROOT); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
   // Lean-alignment badge from the last ⟳ align run (✓ match / ⊤ typed / ● leaf / ✗ mismatch)
   if(!isRoot && ALIGN_STATUS[node.id]){ const a=ALIGN_STATUS[node.id];
     const w=document.createElement('span'); w.className='alignbadge st-'+a.status; w.textContent=ALIGN_MK[a.status]||'?';
@@ -1021,10 +1100,15 @@ function treeRow(node,isRoot){
       // of its notok descendants, each a one-line summary opening that child's full error.
       if(node.lean&&node.lean.v==='notok') openFaithPopup(node.id); else openFaithList(node.id); }; }
     row.appendChild(w); } }
-  // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself)
-  if(!isRoot){ const out=linksFrom(node.id).length, inc=linksTo(node.id).length;
-    if(out||inc){ const lb=document.createElement('span'); lb.className='linkbadge';
-      lb.textContent=(out?'➜'+out:'')+(out&&inc?' ':'')+(inc?'⬅'+inc:''); lb.title='links'; row.appendChild(lb); } }
+  // link badge: ➜n outgoing / ⬅n incoming (shown compact on the row itself). Clicking
+  // it JUMPS to the linked box (same as a link-row in the ➜ dropdown): a single
+  // outgoing link goes straight there; otherwise it opens the dropdown to pick.
+  if(!isRoot){ const outs=linksFrom(node.id), ins=linksTo(node.id); const out=outs.length, inc=ins.length;
+    if(out||inc){ const lb=document.createElement('span'); lb.className='linkbadge'; lb.style.cursor='pointer';
+      lb.textContent=(out?'➜'+out:'')+(out&&inc?' ':'')+(inc?'⬅'+inc:'');
+      lb.title=out===1&&!inc?'go to linked box':'links — click to expand';
+      lb.onclick=(e)=>{ e.stopPropagation(); if(out===1&&!inc) navToLinkTarget(outs[0].to); else { MOD_OPEN[node.id]=true; renderTree(); } };
+      row.appendChild(lb); } }
   // Lean badge: λ (mapped, with count) or ∅ (none). Its COLOR carries the
   // verdict — green=ok, red=not ok, grey=undecidable/unjudged. Leaves are solid,
   // derived parents are outlined. Nothing shows on unmapped boxes.
@@ -1042,6 +1126,7 @@ function treeRow(node,isRoot){
   // while in LINK MODE, a click picks this node as the arrow target instead.
   row.onclick=()=>{ if(isRoot) return;
     if(linkFrom){ stageLink(node.id); return; }
+    if(selId!==node.id) recordHist();   // record for back/forward navigation
     selId=node.id; render(); if(pieces(node).length) scrollToChar(pieces(node)[0].start);
     if(node.lean&&!node.lean.none) jumpToLean(node); };
   row.ondblclick=()=>{ enterLevel(node.id); };
@@ -1063,7 +1148,11 @@ function treeRow(node,isRoot){
   wrap.appendChild(row);
   // MODIFIER ROWS (pieces / links / lean spans) — collapsed by default behind a
   // one-line summary chip "◇p ➜o ⬅i λs"; click the chip to expand the details.
-  if(!isRoot && !collapsed){
+  // modrows (pieces / links / lean summary) are the box's OWN info — show them whenever
+  // the row is rendered, regardless of the box's collapse state (collapse hides the
+  // box's CHILDREN, below, not its own link-navigation). Gating these by `collapsed`
+  // was the bug: a box that wasn't the current level hid its own ➜ link dropdown.
+  if(!isRoot){
     const multiPieces = pieces(node).length>1;
     const ls=[...linksFrom(node.id).map((l)=>({l,dir:'out',other:l.to})),
               ...linksTo(node.id).map((l)=>({l,dir:'in',other:l.from}))];
@@ -1097,7 +1186,7 @@ function treeRow(node,isRoot){
             const dot=document.createElement('span');dot.className='pcmark';dot.style.color=boxColor(l.from);dot.textContent=dir==='out'?'➜':'⬅';lr.appendChild(dot);
             const t=document.createElement('span');t.className='rname';t.textContent=(dir==='out'?'to ':'from ')+label(find(other));lr.appendChild(t);
             const del=document.createElement('span');del.className='rdel';del.textContent='✕';del.title='delete link';del.onclick=(e)=>{e.stopPropagation();removeLink(l.from,l.to);refreshAll();};lr.appendChild(del);
-            lr.onclick=()=>{ selId=other; render(); const o=find(other); if(o&&pieces(o).length)scrollToChar(pieces(o)[0].start); }; lbx.appendChild(lr); });
+            lr.onclick=()=>navToLinkTarget(other); lbx.appendChild(lr); });
           wrap.appendChild(lbx); }
         // lean spans
         if(sp.length){ const lbx=document.createElement('div'); lbx.className='modrows modsub';
@@ -1200,7 +1289,7 @@ function updateLabelUI(){ const chip=$('labelChip'); if(!chip) return;
     const folable = c && (c==='definition'||c==='theorem'||c==='statement'||isFormulaish(box)||canonPath(c).includes('term'));
     fb.style.display = folable ? '' : 'none'; }
   // status-bar issue note for the selected box
-  const ls=$('labelStatus'); if(ls){ const iss=box?boxIssues(box):[]; ls.textContent=iss.length?('⚠ '+iss.join('; ')):''; ls.classList.toggle('warn',!!iss.length); }
+  const ls=$('labelStatus'); if(ls){ const iss=box?boxIssues(box,ROOT):[]; ls.textContent=iss.length?('⚠ '+iss.join('; ')):''; ls.classList.toggle('warn',!!iss.length); }
   if(labelPopOpen) buildLabelPop();            // keep an open popover in sync
 }
 // is a box renderable to a formula (used for the FOL button). mirrors core.
@@ -1848,6 +1937,10 @@ async function init(){
   $('reloadBtn').onclick=reloadTree;
   $('undoBtn').onclick=undo; $('redoBtn').onclick=redo; $('cleanBtn').onclick=cleanTree;
   document.addEventListener('keydown',(e)=>{ const t=document.activeElement; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'))return;
+    // back/forward navigation: Alt+← / Alt+→ (also [ and ] as fallbacks) → restore
+    // both the selection and the focused level.
+    if((e.altKey&&e.key==='ArrowLeft')||e.key==='['){e.preventDefault();navBack();return;}
+    if((e.altKey&&e.key==='ArrowRight')||e.key===']'){e.preventDefault();navForward();return;}
     // undo/redo (Ctrl/Cmd+Z, Shift for redo; also Ctrl+Y)
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault(); if(e.shiftKey) redo(); else undo(); return;}
     if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='y'){e.preventDefault(); redo(); return;}

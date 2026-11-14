@@ -52,6 +52,9 @@ Top level (root) allows: commentary, definition, theorem, organizer-section.
           - disjunction [hasa]
             - connective-symbol (base)
             - →formula
+      - definition-application [hasa]
+        - input-evidence (base)
+        - condition-evidence (base)
   - body [isa]
     - →term
     - →formula
@@ -102,6 +105,9 @@ Top level (root) allows: commentary, definition, theorem, organizer-section.
             - disjunction [hasa]
               - connective-symbol (base)
               - →formula
+        - definition-application [hasa]
+          - input-evidence (base)
+          - condition-evidence (base)
     - conclusion [hasa]
       - →formula
   - proof [hasa]
@@ -155,6 +161,9 @@ Top level (root) allows: commentary, definition, theorem, organizer-section.
             - disjunction [hasa]
               - connective-symbol (base)
               - →formula
+        - definition-application [hasa]
+          - input-evidence (base)
+          - condition-evidence (base)
     - body [isa]
       - →term
       - →formula
