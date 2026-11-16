@@ -168,59 +168,6 @@
               ],
               "children": [
                 {
-                  "id": "b157",
-                  "pieces": [],
-                  "bot": true,
-                  "auto": true,
-                  "children": [],
-                  "lean": {
-                    "spans": [
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 170,
-                        "end": 180
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 181,
-                        "end": 182
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 183,
-                        "end": 222
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 233,
-                        "end": 235
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 236,
-                        "end": 239
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 250,
-                        "end": 253
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 254,
-                        "end": 257
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 269,
-                        "end": 280
-                      }
-                    ],
-                    "v": "ok",
-                    "why": "formal scaffolding (no NL counterpart)"
-                  }
-                },
-                {
                   "id": "b61",
                   "pieces": [
                     {
@@ -1297,49 +1244,286 @@
                     "cmp": "∀ s : I, ∀ j : J, (s, j) ∉ T → D s j = 0",
                     "path": "body.formula.compound-formula.connective.conjunction"
                   }
+                },
+                {
+                  "id": "b517",
+                  "pieces": [],
+                  "bot": true,
+                  "auto": true,
+                  "children": [
+                    {
+                      "id": "b518",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "botkind": "scaffolding",
+                      "children": [
+                        {
+                          "id": "b519",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 170,
+                                "end": 180
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": "variable {"
+                          },
+                          "children": []
+                        },
+                        {
+                          "id": "b520",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 181,
+                                "end": 182
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": " "
+                          },
+                          "children": []
+                        },
+                        {
+                          "id": "b521",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 183,
+                                "end": 216
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": " : Type*} [Fintype I] [Fintype J]"
+                          },
+                          "children": []
+                        },
+                        {
+                          "id": "b522",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 218,
+                                "end": 222
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": "def "
+                          },
+                          "children": []
+                        },
+                        {
+                          "id": "b523",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 233,
+                                "end": 235
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": " ("
+                          },
+                          "children": []
+                        },
+                        {
+                          "id": "b524",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 236,
+                                "end": 239
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": " : "
+                          },
+                          "children": []
+                        },
+                        {
+                          "id": "b525",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 250,
+                                "end": 253
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": ") ("
+                          },
+                          "children": []
+                        },
+                        {
+                          "id": "b526",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 254,
+                                "end": 257
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": " : "
+                          },
+                          "children": []
+                        },
+                        {
+                          "id": "b527",
+                          "pieces": [],
+                          "bot": true,
+                          "auto": true,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 269,
+                                "end": 280
+                              }
+                            ],
+                            "v": "ok",
+                            "why": "formal scaffolding (no NL counterpart)",
+                            "cmp": ") : Prop :="
+                          },
+                          "children": []
+                        }
+                      ],
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 170,
+                            "end": 180
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 181,
+                            "end": 182
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 183,
+                            "end": 216
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 218,
+                            "end": 222
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 233,
+                            "end": 235
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 236,
+                            "end": 239
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 250,
+                            "end": 253
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 254,
+                            "end": 257
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 269,
+                            "end": 280
+                          }
+                        ]
+                      }
+                    }
+                  ]
                 }
               ],
               "lean": {
                 "spans": [
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 170,
-                    "end": 180
+                    "start": 239,
+                    "end": 250
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 181,
-                    "end": 182
+                    "start": 257,
+                    "end": 269
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 183,
-                    "end": 222
+                    "start": 180,
+                    "end": 181
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 233,
-                    "end": 235
+                    "start": 182,
+                    "end": 183
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 236,
-                    "end": 239
+                    "start": 235,
+                    "end": 236
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 250,
-                    "end": 253
+                    "start": 253,
+                    "end": 254
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 254,
-                    "end": 257
+                    "start": 222,
+                    "end": 233
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 269,
-                    "end": 280
+                    "start": 280,
+                    "end": 312
                   }
                 ]
               },
@@ -1558,8 +1742,8 @@
                         "spans": [
                           {
                             "file": "lean/MaxSupportKernel.lean",
-                            "start": 3340,
-                            "end": 3664
+                            "start": 3364,
+                            "end": 3365
                           }
                         ],
                         "v": "ok"
@@ -1584,8 +1768,8 @@
                         "spans": [
                           {
                             "file": "lean/MaxSupportKernel.lean",
-                            "start": 3340,
-                            "end": 3664
+                            "start": 3382,
+                            "end": 3383
                           }
                         ],
                         "v": "ok"
@@ -1610,13 +1794,13 @@
                       },
                       {
                         "file": "lean/MaxSupportKernel.lean",
-                        "start": 3340,
-                        "end": 3664
+                        "start": 3364,
+                        "end": 3365
                       },
                       {
                         "file": "lean/MaxSupportKernel.lean",
-                        "start": 3340,
-                        "end": 3664
+                        "start": 3382,
+                        "end": 3383
                       }
                     ]
                   }
@@ -1787,8 +1971,8 @@
                         "spans": [
                           {
                             "file": "lean/MaxSupportKernel.lean",
-                            "start": 3340,
-                            "end": 3664
+                            "start": 194,
+                            "end": 203
                           }
                         ],
                         "v": "ok"
@@ -1849,8 +2033,8 @@
                         "spans": [
                           {
                             "file": "lean/MaxSupportKernel.lean",
-                            "start": 3340,
-                            "end": 3664
+                            "start": 206,
+                            "end": 215
                           }
                         ],
                         "v": "ok"
@@ -1936,8 +2120,8 @@
                         "spans": [
                           {
                             "file": "lean/MaxSupportKernel.lean",
-                            "start": 3340,
-                            "end": 3664
+                            "start": 3368,
+                            "end": 3379
                           }
                         ],
                         "v": "ok"
@@ -2032,7 +2216,7 @@
                           {
                             "file": "lean/MaxSupportKernel.lean",
                             "start": 3386,
-                            "end": 3396
+                            "end": 3398
                           }
                         ],
                         "v": "ok"
@@ -2137,8 +2321,8 @@
                         "spans": [
                           {
                             "file": "lean/MaxSupportKernel.lean",
-                            "start": 3340,
-                            "end": 3664
+                            "start": 3410,
+                            "end": 3425
                           }
                         ],
                         "v": "ok"
@@ -2607,8 +2791,8 @@
                         "spans": [
                           {
                             "file": "lean/MaxSupportKernel.lean",
-                            "start": 3340,
-                            "end": 3664
+                            "start": 3439,
+                            "end": 3492
                           }
                         ],
                         "v": "ok"
@@ -2623,33 +2807,33 @@
                     "spans": [
                       {
                         "file": "lean/MaxSupportKernel.lean",
-                        "start": 3340,
-                        "end": 3664
+                        "start": 194,
+                        "end": 203
                       },
                       {
                         "file": "lean/MaxSupportKernel.lean",
-                        "start": 3340,
-                        "end": 3664
+                        "start": 206,
+                        "end": 215
                       },
                       {
                         "file": "lean/MaxSupportKernel.lean",
-                        "start": 3340,
-                        "end": 3664
+                        "start": 3368,
+                        "end": 3379
                       },
                       {
                         "file": "lean/MaxSupportKernel.lean",
                         "start": 3386,
-                        "end": 3396
+                        "end": 3398
                       },
                       {
                         "file": "lean/MaxSupportKernel.lean",
-                        "start": 3340,
-                        "end": 3664
+                        "start": 3410,
+                        "end": 3425
                       },
                       {
                         "file": "lean/MaxSupportKernel.lean",
-                        "start": 3340,
-                        "end": 3664
+                        "start": 3439,
+                        "end": 3492
                       }
                     ]
                   }
@@ -3564,122 +3748,6 @@
                       }
                     ]
                   }
-                },
-                {
-                  "id": "b384",
-                  "pieces": [],
-                  "bot": true,
-                  "auto": true,
-                  "children": [],
-                  "lean": {
-                    "spans": [
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 170,
-                        "end": 180
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 181,
-                        "end": 182
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 183,
-                        "end": 3340
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3664,
-                        "end": 3772
-                      }
-                    ],
-                    "v": "ok",
-                    "why": "formal scaffolding (no NL counterpart)"
-                  }
-                },
-                {
-                  "id": "b385",
-                  "pieces": [],
-                  "bot": true,
-                  "auto": true,
-                  "children": [],
-                  "lean": {
-                    "spans": [
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3364,
-                        "end": 3365
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3382,
-                        "end": 3383
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3405,
-                        "end": 3407
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3432,
-                        "end": 3436
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3391,
-                        "end": 3392
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3511,
-                        "end": 3512
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3527,
-                        "end": 3529
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3568,
-                        "end": 3570
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3355,
-                        "end": 3356
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3618,
-                        "end": 3619
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3626,
-                        "end": 3629
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3373,
-                        "end": 3374
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3377,
-                        "end": 3378
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3632,
-                        "end": 3642
-                      }
-                    ],
-                    "v": "notok",
-                    "why": "Lean binder #5 'T' has no input at this position; Lean binder #6 'D' has no input at this position; Lean binder #7 'hD' has no input at this position; Lean binder #8 'hmax' has no input at this position; Lean binder #9 'x' has no input at this position; Lean binder #10 'y' has no input at this position; Lean binder #11 'hx' has no input at this position; Lean binder #12 'hy' has no input at this position; Lean binder #13 's' has no input at this position; Lean binder #14 'j' has no input at this position; Lean binder #15 'hsj' has no input at this position; Lean binder #11 's' type has no condition at this position; Lean binder #12 'j' type has no condition at this position; Lean binder #13 'hsj' type has no condition at this position"
-                  }
                 }
               ],
               "label": [
@@ -3704,71 +3772,6 @@
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3664
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3664
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3664
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3664
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3664
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3386,
-                    "end": 3396
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3664
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3664
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3340,
-                    "end": 3664
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 170,
-                    "end": 180
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 181,
-                    "end": 182
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 183,
-                    "end": 3340
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3664,
-                    "end": 3772
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
                     "start": 3364,
                     "end": 3365
                   },
@@ -3779,63 +3782,38 @@
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 3405,
-                    "end": 3407
+                    "start": 194,
+                    "end": 203
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 3432,
-                    "end": 3436
+                    "start": 206,
+                    "end": 215
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 3391,
-                    "end": 3392
+                    "start": 3368,
+                    "end": 3379
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 3511,
-                    "end": 3512
+                    "start": 3386,
+                    "end": 3398
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 3527,
-                    "end": 3529
+                    "start": 3410,
+                    "end": 3425
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 3568,
-                    "end": 3570
+                    "start": 3439,
+                    "end": 3492
                   },
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 3355,
-                    "end": 3356
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3618,
-                    "end": 3619
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3626,
-                    "end": 3629
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3373,
-                    "end": 3374
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3377,
-                    "end": 3378
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 3632,
-                    "end": 3642
+                    "start": 3340,
+                    "end": 3664
                   }
                 ]
               }
@@ -3953,6 +3931,437 @@
               "label": [
                 "proof"
               ]
+            },
+            {
+              "id": "b528",
+              "pieces": [],
+              "bot": true,
+              "auto": true,
+              "children": [
+                {
+                  "id": "b529",
+                  "pieces": [],
+                  "bot": true,
+                  "auto": true,
+                  "botkind": "inputs",
+                  "children": [
+                    {
+                      "id": "b530",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3499,
+                            "end": 3500
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #5 'x' has no input at this position",
+                        "cmp": "x"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b531",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3511,
+                            "end": 3512
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #6 'y' has no input at this position",
+                        "cmp": "y"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b532",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3610,
+                            "end": 3611
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #7 's' has no input at this position",
+                        "cmp": "s"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b533",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3618,
+                            "end": 3619
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #8 'j' has no input at this position",
+                        "cmp": "j"
+                      },
+                      "children": []
+                    }
+                  ],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3499,
+                        "end": 3500
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3511,
+                        "end": 3512
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3610,
+                        "end": 3611
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3618,
+                        "end": 3619
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "b534",
+                  "pieces": [],
+                  "bot": true,
+                  "auto": true,
+                  "botkind": "conditions",
+                  "children": [
+                    {
+                      "id": "b535",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3503,
+                            "end": 3508
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #7 'x' type has no condition at this position",
+                        "cmp": "J → ℝ"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b536",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3515,
+                            "end": 3520
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #8 'y' type has no condition at this position",
+                        "cmp": "I → ℝ"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b537",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3532,
+                            "end": 3561
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #9 'hx' type has no condition at this position",
+                        "cmp": "x ∈ LinearMap.ker D.mulVecLin"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b538",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3573,
+                            "end": 3603
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #10 'hy' type has no condition at this position",
+                        "cmp": "y ∈ LinearMap.ker Dᵀ.mulVecLin"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b539",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3610,
+                            "end": 3615
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #11 's' type has no condition at this position",
+                        "cmp": "s : I"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b540",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3618,
+                            "end": 3623
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #12 'j' type has no condition at this position",
+                        "cmp": "j : J"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b541",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3632,
+                            "end": 3642
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean binder #13 'hsj' type has no condition at this position",
+                        "cmp": "(s, j) ∈ T"
+                      },
+                      "children": []
+                    }
+                  ],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3503,
+                        "end": 3508
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3515,
+                        "end": 3520
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3532,
+                        "end": 3561
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3573,
+                        "end": 3603
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3610,
+                        "end": 3615
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3618,
+                        "end": 3623
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3632,
+                        "end": 3642
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "b542",
+                  "pieces": [],
+                  "bot": true,
+                  "auto": true,
+                  "botkind": "scaffolding",
+                  "children": [
+                    {
+                      "id": "b543",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 170,
+                            "end": 180
+                          }
+                        ],
+                        "v": "ok",
+                        "why": "formal scaffolding (no NL counterpart)",
+                        "cmp": "variable {"
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b544",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 181,
+                            "end": 182
+                          }
+                        ],
+                        "v": "ok",
+                        "why": "formal scaffolding (no NL counterpart)",
+                        "cmp": " "
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b545",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 183,
+                            "end": 194
+                          }
+                        ],
+                        "v": "ok",
+                        "why": "formal scaffolding (no NL counterpart)",
+                        "cmp": " : Type*} ["
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b546",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 203,
+                            "end": 206
+                          }
+                        ],
+                        "v": "ok",
+                        "why": "formal scaffolding (no NL counterpart)",
+                        "cmp": "] ["
+                      },
+                      "children": []
+                    },
+                    {
+                      "id": "b547",
+                      "pieces": [],
+                      "bot": true,
+                      "auto": true,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 215,
+                            "end": 216
+                          }
+                        ],
+                        "v": "ok",
+                        "why": "formal scaffolding (no NL counterpart)",
+                        "cmp": "]"
+                      },
+                      "children": []
+                    }
+                  ],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 170,
+                        "end": 180
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 181,
+                        "end": 182
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 183,
+                        "end": 194
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 203,
+                        "end": 206
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 215,
+                        "end": 216
+                      }
+                    ]
+                  }
+                }
+              ]
             }
           ],
           "label": [
@@ -3977,71 +4386,6 @@
               },
               {
                 "file": "lean/MaxSupportKernel.lean",
-                "start": 3340,
-                "end": 3664
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3340,
-                "end": 3664
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3340,
-                "end": 3664
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3340,
-                "end": 3664
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3340,
-                "end": 3664
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3386,
-                "end": 3396
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3340,
-                "end": 3664
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3340,
-                "end": 3664
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3340,
-                "end": 3664
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 170,
-                "end": 180
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 181,
-                "end": 182
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 183,
-                "end": 3340
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3664,
-                "end": 3772
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
                 "start": 3364,
                 "end": 3365
               },
@@ -4052,63 +4396,38 @@
               },
               {
                 "file": "lean/MaxSupportKernel.lean",
-                "start": 3405,
-                "end": 3407
+                "start": 194,
+                "end": 203
               },
               {
                 "file": "lean/MaxSupportKernel.lean",
-                "start": 3432,
-                "end": 3436
+                "start": 206,
+                "end": 215
               },
               {
                 "file": "lean/MaxSupportKernel.lean",
-                "start": 3391,
-                "end": 3392
+                "start": 3368,
+                "end": 3379
               },
               {
                 "file": "lean/MaxSupportKernel.lean",
-                "start": 3511,
-                "end": 3512
+                "start": 3386,
+                "end": 3398
               },
               {
                 "file": "lean/MaxSupportKernel.lean",
-                "start": 3527,
-                "end": 3529
+                "start": 3410,
+                "end": 3425
               },
               {
                 "file": "lean/MaxSupportKernel.lean",
-                "start": 3568,
-                "end": 3570
+                "start": 3439,
+                "end": 3492
               },
               {
                 "file": "lean/MaxSupportKernel.lean",
-                "start": 3355,
-                "end": 3356
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3618,
-                "end": 3619
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3626,
-                "end": 3629
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3373,
-                "end": 3374
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3377,
-                "end": 3378
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 3632,
-                "end": 3642
+                "start": 3340,
+                "end": 3664
               }
             ]
           }

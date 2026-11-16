@@ -44,25 +44,32 @@ export function alignBox({ core, root, box, chars, dict }) {
   // the decl's input binders with the SET OF CONSTS in each binder's type, so the
   // aligner can VERIFY type-vs-prop discharges (e.g. `real` only if a binder's
   // type mentions `Real`). Pulled from the TYPE (which carries the binder types).
-  const typeBinders = peelTypeBinders(raw.type).map((b) => ({ binder: b.binder, info: b.info, dom: b.dom, typeConsts: constNames(b.dom || {}) }));
+  const typeBinders = peelTypeBinders(raw.type).map((b, i) => ({ binder: b.binder, info: b.info, dom: b.dom, typeConsts: constNames(b.dom || {}), isProp: !!(raw.binderProps && raw.binderProps[i]) }));
   const A = makeAligner(C, dict.symbols || {}, symText, { binders: typeBinders, tuples: dict.tuples || {} });
 
   // attach SOURCE POSITIONS (from the parsed syntax tree, raw.binders) to the Expr
   // binders, so inputs↔binder-NAME and conditions↔binder-TYPE spans resolve to exact
   // source ranges. raw.binders is the full ordered source binder list (the `variable`
   // line(s) AND the signature); the elaborated Expr keeps only the binders the decl
-  // actually uses (e.g. Fintypes dropped), a SUPERSET in the same relative order.
-  // Reconcile by walking both in order, consuming a source binder when NAMES agree
-  // (this only SKIPS dropped binders; order is still the model, not name-matching).
-  // Shared by the definition and theorem paths.
+  // actually uses (e.g. an UNUSED `variable` binder is dropped), always a SUFFIX-matching
+  // subsequence — the decl's own binders are present in both and sit at the END.
+  // The elaborated binders are a SUBSEQUENCE of the source binders (unused ones — e.g.
+  // an unused `[Fintype]` — are dropped, possibly from the MIDDLE), same order. Reconcile
+  // by walking both in order: a NAMED elaborated binder matches the next source binder
+  // with the same name; an INSTANCE binder (`instImplicit`, whose hygienic elaborated
+  // name never text-matches) matches the next source INSTANCE binder (collected as a
+  // bracketed `[…]`). This fixes both the middle-drop (def's unused Fintypes) and the
+  // anonymous-instance case that the old pure name-match choked on.
   {
     const srcBuf = (() => { try { return readFileSync(path.join(SEG_DIR, deriveLeanRel(assoc)), 'utf8'); } catch (_) { return ''; } })();
     const b2c = srcBuf ? Buffer.from(srcBuf, 'utf8') : null;
-    const nameOf = (r) => { if (!r || !b2c) return ''; return b2c.slice(r.start, r.stop).toString('utf8').replace(/[[\]{}()]/g, '').trim(); };
+    const nameText = (r) => { if (!r || !b2c) return ''; return b2c.slice(r.start, r.stop).toString('utf8').trim(); };
+    const isInstSrc = (sb) => nameText(sb.name).startsWith('[');   // anonymous instance binder: collected as the whole `[…]`
     const synB = raw.binders || [];
     let si = 0;
     for (const tb of typeBinders) {
-      while (si < synB.length && nameOf(synB[si].name) !== tb.binder) si++;
+      const wantInst = tb.info === 'instImplicit';
+      while (si < synB.length && (wantInst ? !isInstSrc(synB[si]) : nameText(synB[si].name) !== tb.binder)) si++;
       if (si < synB.length) { tb.synName = synB[si].name; tb.synType = synB[si].type; si++; }
     }
   }
@@ -118,7 +125,7 @@ export function alignBox({ core, root, box, chars, dict }) {
     children.push(labelNode(conclBox, A.align(conclBox, leanConcl), 'conclusion'));
 
     const alignment = { fol: box.id, lean: null, leanNode: null, status: 'match', note: '', children };
-    return finish(alignment, assoc, [], { leanBody: leanConcl, typeBinders, ranges: raw.ranges });
+    return finish(alignment, assoc, [], { leanBody: leanConcl, typeBinders, ranges: raw.ranges, isTheorem: true });
   }
   // bare top-level `formula` box (no statement wrapper): align against the Lean TYPE.
   const alignment = A.align(box, normType);
@@ -149,9 +156,15 @@ export function alignBox({ core, root, box, chars, dict }) {
   function alignInputs(inputsBox, tbinders) {
     if (!inputsBox) return { fol: null, lean: null, leanNode: null, status: 'match', note: 'no inputs slot', slot: 'inputs', children: [] };
     const invars = (inputsBox.children || []).filter((c) => C.isVariable(c));
-    const kids = []; const n = Math.max(invars.length, tbinders.length);
+    // INPUTS are the DATA binders only. Drop two kinds that are CONDITIONS, not inputs
+    // (both are matched by alignConditions): instance binders (`[Fintype I]`, …) and
+    // Prop-typed binders (`hD : SupportedOn T D`, `hmax : ∀ A …`). Either, left in, would
+    // let an NL input pair with a hypothesis/instance. Sorts (`{I J : Type*}`) stay — they
+    // are inputs. (isProp comes from the Lean probe; instImplicit from the binder info.)
+    const ibinders = tbinders.filter((tb) => tb.info !== 'instImplicit' && !tb.isProp);
+    const kids = []; const n = Math.max(invars.length, ibinders.length);
     for (let i = 0; i < n; i++) {
-      const v = invars[i], tb = tbinders[i];
+      const v = invars[i], tb = ibinders[i];
       if (v && tb) kids.push({ fol: v.id, lean: 'binder ' + tb.binder, leanNode: { t: 'var', name: tb.binder }, synPos: tb.synName, status: 'leaf', note: `input #${i + 1} ↔ binder ${tb.binder}`, children: [] });
       else if (v) kids.push({ fol: v.id, lean: '∅', leanNode: null, status: 'mismatch', note: `input #${i + 1} '${symText(v)}' maps to nothing — Lean has no binder at this position`, children: [] });
       else kids.push({ fol: null, lean: 'binder ' + tb.binder, leanNode: { t: 'var', name: tb.binder }, synPos: tb.synName, status: 'unmapped', note: `Lean binder #${i + 1} '${tb.binder}' has no input at this position`, children: [] });
@@ -167,13 +180,21 @@ export function alignBox({ core, root, box, chars, dict }) {
   function alignConditions(condsBox, tbinders) {
     if (!condsBox) return { fol: null, lean: null, leanNode: null, status: 'match', note: 'no conditions slot', slot: 'conditions', children: [] };
     const conds = (condsBox.children || []).filter((c) => C.isFormulaish(c));
-    const cbinders = tbinders.filter((tb) => !(tb.dom && tb.dom.t === 'sort'));   // drop universe/sort binders
+    // A binder `a : b` with `b` NON-Prop contributes the condition `a ∈ b` (a has type /
+    // is in b) — e.g. `D : Matrix I J ℝ` → real_matrix, `T : Set (I×J)` → ⊆, `s : I` → s∈I.
+    // The ONLY exclusion is a binder whose type is a UNIVERSE (`{I J : Type*}` / `Sort*`):
+    // `I ∈ Type*` is "I is a set", a second-order statement, not a first-order condition.
+    const cbinders = tbinders.filter((tb) => !(tb.dom && tb.dom.t === 'sort'));
+    // display/highlight span for a condition. Normally the binder's TYPE (`SupportedOn T D`,
+    // `x ∈ ker …` — self-explanatory). But when the type is a bare sort-VARIABLE (`s : I`),
+    // the type alone ("I") is meaningless, so span the WHOLE binder → reads "s : I".
+    const condSpan = (tb) => (tb.dom && tb.dom.t === 'var' && tb.synName && tb.synType) ? { start: tb.synName.start, stop: tb.synType.stop } : tb.synType;
     const kids = []; const n = Math.max(conds.length, cbinders.length);
     for (let i = 0; i < n; i++) {
       const cond = conds[i], tb = cbinders[i];
-      if (cond && tb) kids.push({ fol: cond.id, lean: 'type of ' + tb.binder, leanNode: tb.dom || null, synPos: tb.synType, status: 'leaf', note: `condition #${i + 1} ↔ type of binder ${tb.binder}`, children: [] });
+      if (cond && tb) kids.push({ fol: cond.id, lean: 'type of ' + tb.binder, leanNode: tb.dom || null, synPos: condSpan(tb), status: 'leaf', note: `condition #${i + 1} ↔ type of binder ${tb.binder}`, children: [] });
       else if (cond) kids.push({ fol: cond.id, lean: '∅', leanNode: null, status: 'mismatch', note: `condition #${i + 1} maps to nothing — Lean has no binder at this position (NL asserts a hypothesis the Lean statement does not)`, children: [] });
-      else kids.push({ fol: null, lean: 'type of ' + tb.binder, leanNode: tb.dom || null, synPos: tb.synType, status: 'unmapped', note: `Lean binder #${i + 1} '${tb.binder}' type has no condition at this position`, children: [] });
+      else kids.push({ fol: null, lean: 'type of ' + tb.binder, leanNode: tb.dom || null, synPos: condSpan(tb), status: 'unmapped', note: `Lean binder #${i + 1} '${tb.binder}' type has no condition at this position`, children: [] });
     }
     const bad = kids.some((k) => k.status !== 'leaf');
     return { fol: condsBox.id, lean: null, leanNode: null, status: bad ? 'mismatch' : 'match', note: '', slot: 'conditions', children: kids };
@@ -192,7 +213,7 @@ export function alignBox({ core, root, box, chars, dict }) {
     const leanRegions = [];   // (⊥,F) Lean-only judged regions (no FOL box)
     const pieceSpans = [];    // [start,end] of every mapped leaf piece (for gap tiling)
     const containmentErrors = [];   // mapped pieces whose Lean span is OUTSIDE the def span
-    let declRegion = null;    // [lo,hi) the def's full Lean span (incl. variable line)
+    let declRegions = null;   // [[lo,hi),…] the decl's Lean span(s): its own body + the variable line(s)
     let text = '', fileField = '', leanSource = '', leanLine = null;
     try {
       const abs = path.join(SEG_DIR, deriveLeanRel(assoc));
@@ -247,7 +268,12 @@ export function alignBox({ core, root, box, chars, dict }) {
           loc = { start: a, end: b }; }
         if (!loc) { const surf = n.leanNode ? surface(n.leanNode) : null; loc = surf ? locate(text, lo, hi, surf) : null; }
         if (loc) { mySpan = loc; if (n.fol) spans[n.fol] = { file: fileField, start: loc.start, end: loc.end }; }
-        else if (n.fol && n.leanNode) spans[n.fol] = { file: fileField, start: lo, end: hi, approx: true };
+        // NO coarse 'approx' fallback for things that simply couldn't be located. The ONE
+        // legitimate non-located span is a MISMATCH that WAS compared against a real Lean
+        // region (e.g. the body ∧ vs the Lean ∀ body): show that region [lo,hi] so you see
+        // WHAT it was compared to, flagged notok below. A 'leaf' that can't be located is
+        // NOT a match → it gets no span here and becomes ∅ + notok. No third state.
+        else if (n.fol && n.leanNode && n.status === 'mismatch') spans[n.fol] = { file: fileField, start: lo, end: hi };
         n.nl = nlText(n.fol);
         n.leanText = loc ? text.slice(loc.start, loc.end).replace(/\s+/g, ' ').trim() : (n.leanNode ? pretty(n.leanNode) : '');
         // VERDICT ON THE LINK. A judged node ALWAYS yields a link carrying the verdict:
@@ -260,17 +286,27 @@ export function alignBox({ core, root, box, chars, dict }) {
         // like the body ∧ whose children are only informational) gets a link+verdict.
         const isWrapper = n.slot === 'inputs' || n.slot === 'conditions';
         if (n.fol && !isWrapper) {
-          if (n.status === 'mismatch') {
+          const located = spans[n.fol] && spans[n.fol].start != null;
+          // FAITHFUL iff it actually matched AND located to a real Lean span. Otherwise —
+          // a mismatch, OR a 'leaf' pairing we cannot confirm in the Lean source — it DID
+          // NOT match: a notok link (keeping its located span if it has one, e.g. the body
+          // ∧-vs-∀; else linking to ∅). Same two-state shape as the def's ∅ conditions.
+          if (n.status === 'leaf' && located) {
+            spans[n.fol].v = 'ok';
+          } else if (n.status === 'leaf' || n.status === 'mismatch') {
             if (!spans[n.fol]) spans[n.fol] = { none: true };
             spans[n.fol].v = 'notok'; spans[n.fol].why = humanFinding(n); spans[n.fol].cmp = n.leanText || '(nothing)'; spans[n.fol].path = labelPath(n.fol);
-          } else if (n.status === 'leaf' && spans[n.fol]) { spans[n.fol].v = 'ok'; }
+          }
         }
         // (⊥, F): a Lean-only piece (fol:null, has a source span) — a compiled binder
         // NL never covers. It's a judged Lean REGION, not keyed to any FOL box, so it
         // goes in its own list. Its verdict: notok (NL omits a piece the Lean
         // statement has). The UI paints these as notok Lean regions.
         if (!n.fol && loc && n.status === 'unmapped') {
-          leanRegions.push({ file: fileField, start: loc.start, end: loc.end, v: 'notok', why: n.note, lean: n.leanText });
+          // tag WHICH kind of Lean-only extra this is (input / condition / …), from the
+          // slot it belongs to, so the UI can group them into per-kind sub-boxes.
+          const kind = mySlot === 'inputs' ? 'input' : mySlot === 'conditions' ? 'condition' : (mySlot || 'other');
+          leanRegions.push({ file: fileField, start: loc.start, end: loc.end, v: 'notok', why: n.note, lean: n.leanText, kind });
         }
         // every piece span contributes to the decl's coverage — used after the walk
         // to compute the UNCOVERED gaps (scaffolding: def/:/:=/Prop). Read from
@@ -290,30 +326,45 @@ export function alignBox({ core, root, box, chars, dict }) {
       // binders are bot_notok above.) So the def is fully tiled, every span ok/notok.
       {
         const merged = pieceSpans.slice().filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
-        // region start = start of the line containing the earliest mapped piece (else
-        // the decl start) — this pulls in the `variable` line(s) the def depends on.
-        const firstPiece = merged.length ? merged[0][0] : (declAt >= 0 ? declAt : sigLo);
-        const lineStart = text.lastIndexOf('\n', firstPiece - 1) + 1;   // 0 if none
-        declRegion = [lineStart, bodyHi];
-        let cur = lineStart;
-        const end = bodyHi;
-        for (const [a, b] of merged) {
-          if (a > cur) leanRegions.push({ file: fileField, start: cur, end: a, v: 'ok', why: 'formal scaffolding (no NL counterpart)', lean: text.slice(cur, a).replace(/\s+/g, ' ') });
-          cur = Math.max(cur, b);
+        const lineStartOf = (p) => text.lastIndexOf('\n', p - 1) + 1;
+        const lineEndOf = (p) => { const i = text.indexOf('\n', p); return i < 0 ? text.length : i; };
+        // The decl's Lean region is the DECL ITSELF — not everything from the shared
+        // `variable` line onward. For a THEOREM it ENDS at `:=` (the proof after it is
+        // not part of the statement); for a def it runs to the body end. We ALSO keep
+        // the `variable` line(s) that feed binders. Any declarations BETWEEN the
+        // variable line and this decl (other defs/theorems) are EXCLUDED — they are a
+        // different decl's text, not this decl's scaffolding. So the region is up to two
+        // disjoint blocks (the variable line + the decl), and gaps are tiled WITHIN each
+        // block only, never across the chasm of foreign declarations.
+        const regionEnd = extra.isTheorem ? (asgn >= 0 ? asgn : sigHi) : bodyHi;
+        const declLo = declAt >= 0 ? lineStartOf(declAt) : sigLo;
+        const regions = [];
+        const pre = merged.filter(([a]) => a < declLo);   // mapped pieces before the decl = the variable line(s)
+        if (pre.length) regions.push([lineStartOf(pre[0][0]), lineEndOf(pre[pre.length - 1][1])]);
+        regions.push([declLo, regionEnd]);
+        declRegions = regions;
+        for (const [lo, hi] of regions) {
+          let cur = lo;
+          for (const [a, b] of merged) {
+            if (b <= lo || a >= hi) continue;   // piece not in this block
+            const A = Math.max(a, lo), B = Math.min(b, hi);
+            if (A > cur) leanRegions.push({ file: fileField, start: cur, end: A, v: 'ok', why: 'formal scaffolding (no NL counterpart)', kind: 'scaffolding', lean: text.slice(cur, A).replace(/\s+/g, ' ') });
+            cur = Math.max(cur, B);
+          }
+          if (cur < hi) leanRegions.push({ file: fileField, start: cur, end: hi, v: 'ok', why: 'formal scaffolding (no NL counterpart)', kind: 'scaffolding', lean: text.slice(cur, hi).replace(/\s+/g, ' ') });
         }
-        if (cur < end) leanRegions.push({ file: fileField, start: cur, end, v: 'ok', why: 'formal scaffolding (no NL counterpart)', lean: text.slice(cur, end).replace(/\s+/g, ' ') });
-        // displayed decl text = the full def span (variable line → body)
-        leanSource = text.slice(lineStart, bodyHi).trim();
+        // displayed decl text = the decl's block(s) (variable line + decl), joined
+        leanSource = regions.map(([lo, hi]) => text.slice(lo, hi)).join('\n').trim();
       }
       // CONTAINMENT ENFORCEMENT: every mapped Lean piece span MUST lie within the
       // def's Lean span [declRegion]. A piece outside it means the alignment linked an
       // NL box to Lean text the def doesn't even cover — a hard error, surfaced as a
       // finding (this is the check that was missing when I/J mapped to a line outside
       // the def span).
-      if (declRegion) {
-        const [rlo, rhi] = declRegion;
+      if (declRegions && declRegions.length) {
         for (const id in spans) { const sp = spans[id]; if (sp.start == null) continue;
-          if (sp.start < rlo || sp.end > rhi) containmentErrors.push({ fol: id, start: sp.start, end: sp.end, text: text.slice(sp.start, sp.end).replace(/\s+/g, ' ').trim() }); }
+          const inside = declRegions.some(([rlo, rhi]) => sp.start >= rlo && sp.end <= rhi);
+          if (!inside) containmentErrors.push({ fol: id, start: sp.start, end: sp.end, text: text.slice(sp.start, sp.end).replace(/\s+/g, ' ').trim() }); }
       }
     } catch (_) { /* best-effort */ }
     // the elaborated/compiled term the aligner actually walked (what it compares

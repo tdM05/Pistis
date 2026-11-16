@@ -389,8 +389,16 @@ function paintLeanHighlights(){ const host=$('leanCode'); if(!host) return;
   const spansIn=(n)=>leanSpans(n).filter((p)=>p.file===LEAN_FILE);
   // 1) the level box itself: outline only (skip for root)
   if(level!==ROOT){ spansIn(level).forEach((p)=>paintLeanRange(p.start,p.end,boxHex(level.id),{outline:true})); }
-  // 2) its direct children: filled (blended where children overlap), selected → ring
-  const ranges=[]; level.children.forEach((n)=>spansIn(n).forEach((p)=>ranges.push({start:p.start,end:p.end,id:n.id})));
+  // 2) its direct children, painted like the PDF: a real NL-content box gets its own
+  // distinct color (segmented/blended on overlap); a ⊥ (Lean-only) box is a REAL box too
+  // but carries no NL color — it's painted NEUTRAL GREY (its faithful/not verdict lives on
+  // the ✓/✗ tree badge, not in the Lean pane). So entering a ⊥ box as the level highlights
+  // its children grey, exactly like any other level.
+  const ranges=[];
+  level.children.forEach((n)=>{
+    if(n.bot){ spansIn(n).forEach((p)=>paintLeanRange(p.start,p.end,boxHex(n.id),{outline:true, sel: selId===n.id})); return; }
+    spansIn(n).forEach((p)=>ranges.push({start:p.start,end:p.end,id:n.id}));
+  });
   if(ranges.length){
     const pts=new Set(); ranges.forEach((r)=>{pts.add(r.start);pts.add(r.end);});
     const sorted=[...pts].sort((a,b)=>a-b);
@@ -398,6 +406,10 @@ function paintLeanHighlights(){ const host=$('leanCode'); if(!host) return;
       const cover=ranges.filter((r)=>r.start<=s&&e<=r.end); if(!cover.length) continue;
       paintLeanRange(s,e,blendHex(cover.map((r)=>r.id)),{sel: selId&&cover.some((r)=>r.id===selId)}); }
   }
+  // the SELECTED box always shows its own span (covers a ⊥ box selected from a level that
+  // is not its direct parent — e.g. selecting the s:I box while at the theorem level).
+  const sel=selId&&find(selId);
+  if(sel&&sel.bot){ spansIn(sel).forEach((p)=>paintLeanRange(p.start,p.end,SEL_OUTLINE,{sel:true})); }
 }
 // draw highlight boxes over the Lean char range [s,e) by wrapping affected line
 // spans with absolutely-positioned overlays measured from Range rects.
@@ -1062,7 +1074,7 @@ function treeRow(node,isRoot){
   // a span-less evidence box is shown EXPLICITLY as having no span: ∅ (plus its coref
   // variable, e.g. "∅ v₈"), so it's clearly not a text box like its I/J/T siblings.
   const spanlessEv = isEvidence(node) && !pieces(node).length;
-  nm.textContent=isRoot?'paper':(node.bot?'⊥ Lean-only':(node.implicit?'∅ implicit':(spanlessEv?('∅'+(node.var!=null?' '+sub(node.var):'')):label(node)))); row.appendChild(nm);
+  nm.textContent=isRoot?'paper':(node.bot?('⊥ Lean-only'+(node.botkind?' · '+node.botkind:'')):(node.implicit?'∅ implicit':(spanlessEv?('∅'+(node.var!=null?' '+sub(node.var):'')):label(node)))); row.appendChild(nm);
   // label tag: ONE chip, first.last of the is-a path (symbol token inline if auto-derived).
   if(!isRoot && node.label&&node.label.length){ const lt=document.createElement('span'); lt.className='labeltag';
     lt.textContent=labelTag(node); const ds=derivedSymbol(node);
@@ -1078,21 +1090,23 @@ function treeRow(node,isRoot){
     st.onclick=(e)=>{ e.stopPropagation(); flashCoref(node); }; row.appendChild(st); }
   // loose-end marker: ⚠ if this box violates a structural condition (soft flag)
   if(!isRoot){ const iss=boxIssues(node,ROOT); if(iss.length){ const w=document.createElement('span'); w.className='issuemark'; w.textContent='⚠'; w.title=iss.join('; '); row.appendChild(w); } }
-  // Lean-alignment badge from the last ⟳ align run (✓ match / ⊤ typed / ● leaf / ✗ mismatch)
-  if(!isRoot && ALIGN_STATUS[node.id]){ const a=ALIGN_STATUS[node.id];
-    const w=document.createElement('span'); w.className='alignbadge st-'+a.status; w.textContent=ALIGN_MK[a.status]||'?';
-    w.title='Lean align: '+a.status+(a.lean?' ↔ '+a.lean:'')+(a.note?' — '+a.note:''); row.appendChild(w); }
-  // STRUCTURAL-FAITHFULNESS badge (⊢): computed by the align run, persisted. Green =
+  // (The per-node align-status badge was redundant with the faithfulness badge below:
+  // for a MAPPED box the only outcomes are faithful / unfaithful, which the ⊢→✓/✗ badge
+  // already states. So there is ONE Lean marker — the faithfulness verdict.)
+  // STRUCTURAL-FAITHFULNESS badge: computed by the align run, persisted. Green =
   // structurally ok (necessary conditions hold, ASSUMING atoms faithful); red = a
   // necessary condition is violated (shape / order / var inconsistency) + reason.
   // Distinct from the atom-level human verdict badge below.
   if(!isRoot){ const sv=structuralOf(node); if(sv!=='unset'){
-    const w=document.createElement('span'); w.className='structbadge sv-'+sv; w.textContent='⊢';
+    const w=document.createElement('span'); w.className='structbadge sv-'+sv; w.textContent=(sv==='notok'?'✗':'✓');
     // tooltip: own link → its own reason; a parent → count of problems below it.
     const ownNotok=node.lean&&node.lean.v==='notok';
     const nbad=sv==='notok'&&!ownNotok?notokLinks(node).length:0;
     const why=ownNotok?(node.lean.why||'a necessary condition is violated'):(nbad?`${nbad} structural problem${nbad>1?'s':''} below — click for details`:'a necessary condition is violated');
-    w.title='structural faithfulness: '+(sv==='ok'?'ok (necessary conditions hold, assuming atomic predicates faithful)':'NOT ok — '+why+(ownNotok?' · click for details':''));
+    // an OK box with its OWN reason (e.g. a ⊥ Lean-only piece = "formal scaffolding")
+    // shows that reason, so "ok" is never unexplained — same as the definition's.
+    const ownOkWhy=(node.lean&&node.lean.v==='ok'&&node.lean.why)?node.lean.why:'';
+    w.title='structural faithfulness: '+(sv==='ok'?('ok — '+(ownOkWhy||'necessary conditions hold, assuming atomic predicates faithful')):'NOT ok — '+why+(ownNotok?' · click for details':''));
     // a notok badge is CLICKABLE → opens the full faithfulness-error popup for the
     // offending link (this box, or the first notok link beneath a rolled-up parent).
     if(sv==='notok'){ w.style.cursor='pointer'; w.onclick=(e)=>{ e.stopPropagation();
@@ -1566,7 +1580,9 @@ async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'
   // formal link (box.lean) to the extra Lean piece, verdict notok. Like an implicit
   // box but on the formal side. Auto-regenerated each align (tagged box.auto) so
   // stale ones can't survive.
-  applyBotBoxes(box, res.leanRegions||[]);
+  // attach ⊥ boxes under the DECL (nearest def/theorem), not the current level — so
+  // aligning from inputs vs statement vs theorem all land in ONE consistent place.
+  applyBotBoxes(CORE.scopeOf(ROOT, box) || box, res.leanRegions||[]);
   // CREATE THE MAP + VERDICTS: write the Lean spans (LINKS) onto the boxes. The
   // structural faithfulness verdict rides ON each link (box.lean.v), so a verdict
   // only exists where a link exists.
@@ -1647,30 +1663,34 @@ async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'
 // char is in exactly one span, each explicitly ok/notok. box.bot = formal-side ⊥
 // (empty NL); box.auto = align-generated. Old auto ⊥ children are dropped first so
 // each align rebuilds them fresh (never stale).
-function applyBotBoxes(top, regions){
-  top.children=(top.children||[]).filter((c)=>!c.auto);   // drop previous auto ⊥ boxes
-  // TWO objects at most: one ⊥_ok box collecting ALL ok Lean spans (scaffolding),
-  // one ⊥_notok box collecting ALL not-ok Lean spans — each a single box whose
-  // disjoint pieces are those spans (like commentary: one box, many pieces).
-  for(const v of ['ok','notok']){
-    const rs=regions.filter((r)=>(r.v||'notok')===v);
-    if(!rs.length) continue;
-    const box={ id:freshId(), pieces:[], bot:true, auto:true, children:[],
-      lean:{ spans:rs.map((r)=>({file:r.file,start:r.start,end:r.end})), v,
-             why:v==='notok'?rs.map((r)=>r.why).filter(Boolean).join('; '):'formal scaffolding (no NL counterpart)' } };
-    top.children.push(box);
+function applyBotBoxes(declBox, regions){
+  // purge EVERY stale auto ⊥ box anywhere UNDER this decl — aligning at different
+  // sub-levels (inputs / statement / theorem) used to leave duplicate sets scattered
+  // under different parents. One tree-walk under the decl clears them all.
+  (function purge(n){ if(n.children){ n.children=n.children.filter((c)=>!c.auto); n.children.forEach(purge); } })(declBox);
+  if(!regions.length){ markDirty(); return; }
+  // ONE "⊥ Lean-only" container, with a SUB-container PER KIND of Lean-only piece
+  // (inputs / conditions / scaffolding / …) so it's clear WHAT kind each extra is. Inside
+  // each kind, every region is its own leaf box carrying its own ✗/✓ + its own reason.
+  const KIND_LABEL={ input:'inputs', condition:'conditions', scaffolding:'scaffolding', other:'other' };
+  const parent={ id:freshId(), pieces:[], bot:true, auto:true, children:[] };
+  const byKind={}; for(const r of regions){ const k=r.kind||'other'; (byKind[k]=byKind[k]||[]).push(r); }
+  // stable, readable order
+  for(const k of ['input','condition','scaffolding','other']){
+    const rs=byKind[k]; if(!rs||!rs.length) continue;
+    const sub={ id:freshId(), pieces:[], bot:true, auto:true, botkind:KIND_LABEL[k]||k, children:[],
+      lean:{ spans:rs.map((r)=>({file:r.file,start:r.start,end:r.end})) } };   // union → highlights its regions grey when entered
+    for(const r of rs) sub.children.push({ id:freshId(), pieces:[], bot:true, auto:true,
+      lean:{ spans:[{file:r.file,start:r.start,end:r.end}], v:(r.v||'notok'),
+             why:r.why||'Lean content with no NL counterpart', cmp:r.lean||'' }, children:[] });
+    parent.children.push(sub);
   }
-  if(regions.length) markDirty();
+  (declBox.children=declBox.children||[]).push(parent);
+  markDirty();
 }
 function applyAlignSpans(spans, silent, scopeBox){ let n=0;
   const direct=new Set();   // ids that got a DIRECT link this run (real leaves)
   for(const [id,sp] of Object.entries(spans)){ const b=find(id); if(!b) continue;
-    // A LINK must exist wherever there is a VERDICT (the verdict is a property of the
-    // link). So apply the span if it carries a verdict `v`, EVEN if it is the coarse
-    // 'approx' region — a notok link (e.g. body ∧ vs Lean ∀) maps to the Lean region
-    // it was compared against and is flagged there. Plain unmapped boxes (no v, approx)
-    // are still skipped.
-    if(sp.approx && !sp.v) continue;
     // a link to NOTHING (maps-to-∅, carries a notok verdict) vs a link to a span.
     if(sp.none) b.lean={none:true}; else b.lean={spans:[{file:sp.file,start:sp.start,end:sp.end}]};
     // THE VERDICT LIVES ON THE LINK: ok/notok + (for notok) the reason, the Lean text
@@ -1689,7 +1709,8 @@ function applyAlignSpans(spans, silent, scopeBox){ let n=0;
     (b.children||[]).forEach(rollup);
     if(direct.has(b.id)) return;                              // a real leaf link — keep
     if(b.bot) return;                                         // ⊥ box carries its OWN link (not a rollup target)
-    const kid=(b.children||[]).flatMap((c)=>leanSpans(c));
+    let kid=(b.children||[]).filter((c)=>!c.bot).flatMap((c)=>leanSpans(c));
+    { const seen=new Set(); kid=kid.filter((p)=>{ const k=p.file+':'+p.start+':'+p.end; if(seen.has(k)) return false; seen.add(k); return true; }); }   // dedup: stacked duplicates over-saturate the paint
     if(kid.length) b.lean={spans:kid.map((p)=>({file:p.file,start:p.start,end:p.end}))};
     else if(b.lean&&b.lean.spans) delete b.lean;             // had stale rollup, now no kids → clear
   })(scopeBox||ROOT);
