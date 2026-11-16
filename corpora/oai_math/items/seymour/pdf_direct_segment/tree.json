@@ -870,6 +870,7 @@
                     "v": "ok",
                     "why": ""
                   },
+                  "sym": "supported_on",
                   "lean": {
                     "spans": [
                       {
@@ -879,8 +880,7 @@
                       }
                     ],
                     "v": "ok"
-                  },
-                  "sym": "supported_on"
+                  }
                 },
                 {
                   "id": "b90",
@@ -1303,46 +1303,6 @@
                 "spans": [
                   {
                     "file": "lean/MaxSupportKernel.lean",
-                    "start": 239,
-                    "end": 250
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 257,
-                    "end": 269
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 180,
-                    "end": 181
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 182,
-                    "end": 183
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 235,
-                    "end": 236
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 253,
-                    "end": 254
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 222,
-                    "end": 233
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
-                    "start": 280,
-                    "end": 312
-                  },
-                  {
-                    "file": "lean/MaxSupportKernel.lean",
                     "start": 170,
                     "end": 180
                   },
@@ -1393,46 +1353,6 @@
           ],
           "lean": {
             "spans": [
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 239,
-                "end": 250
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 257,
-                "end": 269
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 180,
-                "end": 181
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 182,
-                "end": 183
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 235,
-                "end": 236
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 253,
-                "end": 254
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 222,
-                "end": 233
-              },
-              {
-                "file": "lean/MaxSupportKernel.lean",
-                "start": 280,
-                "end": 312
-              },
               {
                 "file": "lean/MaxSupportKernel.lean",
                 "start": 170,
@@ -1505,7 +1425,17 @@
                   "children": [],
                   "label": [
                     "name"
-                  ]
+                  ],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3348,
+                        "end": 3362
+                      }
+                    ],
+                    "v": "ok"
+                  }
                 },
                 {
                   "id": "b165",
@@ -1571,7 +1501,17 @@
                         "atomic-term",
                         "variable"
                       ],
-                      "var": "v0"
+                      "var": "v0",
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 180,
+                            "end": 181
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b161",
@@ -1587,7 +1527,17 @@
                         "atomic-term",
                         "variable"
                       ],
-                      "var": "v2"
+                      "var": "v2",
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 182,
+                            "end": 183
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b162",
@@ -1603,7 +1553,17 @@
                         "atomic-term",
                         "variable"
                       ],
-                      "var": "v1"
+                      "var": "v1",
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3340,
+                            "end": 3664
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b163",
@@ -1619,13 +1579,47 @@
                         "atomic-term",
                         "variable"
                       ],
-                      "var": "v3"
+                      "var": "v3",
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3340,
+                            "end": 3664
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     }
                   ],
                   "label": [
                     "inputs"
                   ],
-                  "count": 4
+                  "count": 4,
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 180,
+                        "end": 181
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 182,
+                        "end": 183
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3340,
+                        "end": 3664
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3340,
+                        "end": 3664
+                      }
+                    ]
+                  }
                 },
                 {
                   "id": "b164",
@@ -1788,7 +1782,17 @@
                         "atomic-formula",
                         "relation"
                       ],
-                      "count": 2
+                      "count": 2,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3340,
+                            "end": 3664
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b167",
@@ -1840,7 +1844,17 @@
                         "atomic-formula",
                         "relation"
                       ],
-                      "count": 1
+                      "count": 1,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3340,
+                            "end": 3664
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b250",
@@ -1917,7 +1931,17 @@
                         "atomic-formula",
                         "relation"
                       ],
-                      "count": 1
+                      "count": 1,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3340,
+                            "end": 3664
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b171",
@@ -2002,7 +2026,123 @@
                         "atomic-formula",
                         "relation"
                       ],
-                      "count": 3
+                      "count": 3,
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3386,
+                            "end": 3396
+                          }
+                        ],
+                        "v": "ok"
+                      }
+                    },
+                    {
+                      "id": "b370",
+                      "label": [
+                        "formula",
+                        "definition-application"
+                      ],
+                      "implicit": true,
+                      "pieces": [],
+                      "children": [
+                        {
+                          "id": "b371",
+                          "label": [
+                            "name-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": []
+                        },
+                        {
+                          "id": "b372",
+                          "label": [
+                            "input-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": [],
+                          "var": "v2"
+                        },
+                        {
+                          "id": "b373",
+                          "label": [
+                            "input-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": [],
+                          "var": "v1"
+                        },
+                        {
+                          "id": "b374",
+                          "label": [
+                            "input-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": [],
+                          "var": "v3"
+                        },
+                        {
+                          "id": "b375",
+                          "label": [
+                            "input-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": [],
+                          "var": "v0"
+                        },
+                        {
+                          "id": "b376",
+                          "label": [
+                            "condition-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": []
+                        },
+                        {
+                          "id": "b377",
+                          "label": [
+                            "condition-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": []
+                        },
+                        {
+                          "id": "b378",
+                          "label": [
+                            "condition-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": []
+                        },
+                        {
+                          "id": "b379",
+                          "label": [
+                            "condition-evidence"
+                          ],
+                          "implicit": true,
+                          "pieces": [],
+                          "children": []
+                        }
+                      ],
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3340,
+                            "end": 3664
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b172",
@@ -2462,13 +2602,57 @@
                         "compound-formula",
                         "quantified",
                         "universal"
-                      ]
+                      ],
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3340,
+                            "end": 3664
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     }
                   ],
                   "label": [
                     "conditions"
                   ],
-                  "count": 5
+                  "count": 6,
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3340,
+                        "end": 3664
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3340,
+                        "end": 3664
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3340,
+                        "end": 3664
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3386,
+                        "end": 3396
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3340,
+                        "end": 3664
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3340,
+                        "end": 3664
+                      }
+                    ]
+                  }
                 },
                 {
                   "id": "b159",
@@ -3352,12 +3536,150 @@
                         "compound-formula",
                         "quantified",
                         "universal"
-                      ]
+                      ],
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 3340,
+                            "end": 3664
+                          }
+                        ],
+                        "v": "notok",
+                        "why": "Lean is equality. NL is forall. does not match.",
+                        "cmp": "HMul.hMul x j y s = 0",
+                        "path": "formula.compound-formula.quantified.universal"
+                      }
                     }
                   ],
                   "label": [
                     "conclusion"
-                  ]
+                  ],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3340,
+                        "end": 3664
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "b384",
+                  "pieces": [],
+                  "bot": true,
+                  "auto": true,
+                  "children": [],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 170,
+                        "end": 180
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 181,
+                        "end": 182
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 183,
+                        "end": 3340
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3664,
+                        "end": 3772
+                      }
+                    ],
+                    "v": "ok",
+                    "why": "formal scaffolding (no NL counterpart)"
+                  }
+                },
+                {
+                  "id": "b385",
+                  "pieces": [],
+                  "bot": true,
+                  "auto": true,
+                  "children": [],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3364,
+                        "end": 3365
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3382,
+                        "end": 3383
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3405,
+                        "end": 3407
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3432,
+                        "end": 3436
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3391,
+                        "end": 3392
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3511,
+                        "end": 3512
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3527,
+                        "end": 3529
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3568,
+                        "end": 3570
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3355,
+                        "end": 3356
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3618,
+                        "end": 3619
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3626,
+                        "end": 3629
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3373,
+                        "end": 3374
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3377,
+                        "end": 3378
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 3632,
+                        "end": 3642
+                      }
+                    ],
+                    "v": "notok",
+                    "why": "Lean binder #5 'T' has no input at this position; Lean binder #6 'D' has no input at this position; Lean binder #7 'hD' has no input at this position; Lean binder #8 'hmax' has no input at this position; Lean binder #9 'x' has no input at this position; Lean binder #10 'y' has no input at this position; Lean binder #11 'hx' has no input at this position; Lean binder #12 'hy' has no input at this position; Lean binder #13 's' has no input at this position; Lean binder #14 'j' has no input at this position; Lean binder #15 'hsj' has no input at this position; Lean binder #11 's' type has no condition at this position; Lean binder #12 'j' type has no condition at this position; Lean binder #13 'hsj' type has no condition at this position"
+                  }
                 }
               ],
               "label": [
@@ -3367,8 +3689,153 @@
                 "spans": [
                   {
                     "file": "lean/MaxSupportKernel.lean",
+                    "start": 3348,
+                    "end": 3362
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 180,
+                    "end": 181
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 182,
+                    "end": 183
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
                     "start": 3340,
+                    "end": 3664
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3664
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3664
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3664
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3664
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3386,
+                    "end": 3396
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3664
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3664
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3340,
+                    "end": 3664
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 170,
+                    "end": 180
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 181,
+                    "end": 182
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 183,
+                    "end": 3340
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3664,
                     "end": 3772
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3364,
+                    "end": 3365
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3382,
+                    "end": 3383
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3405,
+                    "end": 3407
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3432,
+                    "end": 3436
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3391,
+                    "end": 3392
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3511,
+                    "end": 3512
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3527,
+                    "end": 3529
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3568,
+                    "end": 3570
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3355,
+                    "end": 3356
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3618,
+                    "end": 3619
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3626,
+                    "end": 3629
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3373,
+                    "end": 3374
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3377,
+                    "end": 3378
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 3632,
+                    "end": 3642
                   }
                 ]
               }
@@ -3490,7 +3957,161 @@
           ],
           "label": [
             "theorem"
-          ]
+          ],
+          "lean": {
+            "spans": [
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3348,
+                "end": 3362
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 180,
+                "end": 181
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 182,
+                "end": 183
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3340,
+                "end": 3664
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3340,
+                "end": 3664
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3340,
+                "end": 3664
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3340,
+                "end": 3664
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3340,
+                "end": 3664
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3386,
+                "end": 3396
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3340,
+                "end": 3664
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3340,
+                "end": 3664
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3340,
+                "end": 3664
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 170,
+                "end": 180
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 181,
+                "end": 182
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 183,
+                "end": 3340
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3664,
+                "end": 3772
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3364,
+                "end": 3365
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3382,
+                "end": 3383
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3405,
+                "end": 3407
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3432,
+                "end": 3436
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3391,
+                "end": 3392
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3511,
+                "end": 3512
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3527,
+                "end": 3529
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3568,
+                "end": 3570
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3355,
+                "end": 3356
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3618,
+                "end": 3619
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3626,
+                "end": 3629
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3373,
+                "end": 3374
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3377,
+                "end": 3378
+              },
+              {
+                "file": "lean/MaxSupportKernel.lean",
+                "start": 3632,
+                "end": 3642
+              }
+            ]
+          }
         }
       ],
       "label": [
@@ -3498,46 +4119,6 @@
       ],
       "lean": {
         "spans": [
-          {
-            "file": "lean/MaxSupportKernel.lean",
-            "start": 239,
-            "end": 250
-          },
-          {
-            "file": "lean/MaxSupportKernel.lean",
-            "start": 257,
-            "end": 269
-          },
-          {
-            "file": "lean/MaxSupportKernel.lean",
-            "start": 180,
-            "end": 181
-          },
-          {
-            "file": "lean/MaxSupportKernel.lean",
-            "start": 182,
-            "end": 183
-          },
-          {
-            "file": "lean/MaxSupportKernel.lean",
-            "start": 235,
-            "end": 236
-          },
-          {
-            "file": "lean/MaxSupportKernel.lean",
-            "start": 253,
-            "end": 254
-          },
-          {
-            "file": "lean/MaxSupportKernel.lean",
-            "start": 222,
-            "end": 233
-          },
-          {
-            "file": "lean/MaxSupportKernel.lean",
-            "start": 280,
-            "end": 312
-          },
           {
             "file": "lean/MaxSupportKernel.lean",
             "start": 170,
@@ -3577,6 +4158,156 @@
             "file": "lean/MaxSupportKernel.lean",
             "start": 269,
             "end": 280
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3348,
+            "end": 3362
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 180,
+            "end": 181
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 182,
+            "end": 183
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3340,
+            "end": 3664
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3340,
+            "end": 3664
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3340,
+            "end": 3664
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3340,
+            "end": 3664
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3340,
+            "end": 3664
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3386,
+            "end": 3396
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3340,
+            "end": 3664
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3340,
+            "end": 3664
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3340,
+            "end": 3664
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 170,
+            "end": 180
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 181,
+            "end": 182
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 183,
+            "end": 3340
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3664,
+            "end": 3772
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3364,
+            "end": 3365
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3382,
+            "end": 3383
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3405,
+            "end": 3407
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3432,
+            "end": 3436
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3391,
+            "end": 3392
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3511,
+            "end": 3512
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3527,
+            "end": 3529
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3568,
+            "end": 3570
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3355,
+            "end": 3356
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3618,
+            "end": 3619
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3626,
+            "end": 3629
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3373,
+            "end": 3374
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3377,
+            "end": 3378
+          },
+          {
+            "file": "lean/MaxSupportKernel.lean",
+            "start": 3632,
+            "end": 3642
           }
         ]
       }
@@ -3679,50 +4410,55 @@
       "from": "b365",
       "to": "b60",
       "kind": "def"
+    },
+    {
+      "from": "b371",
+      "to": "b60",
+      "kind": "def"
+    },
+    {
+      "from": "b372",
+      "to": "b116",
+      "kind": "def"
+    },
+    {
+      "from": "b373",
+      "to": "b117",
+      "kind": "def"
+    },
+    {
+      "from": "b374",
+      "to": "b143",
+      "kind": "def"
+    },
+    {
+      "from": "b375",
+      "to": "b119",
+      "kind": "def"
+    },
+    {
+      "from": "b376",
+      "to": "b80",
+      "kind": "def"
+    },
+    {
+      "from": "b377",
+      "to": "b81",
+      "kind": "def"
+    },
+    {
+      "from": "b378",
+      "to": "b148",
+      "kind": "def"
+    },
+    {
+      "from": "b379",
+      "to": "b65",
+      "kind": "def"
     }
   ],
   "lean": {
     "spans": [
-      {
-        "file": "lean/MaxSupportKernel.lean",
-        "start": 239,
-        "end": 250
-      },
-      {
-        "file": "lean/MaxSupportKernel.lean",
-        "start": 257,
-        "end": 269
-      },
-      {
-        "file": "lean/MaxSupportKernel.lean",
-        "start": 180,
-        "end": 181
-      },
-      {
-        "file": "lean/MaxSupportKernel.lean",
-        "start": 182,
-        "end": 183
-      },
-      {
-        "file": "lean/MaxSupportKernel.lean",
-        "start": 235,
-        "end": 236
-      },
-      {
-        "file": "lean/MaxSupportKernel.lean",
-        "start": 253,
-        "end": 254
-      },
-      {
-        "file": "lean/MaxSupportKernel.lean",
-        "start": 222,
-        "end": 233
-      },
-      {
-        "file": "lean/MaxSupportKernel.lean",
-        "start": 280,
-        "end": 312
-      },
       {
         "file": "lean/MaxSupportKernel.lean",
         "start": 170,
@@ -3762,6 +4498,156 @@
         "file": "lean/MaxSupportKernel.lean",
         "start": 269,
         "end": 280
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3348,
+        "end": 3362
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 180,
+        "end": 181
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 182,
+        "end": 183
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3340,
+        "end": 3664
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3340,
+        "end": 3664
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3340,
+        "end": 3664
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3340,
+        "end": 3664
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3340,
+        "end": 3664
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3386,
+        "end": 3396
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3340,
+        "end": 3664
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3340,
+        "end": 3664
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3340,
+        "end": 3664
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 170,
+        "end": 180
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 181,
+        "end": 182
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 183,
+        "end": 3340
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3664,
+        "end": 3772
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3364,
+        "end": 3365
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3382,
+        "end": 3383
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3405,
+        "end": 3407
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3432,
+        "end": 3436
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3391,
+        "end": 3392
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3511,
+        "end": 3512
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3527,
+        "end": 3529
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3568,
+        "end": 3570
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3355,
+        "end": 3356
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3618,
+        "end": 3619
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3626,
+        "end": 3629
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3373,
+        "end": 3374
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3377,
+        "end": 3378
+      },
+      {
+        "file": "lean/MaxSupportKernel.lean",
+        "start": 3632,
+        "end": 3642
       }
     ]
   }

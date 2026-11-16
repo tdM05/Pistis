@@ -1570,7 +1570,7 @@ async function showAlign(){ const tid=folTargetId(); const box=tid&&tid!=='root'
   // CREATE THE MAP + VERDICTS: write the Lean spans (LINKS) onto the boxes. The
   // structural faithfulness verdict rides ON each link (box.lean.v), so a verdict
   // only exists where a link exists.
-  const applied=applyAlignSpans(res.spans||{}, true);
+  const applied=applyAlignSpans(res.spans||{}, true, box);
   renderTree();
 
   const okCount=res.findings.length===0;
@@ -1662,7 +1662,7 @@ function applyBotBoxes(top, regions){
   }
   if(regions.length) markDirty();
 }
-function applyAlignSpans(spans, silent){ let n=0;
+function applyAlignSpans(spans, silent, scopeBox){ let n=0;
   const direct=new Set();   // ids that got a DIRECT link this run (real leaves)
   for(const [id,sp] of Object.entries(spans)){ const b=find(id); if(!b) continue;
     // A LINK must exist wherever there is a VERDICT (the verdict is a property of the
@@ -1682,6 +1682,9 @@ function applyAlignSpans(spans, silent){ let n=0;
   // its descendants' spans — overwriting any STALE value from a previous run (that
   // staleness was the bug where a parent kept old positions after children moved).
   // Only directly-linked leaves are left untouched. Bottom-up so it composes.
+  // SCOPED to the aligned box's subtree: aligning ONE decl must NOT touch (and never
+  // DELETE) the persisted mapping of ANOTHER decl elsewhere in the tree — that wiped
+  // the def's spans when the lemma was aligned. Default ROOT only if no scope given.
   (function rollup(b){
     (b.children||[]).forEach(rollup);
     if(direct.has(b.id)) return;                              // a real leaf link — keep
@@ -1689,7 +1692,7 @@ function applyAlignSpans(spans, silent){ let n=0;
     const kid=(b.children||[]).flatMap((c)=>leanSpans(c));
     if(kid.length) b.lean={spans:kid.map((p)=>({file:p.file,start:p.start,end:p.end}))};
     else if(b.lean&&b.lean.spans) delete b.lean;             // had stale rollup, now no kids → clear
-  })(ROOT);
+  })(scopeBox||ROOT);
   if(n) markDirty();
   if(!silent){ refreshAll(); flash(`mapped ${n} box${n===1?'':'es'} to Lean spans`); }
   return n; }
