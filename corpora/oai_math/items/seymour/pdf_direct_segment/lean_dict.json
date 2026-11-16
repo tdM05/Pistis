@@ -42,6 +42,12 @@
     },
     "val_at_entry": {
       "lean": "apply"
+    },
+    "component": {
+      "lean": "apply"
+    },
+    "mul": {
+      "lean": "HMul.hMul"
     }
   },
   "_doc_tuples": "FOL variables that denote a TUPLE, so one ∀ over them corresponds to several Lean binders (e.g. v5 ≡ (s,j), a 2-tuple). Value = arity. Declared, not guessed — absent ⇒ one ∀ must match exactly one Lean binder, else flagged.",

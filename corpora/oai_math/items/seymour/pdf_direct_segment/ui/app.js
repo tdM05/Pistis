@@ -1669,23 +1669,29 @@ function applyBotBoxes(declBox, regions){
   // under different parents. One tree-walk under the decl clears them all.
   (function purge(n){ if(n.children){ n.children=n.children.filter((c)=>!c.auto); n.children.forEach(purge); } })(declBox);
   if(!regions.length){ markDirty(); return; }
-  // ONE "⊥ Lean-only" container, with a SUB-container PER KIND of Lean-only piece
-  // (inputs / conditions / scaffolding / …) so it's clear WHAT kind each extra is. Inside
-  // each kind, every region is its own leaf box carrying its own ✗/✓ + its own reason.
-  const KIND_LABEL={ input:'inputs', condition:'conditions', scaffolding:'scaffolding', other:'other' };
-  const parent={ id:freshId(), pieces:[], bot:true, auto:true, children:[] };
+  // DISTRIBUTE each Lean-only extra to its MATCHING NL slot, so every kind sits next to
+  // the NL boxes of the same kind (you see ALL inputs — NL + Lean-only — under `inputs`,
+  // ALL conditions under `conditions`). Scaffolding / anything unslotted stays at the decl
+  // top level. For a theorem the inputs/conditions slots live inside its `statement`.
+  let host=declBox;
+  if(labelConc(declBox)==='theorem'){ const st=(declBox.children||[]).find((c)=>labelConc(c)==='statement'); if(st) host=st; }
+  const slotOf=(k)=>(host.children||[]).find((c)=>labelConc(c)===k);
+  const inputsSlot=slotOf('inputs'), condsSlot=slotOf('conditions');
+  const mk=(r)=>({ id:freshId(), pieces:[], bot:true, auto:true, children:[],
+    lean:{ spans:[{file:r.file,start:r.start,end:r.end}], v:(r.v||'notok'),
+           why:r.why||'Lean content with no NL counterpart', cmp:r.lean||'' } });
+  // one "⊥ Lean-only" container holding the given regions as leaf boxes; its union span
+  // highlights all its regions grey when entered.
+  const container=(rs)=>({ id:freshId(), pieces:[], bot:true, auto:true, children:rs.map(mk),
+    lean:{ spans:rs.map((r)=>({file:r.file,start:r.start,end:r.end})) } });
   const byKind={}; for(const r of regions){ const k=r.kind||'other'; (byKind[k]=byKind[k]||[]).push(r); }
-  // stable, readable order
-  for(const k of ['input','condition','scaffolding','other']){
-    const rs=byKind[k]; if(!rs||!rs.length) continue;
-    const sub={ id:freshId(), pieces:[], bot:true, auto:true, botkind:KIND_LABEL[k]||k, children:[],
-      lean:{ spans:rs.map((r)=>({file:r.file,start:r.start,end:r.end})) } };   // union → highlights its regions grey when entered
-    for(const r of rs) sub.children.push({ id:freshId(), pieces:[], bot:true, auto:true,
-      lean:{ spans:[{file:r.file,start:r.start,end:r.end}], v:(r.v||'notok'),
-             why:r.why||'Lean content with no NL counterpart', cmp:r.lean||'' }, children:[] });
-    parent.children.push(sub);
-  }
-  (declBox.children=declBox.children||[]).push(parent);
+  if((byKind.input||[]).length && inputsSlot) (inputsSlot.children=inputsSlot.children||[]).push(container(byKind.input));
+  if((byKind.condition||[]).length && condsSlot) (condsSlot.children=condsSlot.children||[]).push(container(byKind.condition));
+  // everything with no matching slot (scaffolding, other, or input/condition when the slot
+  // is missing) stays directly under the decl, grouped as one scaffolding container.
+  const top=[ ...(byKind.scaffolding||[]), ...(byKind.other||[]),
+    ...(inputsSlot?[]:(byKind.input||[])), ...(condsSlot?[]:(byKind.condition||[])) ];
+  if(top.length){ const c=container(top); c.botkind='scaffolding'; (declBox.children=declBox.children||[]).push(c); }
   markDirty();
 }
 function applyAlignSpans(spans, silent, scopeBox){ let n=0;

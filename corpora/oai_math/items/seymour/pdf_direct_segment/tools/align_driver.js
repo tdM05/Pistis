@@ -118,11 +118,32 @@ export function alignBox({ core, root, box, chars, dict }) {
     // Lean conclusion = the type with ALL binders peeled (used→forall, unused→arrow).
     let leanConcl = normType; for (let i = 0; i < typeBinders.length && leanConcl; i++) leanConcl = leanConcl.body;
 
+    // PEEL THE PRENEX ON BOTH SIDES, then align the MATRICES. A theorem stated the
+    // telescoped Lean way lifts its quantifiers + hypotheses into the SIGNATURE binders
+    // (the extra inputs x,y,s,j and hypotheses hx,hy,hsj). The NL, however, writes those
+    // same quantifiers/hypotheses INSIDE the conclusion as leading `∀ …` / `… →`. So the
+    // Lean result type (leanConcl, all binders peeled) is the bare matrix (e.g. the
+    // equality x j * y s = 0), while the NL conclusion's OUTER node is a `∀`. Comparing
+    // them root-to-root wrongly collides the NL ∀ with the Lean equality. Instead strip
+    // each side's leading prenex down to its matrix and align matrix↔matrix, so the real
+    // content maps directly. The peeled binders are not lost — they are still reported as
+    // the extra inputs/conditions (the ⊥ Lean-only boxes). This also sidesteps the
+    // quantifier/hypothesis ORDER differences between the two prenexes.
+    const peelFolPrenex = (b) => { let n = b;
+      for (;;) { const c = C.labelConcrete(n.label);
+        if (c === 'universal' || c === 'existential') { const body = (n.children || []).find((ch) => C.isFormulaish(ch)); if (!body) break; n = body; continue; }
+        if (c === 'implication') { const fs = (n.children || []).filter((ch) => C.isFormulaish(ch)); if (fs.length < 2) break; n = fs[fs.length - 1]; continue; }
+        break; }
+      return n; };
+    const peelLeanPrenex = (x) => { while (x && (x.t === 'forall' || x.t === 'arrow')) x = x.body; return x; };
+    const nlCore = peelFolPrenex(conclBox);
+    const leanCore = peelLeanPrenex(leanConcl);
+
     const children = [];
     children.push(alignName(sslot('name'), assoc.decl));
     children.push(alignInputs(sslot('inputs'), typeBinders));
     children.push(alignConditions(sslot('conditions'), typeBinders));
-    children.push(labelNode(conclBox, A.align(conclBox, leanConcl), 'conclusion'));
+    children.push(labelNode(conclBox, A.align(nlCore, leanCore), 'conclusion'));
 
     const alignment = { fol: box.id, lean: null, leanNode: null, status: 'match', note: '', children };
     return finish(alignment, assoc, [], { leanBody: leanConcl, typeBinders, ranges: raw.ranges, isTheorem: true });
@@ -255,7 +276,6 @@ export function alignBox({ core, root, box, chars, dict }) {
       const walk = (n, lo, hi, slot) => {
         const mySlot = n.slot || slot;
         if (n.slot) { const [rlo, rhi] = slotRegion(n.slot); lo = rlo; hi = rhi; }
-        let mySpan = null;
         // locate target, in priority:
         //  - synPos : a REAL source range from Lean's parse tree (byte offsets) — an
         //             input → its binder NAME span, a condition → its binder TYPE
@@ -267,7 +287,27 @@ export function alignBox({ core, root, box, chars, dict }) {
           while (a < b && (text[a] === ':' || text[a] === ' ')) a++;
           loc = { start: a, end: b }; }
         if (!loc) { const surf = n.leanNode ? surface(n.leanNode) : null; loc = surf ? locate(text, lo, hi, surf) : null; }
-        if (loc) { mySpan = loc; if (n.fol) spans[n.fol] = { file: fileField, start: loc.start, end: loc.end }; }
+        // RECURSE FIRST (within this node's own span if located, else the inherited
+        // region) so an operator parent can fall back to its children's extent below.
+        const clo = loc ? loc.start : lo, chi = loc ? loc.end : hi;
+        (n.children || []).forEach((c) => walk(c, clo, chi, mySlot));
+        // ENVELOPE FALLBACK. An INFIX operator (mul `*`, eq `=`) surfaces to a PREFIX form
+        // (`HMul.hMul …`, `Eq …`) that never appears literally in the source, so it can't
+        // be located directly — but its operands DID locate. For such a MATCHED node (a
+        // 'leaf' like mul≡HMul.hMul, or a structural 'match' like the equality), take the
+        // envelope [min child start, max child end] as its extent. Mismatches do NOT
+        // envelope — they keep the compared-region behavior below.
+        // Only for a real ELABORATED-TERM node (has a leanNode), never a structural
+        // wrapper (slot wrappers / the alignment root have leanNode:null) — those span
+        // disjoint regions (e.g. the `variable` line AND the decl) and must NOT be
+        // collapsed into one envelope.
+        if (!loc && n.leanNode && (n.status === 'leaf' || n.status === 'match') && (n.children || []).length) {
+          let a = Infinity, b = -Infinity;
+          for (const c of n.children) { const cs = c._loc; if (cs) { if (cs.start < a) a = cs.start; if (cs.end > b) b = cs.end; } }
+          if (b > a) loc = { start: a, end: b };
+        }
+        n._loc = loc;
+        if (loc && n.fol) spans[n.fol] = { file: fileField, start: loc.start, end: loc.end };
         // NO coarse 'approx' fallback for things that simply couldn't be located. The ONE
         // legitimate non-located span is a MISMATCH that WAS compared against a real Lean
         // region (e.g. the body ∧ vs the Lean ∀ body): show that region [lo,hi] so you see
@@ -314,8 +354,6 @@ export function alignBox({ core, root, box, chars, dict }) {
         // mistaken for an uncovered gap; plus any located non-fol region (⊥ pieces).
         if (n.fol && spans[n.fol] && spans[n.fol].start != null) pieceSpans.push([spans[n.fol].start, spans[n.fol].end]);
         else if (loc) pieceSpans.push([loc.start, loc.end]);
-        const clo = mySpan ? mySpan.start : lo, chi = mySpan ? mySpan.end : hi;
-        (n.children || []).forEach((c) => walk(c, clo, chi, mySlot));
       };
       walk(alignment, bodyLo, bodyHi, null);
       // COMPLETE THE TILING. The def's Lean span is the WHOLE region from the start of
