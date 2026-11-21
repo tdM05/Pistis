@@ -21,7 +21,8 @@
 //        # folded definition-application: --inputs [{input:<defInputId>,by:<argId>},…]
 //        #                                --conditions [{cond:<defCondId>,by:<factId>},…]
 //   node tools/edit.js add-json <parentId> <@file|json>  # splice a whole subtree
-//        (spec node: {label:"a.b.c", pieces:"s-e,s-e", var, sym, count, implicit, keepOrder, children:[…]})
+//        (spec node: {label:"a.b.c", pieces:"s-e,s-e", var, sym, count, implicit, link, keepOrder, children:[…]})
+//        link:<defBoxId> adds a definition-application `def` link from this node to that box
 //        keepOrder:true keeps children in spec order instead of sorting by position
 //
 // Label paths are the DOTTED full path as printed by inspect/allowed lists, e.g.
@@ -82,6 +83,10 @@ const buildNode = (spec, parentNode) => {
   if (spec.var != null) node.var = spec.var;
   if (spec.sym != null) node.sym = spec.sym;
   if (spec.count != null) node.count = spec.count;
+  // spec.link: add a definition-application `def` link from THIS node to a def box
+  // (name/input/condition-evidence → the definition's name/input/condition box).
+  if (spec.link != null) { if (!C.find(ROOT, spec.link)) die(`add-json: link target "${spec.link}" not found`);
+    ROOT.links = ROOT.links || []; ROOT.links.push({ from: node.id, to: spec.link, kind: 'def' }); }
   checkLabel(parentNode, node.label);
   for (const ch of (spec.children || [])) node.children.push(buildNode(ch, node));
   // normally children are ordered by text position (matches reading order); set

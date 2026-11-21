@@ -60,7 +60,39 @@ faithfulness bugs (where the NL and the Lean say structurally different things).
 One idea per segment, **no ands** — conjuncts become flat sibling steps, the "and"
 tokens stay as their own (commentary) box for coverage. Separate **context-moves**
 (introduce a variable, define a term, assume) from **assertions**; split a
-premise+conclusion joined by "so"/"thus" into separate segments. A proof-by-
-contradiction is one assumption segment ("suppose instead …") + derived steps + a
-closing "a contradiction" → maps to Lean `by_contra`. Keep piece tiling gap-free and
-non-overlapping.
+premise+conclusion joined by "so"/"thus" into separate segments. Keep piece tiling
+gap-free and non-overlapping.
+
+## Proof structure (schema labels)
+A proof's structural vocabulary (schema `proof` slot). Every context-extension has a
+discharge; only `assume` (and a case split) needs an explicit close.
+- **assert** = a `formula` under `proof` — one step/claim; aligns to a Lean `have`
+  TYPE (or goal). Most steps are these.
+- **openers** (extend the context; all bind an optional name + optional fact):
+  - `tactic.let` — fix an arbitrary variable (∀). discharge: ∀. no prerequisite.
+  - `tactic.pick` — choose a witness from an ∃ (∃-elim). **consumes a prior ∃**;
+    its own label precisely because of that prerequisite. do not fold into `let`.
+  - `tactic.define` — abbreviate `name = expr` (a `set`/`let`). no close, ever.
+  - **`assumption`** (block) — "suppose P". A BLOCK: children = the assumed
+    `formula` P + a nested `proof` (the body under P). Scope is structural (ancestors
+    = live binders); steps inside stay **bare** (P stated once, at the block head).
+- `tactic.discharge` — the explicit close of an `assumption`; `sym` carries the kind
+  (`contradiction` → ¬P/by_contra, else direct → P→…). It reconstitutes the goal, so
+  it aligns back to the decl's conclusion.
+- **`case-analysis`** (block) of `case` children (each = a hypothesis `formula` + a
+  `proof`); carries the **exhaustiveness** obligation (a property of the split, not
+  any one arm).
+
+Worked example: `b10` (Lemma 3.2's proof) is built this way — `assumption` block
+(b554) = assumed `xⱼyₛ≠0` + a nested `proof` (b555) holding `let τ`, `define Dτ`,
+the asserts, and `discharge {contradiction}` (b25). Build blocks with
+`edit.js wrap <ids> assumption|proof|case-analysis`; scope = nesting, no link type.
+
+## Aligner for proofs — PHASE 2 (not built)
+The scope-threading proof-walk: thread Γ (open binders from ancestors); align each
+assert's bare prop against the set of **in-scope assertoric** Lean props (`have`
+types / goals — never antecedents/assumptions); emit found / **not-found = abstain**
+(never "unfaithful"); at a `discharge` align the discharged ¬P/goal to the decl
+conclusion. **Blocker:** `lean_extract` returns the elaborated kernel `Expr`, not a
+clean list of `have`-types — Phase 2 must first extract assertoric propositions
+(parse the tactic block, or walk the proof term's `let`/`have` nodes).
