@@ -1027,9 +1027,16 @@ function charRuns(s,e){ const runs=[]; let run=null;
   const push=()=>{ if(run){runs.push(run);run=null;} };
   for(let i=s;i<e;i++){ const m=CHARMETA[i]; if(!m){ push(); continue; }
     const top=m.y, bot=m.y+m.h;
-    const overlaps = run && m.page===run.page && top<run.y1 && bot>run.y0;   // vertical overlap
+    // "same line" is tested against the run's FIRST-char band (bandTop/bandBot),
+    // NOT the cumulatively grown y0/y1. Growing y0/y1 lets a tall inline glyph
+    // (sub/superscript, big operator) stretch the band downward until the NEXT
+    // line's chars overlap it — the run then merges both lines into one
+    // full-column bounding box, so a 2-line box bled across the whole paragraph
+    // (e.g. b18 appeared to cover "Proof. Suppose…"). The drawn rect still grows
+    // y0/y1 so it covers sub/superscripts on the line.
+    const overlaps = run && m.page===run.page && top<run.bandBot && bot>run.bandTop;
     if(overlaps){ run.x0=Math.min(run.x0,m.x); run.x1=Math.max(run.x1,m.x+m.w); run.y0=Math.min(run.y0,top); run.y1=Math.max(run.y1,bot); }
-    else { push(); run={page:m.page,x0:m.x,y0:top,x1:m.x+m.w,y1:bot}; } }
+    else { push(); run={page:m.page,x0:m.x,y0:top,x1:m.x+m.w,y1:bot,bandTop:top,bandBot:bot}; } }
   push(); return runs; }
 function drawRange(s,e,color,opts){ opts=opts||{};
   for(const run of charRuns(s,e)){ const pg=pageEls[run.page]; if(!pg) continue;

@@ -10,6 +10,9 @@
 //   node tools/edit.js set-var    <id> <vN|->         # set/clear variable name
 //   node tools/edit.js set-sym    <id> <name|->       # set/clear authored symbol
 //   node tools/edit.js set-pieces <id> <s-e,s-e,…|->  # set/clear text spans
+//   node tools/edit.js split  <id> <off1,off2,…>      # cut a one-piece box at absolute
+//        char offsets into contiguous segments: the box KEEPS the first segment, new
+//        UNLABELLED sibling boxes are created for the rest (proof-step segmentation)
 //   node tools/edit.js add    <parentId> [--label a.b.c] [--pieces s-e,…] [--implicit] [--var vN] [--sym X] [--count n]
 //   node tools/edit.js rm     <id>                    # delete a box + its subtree
 //   node tools/edit.js move   <id> <newParentId|root> # reparent
@@ -140,6 +143,27 @@ else if (cmd === 'set-pieces') {
   const [id, p] = pos; if (!id || p === undefined) die('usage: set-pieces <id> <s-e,…|->');
   const b = must(id); b.pieces = parsePieces(p); mergePieces(b);
   commit(`set-pieces ${id} = ${b.pieces.map((x) => x.start + '-' + x.end).join(',') || '(none)'}`, [id]);
+}
+else if (cmd === 'split') {
+  const [id, offs] = pos; if (!id || offs === undefined) die('usage: split <id> <off1,off2,…>  (absolute char offsets strictly inside the box span; box keeps the first segment, new unlabelled siblings get the rest)');
+  const b = must(id); const ps = C.pieces(b);
+  if (ps.length !== 1) die(`split needs a box with exactly ONE contiguous piece (${id} has ${ps.length}); set-pieces it first`);
+  const { start, end } = ps[0];
+  const cuts = offs.split(',').map((s) => { const v = +s.trim(); if (!Number.isInteger(v)) die(`bad offset "${s}" — want an integer`); return v; });
+  for (let i = 0; i < cuts.length; i++) {
+    if (cuts[i] <= start || cuts[i] >= end) die(`offset ${cuts[i]} must lie strictly inside the box span ${start}-${end}`);
+    if (i && cuts[i] <= cuts[i - 1]) die(`offsets must be strictly increasing (${cuts[i - 1]} then ${cuts[i]})`);
+  }
+  const parent = C.parentOf(ROOT, id) || ROOT;
+  const bounds = [start, ...cuts, end];
+  b.pieces = [{ start: bounds[0], end: bounds[1] }];   // original keeps the first segment
+  const made = [id];
+  for (let i = 1; i < bounds.length - 1; i++) {
+    const box = { id: mintId(), pieces: [{ start: bounds[i], end: bounds[i + 1] }], children: [] };
+    parent.children = parent.children || []; parent.children.push(box); made.push(box.id);
+  }
+  commit(`split ${id} at ${cuts.join(',')} → ${made.length} segments`, made);
+  console.log('  new ids: ' + made.slice(1).join(', '));
 }
 else if (cmd === 'add') {
   const [parentId] = pos; if (!parentId) die('usage: add <parentId> [--label …] [--pieces …] [--implicit] [--var vN] [--sym X] [--count n]');
