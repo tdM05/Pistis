@@ -1,0 +1,325 @@
+:root{--bg:#fff;--ink:#1a1a1a;--dim:#888;--line:#e3e5e8;--panel:#fafbfc;--accent:#2563eb;--mono:ui-monospace,Menlo,Consolas,monospace;}
+*{box-sizing:border-box;} html,body{height:100%;margin:0;}
+body{background:var(--bg);color:var(--ink);font:13px/1.5 -apple-system,system-ui,sans-serif;display:flex;flex-direction:column;}
+header{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);}
+.brand{font-weight:700;white-space:nowrap;}
+.btn{font:13px -apple-system,system-ui,sans-serif;cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 11px;}
+.btn:hover:not(:disabled){border-color:var(--accent);} .btn:disabled{opacity:.4;cursor:default;}
+.btn.primary{background:#111;color:#fff;border-color:#111;}
+kbd{font:11px var(--mono);background:#eee;border:1px solid #ccc;border-radius:4px;padding:0 4px;}
+/* bottom status bar: transient info (selection / lean / label) — one fixed line */
+.statusbar{flex:none;display:flex;align-items:center;gap:16px;height:22px;padding:0 12px;background:#f2f3f6;border-top:1px solid var(--line);font:11px var(--mono);color:#555;overflow:hidden;white-space:nowrap;}
+.sb-seg{overflow:hidden;text-overflow:ellipsis;}
+.sb-seg:empty{display:none;}
+.sb-seg.warn{color:#c0392b;}
+.spacer{flex:1;} .status{font:12px -apple-system,system-ui,sans-serif;color:var(--dim);}
+
+main{flex:1;display:flex;min-height:0;}
+.tree-pane{flex:0 0 260px;background:var(--panel);overflow:auto;min-height:0;}
+.pdf-pane{flex:1 1 0;overflow:hidden;background:#525659;display:flex;flex-direction:column;min-height:0;min-width:160px;}
+.splitter{flex:0 0 6px;cursor:col-resize;background:var(--line);position:relative;}
+.splitter:hover,.splitter.drag{background:var(--accent);}
+.splitter::after{content:"";position:absolute;inset:0 -4px;}
+body.resizing{cursor:col-resize;user-select:none;}
+.pane-head{position:sticky;top:0;z-index:3;background:var(--panel);padding:9px 14px;font:11px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);border-bottom:1px solid var(--line);}
+.pdf-pane .pane-head{background:#3c4043;color:#cdd0d4;border-color:#2a2d30;display:flex;align-items:center;gap:8px;}
+.pdf-pane .pane-head .spacer{flex:1;}
+#upLevelPdf{margin-left:0;display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;padding:0;font-size:12px;line-height:1;}
+.dimlab{text-transform:none;letter-spacing:0;font-style:italic;}
+.levelval{font-weight:700;color:#3a2f00;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;}
+.labelbar{position:sticky;top:33px;z-index:2;padding:5px 10px;background:#fff8e1;border-bottom:1px solid #f0e2b0;font-size:12px;color:#6b5600;display:flex;align-items:center;gap:6px;}
+.labelbar .spacer{flex:1;}
+.labelbar #upLevel{margin-left:0;display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;padding:0;font-size:12px;line-height:1;border-radius:5px;}
+/* fixed-size label chip in the labelbar (never changes row height) */
+.countwrap{font:11px var(--mono);color:#6b5600;display:inline-flex;align-items:center;gap:3px;}
+.countinput{width:40px;height:22px;font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 4px;}
+.countsel{height:22px;font:12px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 2px;background:#fff;}
+.symsel{height:22px;max-width:150px;font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 4px;background:#fff;color:#2563eb;}
+.symsel:focus{outline:2px solid var(--accent);}
+.symedit{width:130px;}   /* inline name editor (shown when + new / edit name is picked) */
+.labelchip{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 8px;height:24px;background:#fff;color:#888;cursor:pointer;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;}
+.labelchip:hover:not(:disabled){border-color:var(--accent);}
+.labelchip:disabled{opacity:.5;cursor:default;}
+.labelchip.set{color:#3858a8;background:#e4ecff;border-color:#cdddff;font-weight:600;}
+/* label popover: overlay cascade, grows WITHOUT affecting layout */
+.labelpop{position:fixed;z-index:50;display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:8px;}
+.labelsel{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:3px 5px;background:#fff;color:var(--ink);min-width:200px;}
+.labelsel:disabled{opacity:.5;}
+.labelsel.autolvl{opacity:.55;background:#f0f0f3;font-style:italic;}  /* forced/auto level */
+/* ── FOL view (right pane, shares the Lean slot) ── */
+.fol-scroll{flex:1;overflow:auto;position:relative;background:#fbfbfd;}
+.fol-view{padding:12px 14px 60px;max-width:760px;}
+.follabel{font:10px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:12px 0 4px;}
+.follabel:first-child{margin-top:0;}
+.folformula{font:15px/1.9 var(--mono);background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px;white-space:normal;word-break:normal;user-select:text;overflow-wrap:anywhere;}
+.folsig{font:12px var(--mono);color:#444;}
+/* token colors — by FOL kind; consistent between formula + signature chips */
+.ftok{white-space:pre;}
+.ftok.var{color:#7a4fd0;font-style:italic;}                 /* variable (matches var chips) */
+.ftok.var sub{font-size:.72em;font-style:normal;}
+.ftok.rel{color:#2563eb;font-weight:600;}                   /* relation */
+.ftok.fn{color:#0e8a5f;font-weight:600;}                    /* function */
+.ftok.con{color:#c2740a;font-weight:600;}                   /* constant */
+.ftok.logic{color:#111;font-weight:700;}                    /* ∀∃¬∧∨→↔= */
+.ftok.punct{color:#999;}
+.ftok.impl{opacity:.6;font-style:italic;text-decoration:underline dotted;} /* implicit ∅ symbol */
+/* clickable identity token (var/rel/fn/con) — hover shows it's clickable */
+.ftok.clk{cursor:pointer;border-radius:3px;padding:0 1px;}
+.ftok.clk:hover{background:rgba(37,99,235,.14);box-shadow:0 0 0 1px rgba(37,99,235,.35);}
+.folsigchip.clk{cursor:pointer;}
+.folsigchip.clk:hover{border-color:var(--accent);background:#f0f5ff;}
+/* defined abbreviations: dashed border + faint fill, reads as "derived/eliminable" */
+.folsigchip.defined{border-style:dashed;background:#f6f4fb;}
+/* Lean alignment tree (⟳ align Lean) */
+.aligntree{font:11px var(--mono);margin:4px 0 8px;}
+.alignrow{display:flex;align-items:baseline;gap:6px;padding:1px 0;cursor:pointer;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alignrow:hover{background:#eef1f5;}
+.alignmk{flex:none;width:14px;text-align:center;font-weight:700;}
+.aligntxt{overflow:hidden;text-overflow:ellipsis;}
+.alignrow.st-match .alignmk{color:#1f9d55;}
+.alignrow.st-leaf .alignmk{color:#2563eb;}
+.alignrow.st-typed .alignmk{color:#b8860b;}
+.alignrow.st-mismatch{background:#fff4f2;}
+.alignrow.st-mismatch .alignmk{color:#c0392b;}
+.alignrow.st-unmapped{background:#fdf6e3;}
+.alignrow.st-unmapped .alignmk{color:#b8860b;}
+/* align PROBLEM card: NL sentence + colored FOL formula + structured error,
+   laid out like the FOL tab so it's easy to read */
+.folcard{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0;background:#fff;}
+.folcard.err{border-color:#f0cfc8;background:#fff7f5;}
+.folcard .follabel{margin-top:6px;}
+.folcard .follabel:first-child{margin-top:0;}
+.folcard-nl{font:13px/1.45 -apple-system,system-ui,sans-serif;color:#1a1a1a;}
+.folcard-err{margin-top:8px;font:12px var(--mono);color:#c0392b;font-weight:600;}
+/* mapped-pieces list in the align view: NL text ↔ Lean text, human-readable */
+.mappedlist{font:12px -apple-system,system-ui,sans-serif;}
+.mappedrow{display:flex;align-items:baseline;gap:2px;padding:2px 4px;border-radius:4px;cursor:pointer;}
+.mappedrow:hover{background:#eef1f5;}
+.mappedrow .mnl{color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
+.mappedrow .marr{color:#999;flex:none;}
+.mappedrow .mlean{font-family:var(--mono);color:#2563eb;white-space:nowrap;}
+/* per-box Lean-alignment badge in the Boxes tree (from the last ⟳ align run) */
+.alignbadge{flex:none;font-size:10px;font-weight:700;padding:0 4px;border-radius:3px;}
+.alignbadge.st-match{color:#1f9d55;}
+.alignbadge.st-leaf{color:#2563eb;}
+.alignbadge.st-typed{color:#b8860b;}
+.alignbadge.st-mismatch{color:#fff;background:#c0392b;border-radius:3px;}
+.alignbadge.st-unmapped{color:#fff;background:#b8860b;border-radius:3px;}
+.alignbadge.st-skipped{color:#aaa;}
+.structbadge{flex:none;font-size:10px;font-weight:700;padding:0 4px;border-radius:3px;cursor:help;}
+.structbadge.sv-ok{color:#1f9d55;}
+.structbadge.sv-notok{color:#fff;background:#c0392b;}
+.faithov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;}
+.faithcard{background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:16px 18px;max-width:560px;width:90%;max-height:80vh;overflow:auto;}
+.faithcard .faithhd{font-weight:700;color:#c0392b;margin-bottom:10px;font-size:14px;}
+.folinline{line-height:1.9;}   /* inputs row: variables flow inline, comma-separated */
+/* bracket matching: hover one paren, both it and its partner light up */
+.ftok.paren{cursor:default;border-radius:3px;}
+.ftok.parenhi{background:#ffe08a;color:#7a4b00;box-shadow:0 0 0 1px #e0a800;font-weight:700;}
+/* clicked identity token: pulse all co-referents in the FOL view (purple, matches
+   the var/flash accent) — so even span-less (implicit) variables light up here */
+.ftok.folkeyhi{background:rgba(122,79,208,.26);box-shadow:0 0 0 1.5px rgba(122,79,208,.9);border-radius:3px;animation:gappulse .7s ease-in-out infinite;}
+/* FOL legend + signature rows */
+.follegend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:4px;font:10px -apple-system,system-ui,sans-serif;}
+.follegend span{display:inline-flex;align-items:center;gap:4px;color:var(--dim);}
+.follegend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+.folsigrow{display:flex;gap:8px;padding:2px 0;align-items:baseline;}
+.folsigrow .k{flex:none;width:72px;color:var(--dim);text-transform:uppercase;font-size:10px;letter-spacing:.04em;}
+.folsigrow .v{flex:1;display:flex;flex-wrap:wrap;gap:4px 8px;}
+.folsigchip{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:1px 6px;background:#fff;}
+.folsigchip .ar{color:var(--dim);}
+/* a broken-out definition part: label + its rendered formula */
+.folpart{margin-bottom:8px;}
+.folpart .pl{font:10px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:2px;}
+.folpart.whole{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);}
+/* group (organizer) member block */
+.folmember{margin-bottom:14px;}
+.folmember>.mh{font:11px var(--mono);color:#6b5600;font-weight:600;margin-bottom:4px;cursor:pointer;}
+.folmember>.mh:hover{text-decoration:underline;}
+/* error / none states */
+.folnone{font:12px -apple-system,system-ui,sans-serif;color:var(--dim);padding:6px 0;}
+.folerr{font:12px -apple-system,system-ui,sans-serif;color:#c0392b;background:#fff4f2;border:1px solid #f0cfc8;border-radius:7px;padding:10px 12px;}
+.folerr .eh{font-weight:700;margin-bottom:6px;}
+.folerr .er{font:11px var(--mono);padding:2px 0;cursor:pointer;}
+.folerr .er:hover{text-decoration:underline;}
+.folerr .er .et{color:#7a2018;font-weight:600;}
+.issuemark{flex:none;font-size:11px;color:#e08600;cursor:help;padding:0 2px;}
+/* Errors tab: issues grouped by type, collapsible groups */
+.errlist{padding:4px 0 40px;}
+.errempty{padding:10px 12px;font-size:12px;color:#1f9d55;}
+.errgrouphead{display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer;background:#ffe8e3;border-top:1px solid #f0cfc8;border-bottom:1px solid #f0cfc8;font:11px -apple-system,system-ui,sans-serif;font-weight:700;color:#c0392b;}
+.errgrouphead:hover{background:#ffddd6;}
+.errgrouphead .tw{width:12px;text-align:center;}
+.errgrouphead .gk{flex:1;}
+.errgrouphead .gc{background:#c0392b;color:#fff;border-radius:9px;padding:0 6px;font-size:10px;}
+.errrow{padding:4px 10px 4px 24px;border-bottom:1px solid #f3dcd7;cursor:pointer;font-size:11px;}
+.errrow:hover{background:#fff4f2;}
+.errname{display:block;font-weight:600;color:#7a2018;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.errmsg{display:block;font:10px var(--mono);color:#c0392b;}
+/* small label chip on a tree row */
+.labeltag{flex:none;font-size:9.5px;font-weight:600;color:#3858a8;background:#e4ecff;border:1px solid #cdddff;border-radius:3px;padding:0 4px;letter-spacing:.01em;}
+.vartag{flex:none;cursor:pointer;font:10px var(--mono);font-weight:700;color:#7a4fd0;background:#f1ebff;border:1px solid #ddd0f5;border-radius:3px;padding:0 4px;}
+/* right-click id popover (select + Ctrl/Cmd+C) */
+.ctxmenu{position:fixed;z-index:100;background:#fff;border:1px solid var(--line);border-radius:7px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:8px;min-width:240px;display:flex;flex-direction:column;gap:6px;}
+.ctxrow{display:flex;flex-direction:column;gap:2px;}
+.ctxlab{font:10px -apple-system,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);}
+.ctxinp{font:12px var(--mono);border:1px solid var(--line);border-radius:5px;padding:3px 6px;width:100%;background:#f7f8fa;}
+.ctxinp:focus{outline:2px solid var(--accent);background:#fff;}
+/* auto-derived symbol identity: locked chip + ? reason */
+.symtag{flex:none;font:10px var(--mono);font-weight:700;color:#555;background:#eee;border:1px solid #d5d5d5;border-radius:3px;padding:0 4px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* non-logical symbol chips (relation/function/constant), colored by kind, click
+   to flash all co-referents — like the variable chip */
+.symtag.rel,.symtag.fn,.symtag.con{cursor:pointer;}
+.symtag.rel{color:#2563eb;background:#e4ecff;border-color:#cdddff;}
+.symtag.fn{color:#0e8a5f;background:#e2f5ec;border-color:#c3e8d7;}
+.symtag.con{color:#c2740a;background:#fdf0dd;border-color:#f3dcb5;}
+.symtag.rel:hover,.symtag.fn:hover,.symtag.con:hover{filter:brightness(.95);box-shadow:0 0 0 1px currentColor;}
+.symq{flex:none;font-size:9px;color:#999;cursor:help;}
+/* locked identity row in the label popover */
+.labellock{display:flex;align-items:center;gap:6px;padding:3px 5px;border:1px dashed #ccc;border-radius:5px;background:#f6f6f6;color:#555;font:11px var(--mono);}
+.labellock .lk{font-weight:700;}
+.labellock .lkq{margin-left:auto;color:#999;cursor:help;}
+
+/* tree */
+.tree{padding:6px 0 40px;}
+.row{display:flex;align-items:center;gap:6px;padding:3px 10px 3px 0;cursor:pointer;border-left:3px solid transparent;}
+.row:hover{background:#eef1f5;}
+.row.picked{background:#e3edff;box-shadow:inset 0 0 0 1px var(--accent);}
+.row.level{border-left-color:#e0a800;background:#fff8e1;}
+.row.level .rname{font-weight:700;}
+.row.implicit .rname{font-style:italic;color:#999;}  /* implicit (no-span) box */
+.row.droptgt{background:#dff5e3;box-shadow:inset 0 0 0 2px #1f9d55;}   /* valid drop target */
+.row.dropbad{background:#fbe3df;box-shadow:inset 0 0 0 2px #c0392b;}   /* invalid drop target */
+.row[draggable=true]{cursor:grab;}
+.twist{width:14px;flex:none;text-align:center;color:var(--dim);user-select:none;}
+.twist.leaf{opacity:.25;}
+.rswatch{width:9px;height:9px;border-radius:2px;flex:none;}
+.rname{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* piece sub-rows: visually distinct from child boxes — italic, muted, hollow
+   diamond marker, faint dashed left edge */
+.piecerow{font-size:11.5px;color:#777;}
+.piecerow .rname{font-style:italic;}
+.pcmark{width:11px;flex:none;text-align:center;font-size:10px;}
+.minibtn{font:10px -apple-system,system-ui,sans-serif;border:1px solid var(--line);background:#fff;border-radius:5px;padding:1px 6px;margin-left:6px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--ink);}
+.minibtn:hover{border-color:var(--accent);}
+.minibtn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.rdel{color:var(--dim);flex:none;padding:0 4px;border-radius:4px;} .rdel:hover{color:#fff;background:#c0392b;}
+.children{margin-left:15px;border-left:1px solid var(--line);}
+/* modifier/metadata rows (pieces, links, Lean spans) — NOT structural children.
+   Pushed further right with a dashed, muted edge so they read as attachments. */
+.modrows{margin-left:30px;border-left:1px dashed #d0d0d8;}
+.modrows .row{padding-top:2px;padding-bottom:2px;}
+/* collapsed modifier summary chip (pieces/links/lean counts) */
+.modsum{display:flex;align-items:center;gap:4px;padding:1px 0 1px 4px;cursor:pointer;font:10px var(--mono);color:#888;}
+.modsum:hover{background:#eef1f5;}
+.modsum .twist{width:12px;flex:none;}
+.modsumlab{letter-spacing:.02em;}
+.modsub{margin-left:42px;}  /* expanded detail rows: indented under the summary chip */
+
+/* pdf */
+.pdf-scroll{flex:1;overflow:auto;position:relative;background:#525659;}
+.pages{position:relative;width:max-content;margin:0 auto;padding:14px 0 60px;}
+.page-wrap{position:relative;margin:0 auto 12px;box-shadow:0 2px 16px rgba(0,0,0,.6);background:#fff;}
+.page-wrap canvas{display:block;}
+/* the selectable text layer: transparent glyph spans positioned over the canvas */
+.textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;}
+.textLayer span{position:absolute;color:transparent;white-space:pre;cursor:text;transform-origin:0 0;}
+.textLayer span::selection{background:rgba(37,99,235,.35);}
+/* box highlight rectangles (drawn under the text layer). Edges are FEATHERED
+   via blur so fills never show a hard border — the text sits above, unblurred. */
+.hl-layer{position:absolute;inset:0;pointer-events:none;}
+.hl{position:absolute;}   /* fill/outline set inline; selection adds a blue ring */
+/* flashed coverage gaps: pulsing red-orange, obvious, auto-removed */
+.gapflash{background:rgba(224,70,32,.30);box-shadow:inset 0 0 0 2px rgba(224,70,32,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
+@keyframes gappulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+.gaplink{color:#c0392b;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.gaplink:hover{color:#e04620;}
+/* flashed single piece: pulsing amber, distinct from blue selection + red gaps */
+.pieceflash{background:rgba(217,119,6,.28);box-shadow:inset 0 0 0 2px rgba(217,119,6,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
+/* variable occurrences flash: purple (var color), pulsing — PDF + tree row */
+.varflash{background:rgba(122,79,208,.26);box-shadow:inset 0 0 0 2px rgba(122,79,208,.9);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
+/* span-less occurrence (implicit / no-span evidence): dashed OUTLINE of its container,
+   no fill — clearly "the var lives in here", not the var's own span */
+.varflashbox{background:transparent;border:1.5px dashed rgba(122,79,208,.85);border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}
+.tree .row.varrow{background:#f1ebff;box-shadow:inset 0 0 0 2px #7a4fd0;border-radius:3px;animation:gappulse 0.7s ease-in-out infinite;}
+/* link arrows: one SVG over the whole pages stack, above canvases/highlights
+   but click-through so text selection + box picking still work underneath */
+.arrow-layer{position:absolute;left:0;top:0;pointer-events:none;z-index:4;overflow:visible;}
+
+/* link badge on a tree row + link sub-rows */
+.linkbadge{flex:none;font-size:10px;font-weight:700;color:#7a4fd0;padding:0 5px;letter-spacing:.02em;border-radius:4px;}
+.linkbadge:hover{background:#efe8fd;outline:1px solid #c9b6f2;}  /* clickable: jumps to the linked box */
+.linkrow{font-size:11.5px;color:#6b5bbf;}
+.linkrow .rname{font-style:normal;}
+.linkrow.incoming{color:#9a93b8;}
+.linkrow .twist{color:inherit;opacity:.9;}
+.btn.armed{background:#7a4fd0;color:#fff;border-color:#7a4fd0;}
+.btn.armed kbd{background:#ffffff33;border-color:#ffffff55;color:#fff;}
+.btn.confirm{background:#1f9d55;color:#fff;border-color:#1f9d55;}
+.btn.confirm:hover:not(:disabled){border-color:#157a40;background:#188048;}
+.btn.confirm kbd{background:#ffffff33;border-color:#ffffff55;color:#fff;}
+
+/* Lean mapping badge on a tree row. The COLOR carries the verdict:
+   green=ok, red=not ok, grey=undecidable/unjudged. Leaves are solid-filled;
+   derived parents are outlined (hollow). */
+.leanbadge{flex:none;font-size:10px;font-weight:700;padding:0 5px;border-radius:4px;}
+/* leaf (solid) */
+.leanbadge.leafv.ok{color:#fff;background:#1f9d55;}
+.leanbadge.leafv.notok{color:#fff;background:#c0392b;}
+.leanbadge.leafv.undecidable,.leanbadge.leafv.unset{color:#fff;background:#9aa0a6;}
+/* derived parent (outlined) */
+.leanbadge.derived.ok{color:#1f9d55;box-shadow:inset 0 0 0 1px #1f9d55;}
+.leanbadge.derived.notok{color:#c0392b;box-shadow:inset 0 0 0 1px #c0392b;}
+.leanbadge.derived.undecidable,.leanbadge.derived.unset{color:#9aa0a6;box-shadow:inset 0 0 0 1px #9aa0a6;}
+
+/* Lean pane (third column): a vertical stack of two sub-panes — Lean (top) and
+   FOL (bottom) — separated by a horizontal splitter. */
+.lean-pane{flex:1 1 0;min-width:200px;overflow:hidden;background:#fbfbfd;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--line);}
+.rsub{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+#pane3a{flex:1 1 0;}              /* Lean: starts at half, resizable via the splitter */
+#pane3b{flex:1 1 0;}             /* FOL: the other half */
+/* horizontal splitter between the two right sub-panes (drag to resize vertically) */
+.hsplitter{flex:0 0 6px;cursor:row-resize;background:var(--line);position:relative;}
+.hsplitter:hover,.hsplitter.drag{background:var(--accent);}
+.hsplitter::after{content:"";position:absolute;inset:-4px 0;}
+body.resizingv{cursor:row-resize;user-select:none;}
+.rtitle{font-weight:600;color:var(--ink);white-space:nowrap;}
+.lean-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;text-transform:none;letter-spacing:0;}
+.leanfile{font:11px var(--mono);max-width:230px;border:1px solid var(--line);border-radius:5px;padding:2px 5px;background:#fff;color:var(--ink);}
+.lean-tools{display:flex;gap:5px;align-items:center;}
+.vsep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
+.okbtn{color:#1f9d55;} .okbtn.on{background:#1f9d55;color:#fff;border-color:#1f9d55;}
+.notokbtn{color:#c0392b;} .notokbtn.on{background:#c0392b;color:#fff;border-color:#c0392b;}
+.undecbtn{color:#b8860b;} .undecbtn.on{background:#c89b1f;color:#fff;border-color:#c89b1f;}
+.lean-scroll{flex:1;overflow:auto;position:relative;}
+.lean-code{position:relative;font:12px/1.55 var(--mono);padding:8px 0 60px;min-width:max-content;}
+.lean-line{display:flex;align-items:flex-start;white-space:pre;position:relative;z-index:1;}
+.lean-gut{flex:none;width:40px;text-align:right;padding-right:10px;color:#bbb;user-select:none;}
+.lean-src{flex:1;white-space:pre;}
+.lean-src::selection{background:rgba(37,99,235,.35);}
+.lean-hl{position:absolute;pointer-events:none;z-index:0;}   /* fill/outline set inline */
+.lean-hl.flash{z-index:2;border-radius:2px;animation:gappulse 0.7s ease-in-out infinite;}   /* FOL-click flash: unfilled ring, pulsing (matches PDF) */
+
+/* left-panel tabs (Boxes / Lean files) */
+.tabhead{display:flex;align-items:center;gap:4px;padding:5px 10px;}
+.tab{font:11px -apple-system,system-ui,sans-serif;text-transform:none;letter-spacing:0;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--dim);border-radius:6px;padding:3px 9px;}
+.tab:hover{border-color:var(--accent);}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tabhead .spacer{flex:1;}
+.tabview{min-height:0;}
+/* Lean file tree rows */
+.leantree{padding:6px 0 40px;}
+.leanfrow{white-space:nowrap;}
+.leanfrow .rname.folder{color:#6b5600;font-weight:600;}
+.leanfrow.picked{background:#e3edff;box-shadow:inset 0 0 0 1px var(--accent);}
+.leanfrow .rname{cursor:pointer;}
+.leanfilelabel{font:11px var(--mono);color:#cdd0d4;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Lean span sub-rows under a box in the Boxes tree */
+.leanrow{font-size:11px;color:#2c7a4b;}
+.leanrow .rname{font-family:var(--mono);font-size:10.5px;}
+.leanrow .twist{color:#2c7a4b;}
+
+/* ── baseline: header level picker (only UI addition over the original) ── */
+header { position:relative; z-index:500; }
+.levelpick { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--dim); position:relative; z-index:600; }
+.levelpick select { padding:3px 6px; position:relative; z-index:600; }

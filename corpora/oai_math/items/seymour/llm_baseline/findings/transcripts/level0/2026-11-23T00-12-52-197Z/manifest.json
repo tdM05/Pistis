@@ -1,0 +1,13 @@
+{
+  "level": 0,
+  "model": "us.anthropic.claude-opus-4-8",
+  "when": "2026-11-23T00:13:38.397Z",
+  "runTs": "2026-11-23T00-12-52-197Z",
+  "calls": 1,
+  "segments": 1,
+  "verdicts": {
+    "ok": 1
+  },
+  "coverage": 1,
+  "failures": []
+}

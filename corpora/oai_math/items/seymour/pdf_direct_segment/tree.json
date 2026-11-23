@@ -3928,7 +3928,17 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v4"
+                                      "var": "v4",
+                                      "lean": {
+                                        "spans": [
+                                          {
+                                            "file": "lean/MaxSupportKernel.lean",
+                                            "start": 2534,
+                                            "end": 2535
+                                          }
+                                        ],
+                                        "v": "ok"
+                                      }
                                     },
                                     {
                                       "id": "b561",
@@ -3952,7 +3962,17 @@
                                     "composite-term",
                                     "function-application"
                                   ],
-                                  "count": 2
+                                  "count": 2,
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 2534,
+                                        "end": 2535
+                                      }
+                                    ],
+                                    "v": "ok"
+                                  }
                                 },
                                 {
                                   "id": "b562",
@@ -4005,7 +4025,17 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v5"
+                                      "var": "v5",
+                                      "lean": {
+                                        "spans": [
+                                          {
+                                            "file": "lean/MaxSupportKernel.lean",
+                                            "start": 2524,
+                                            "end": 2525
+                                          }
+                                        ],
+                                        "v": "ok"
+                                      }
                                     },
                                     {
                                       "id": "b566",
@@ -4029,7 +4059,17 @@
                                     "composite-term",
                                     "function-application"
                                   ],
-                                  "count": 2
+                                  "count": 2,
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 2524,
+                                        "end": 2525
+                                      }
+                                    ],
+                                    "v": "ok"
+                                  }
                                 }
                               ],
                               "label": [
@@ -4037,7 +4077,17 @@
                                 "composite-term",
                                 "function-application"
                               ],
-                              "count": 2
+                              "count": 2,
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 2524,
+                                    "end": 2535
+                                  }
+                                ],
+                                "v": "ok"
+                              }
                             },
                             {
                               "id": "b567",
@@ -4075,7 +4125,17 @@
                             "formula",
                             "atomic-formula",
                             "equality"
-                          ]
+                          ],
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 2524,
+                                "end": 2535
+                              }
+                            ],
+                            "v": "ok"
+                          }
                         },
                         {
                           "id": "b569",
@@ -4111,7 +4171,17 @@
                         "compound-formula",
                         "connective",
                         "negation"
-                      ]
+                      ],
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 2524,
+                            "end": 2535
+                          }
+                        ],
+                        "v": "ok"
+                      }
                     },
                     {
                       "id": "b555",
@@ -4822,7 +4892,17 @@
                           "label": [
                             "formula",
                             "definition-application"
-                          ]
+                          ],
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 2290,
+                                "end": 2306
+                              }
+                            ],
+                            "v": "ok"
+                          }
                         },
                         {
                           "id": "b549",
@@ -4909,7 +4989,17 @@
                                     "atomic-term",
                                     "variable"
                                   ],
-                                  "var": "v4"
+                                  "var": "v4",
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 1148,
+                                        "end": 1149
+                                      }
+                                    ],
+                                    "v": "ok"
+                                  }
                                 }
                               ],
                               "label": [
@@ -4917,7 +5007,17 @@
                                 "composite-term",
                                 "function-application"
                               ],
-                              "count": 2
+                              "count": 2,
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 1148,
+                                    "end": 1149
+                                  }
+                                ],
+                                "v": "ok"
+                              }
                             },
                             {
                               "id": "b616",
@@ -4966,7 +5066,17 @@
                                         "atomic-term",
                                         "variable"
                                       ],
-                                      "var": "v9"
+                                      "var": "v9",
+                                      "lean": {
+                                        "spans": [
+                                          {
+                                            "file": "lean/MaxSupportKernel.lean",
+                                            "start": 1154,
+                                            "end": 1155
+                                          }
+                                        ],
+                                        "v": "ok"
+                                      }
                                     },
                                     {
                                       "id": "b620",
@@ -5043,7 +5153,17 @@
                                         "composite-term",
                                         "function-application"
                                       ],
-                                      "count": 2
+                                      "count": 2,
+                                      "lean": {
+                                        "spans": [
+                                          {
+                                            "file": "lean/MaxSupportKernel.lean",
+                                            "start": 1152,
+                                            "end": 1155
+                                          }
+                                        ],
+                                        "v": "notok"
+                                      }
                                     }
                                   ],
                                   "label": [
@@ -5051,7 +5171,17 @@
                                     "composite-term",
                                     "function-application"
                                   ],
-                                  "count": 2
+                                  "count": 2,
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 1152,
+                                        "end": 1155
+                                      }
+                                    ],
+                                    "v": "notok"
+                                  }
                                 },
                                 {
                                   "id": "b625",
@@ -5116,7 +5246,17 @@
                                     "composite-term",
                                     "function-application"
                                   ],
-                                  "count": 1
+                                  "count": 1,
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 1135,
+                                        "end": 1160
+                                      }
+                                    ],
+                                    "v": "notok"
+                                  }
                                 }
                               ],
                               "label": [
@@ -5124,7 +5264,17 @@
                                 "composite-term",
                                 "function-application"
                               ],
-                              "count": 2
+                              "count": 2,
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 1135,
+                                    "end": 1160
+                                  }
+                                ],
+                                "v": "ok"
+                              }
                             },
                             {
                               "id": "b629",
@@ -5144,7 +5294,20 @@
                             "formula",
                             "atomic-formula",
                             "equality"
-                          ]
+                          ],
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 1135,
+                                "end": 1160
+                              }
+                            ],
+                            "v": "notok",
+                            "why": "closest: range_lt_range_add_single.hEx — diverges at  (add has 2 argument(s), Lean Matrix.mulVecLin has 1)",
+                            "cmp": "E.mulVecLin x = x j • e",
+                            "path": "formula.atomic-formula.equality"
+                          }
                         },
                         {
                           "id": "b20",
@@ -5227,7 +5390,17 @@
                                 "composite-term",
                                 "function-application"
                               ],
-                              "count": 1
+                              "count": 1,
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 1250,
+                                    "end": 1283
+                                  }
+                                ],
+                                "v": "notok"
+                              }
                             },
                             {
                               "id": "b633",
@@ -5299,7 +5472,20 @@
                             "atomic-formula",
                             "relation"
                           ],
-                          "count": 2
+                          "count": 2,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 1250,
+                                "end": 1283
+                              }
+                            ],
+                            "v": "notok",
+                            "why": "closest: range_lt_range_add_single.he — diverges at term.composite-term.function-application (e has 1 argument(s), Lean Pi.single has 2)",
+                            "cmp": "e ∈ LinearMap.range E.mulVecLin",
+                            "path": "formula.atomic-formula.relation"
+                          }
                         },
                         {
                           "id": "b21",
@@ -6250,7 +6436,17 @@
                                 "compound-formula",
                                 "connective",
                                 "implication"
-                              ]
+                              ],
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 958,
+                                    "end": 1014
+                                  }
+                                ],
+                                "v": "notok"
+                              }
                             }
                           ],
                           "label": [
@@ -6258,7 +6454,20 @@
                             "compound-formula",
                             "quantified",
                             "universal"
-                          ]
+                          ],
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 958,
+                                "end": 1014
+                              }
+                            ],
+                            "v": "notok",
+                            "why": "closest: range_lt_range_add_single.hEw — diverges at formula.compound-formula.connective.implication (FOL arrow vs Lean eq)",
+                            "cmp": "J → ℝ) : E.mulVecLin w = D.mulVecLin w + w j • e",
+                            "path": "formula.compound-formula.quantified.universal"
+                          }
                         },
                         {
                           "id": "b22",
@@ -6333,7 +6542,17 @@
                                     "atomic-term",
                                     "variable"
                                   ],
-                                  "var": "v3"
+                                  "var": "v3",
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 1497,
+                                        "end": 1556
+                                      }
+                                    ],
+                                    "v": "notok"
+                                  }
                                 }
                               ],
                               "label": [
@@ -6341,7 +6560,17 @@
                                 "composite-term",
                                 "function-application"
                               ],
-                              "count": 1
+                              "count": 1,
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 1497,
+                                    "end": 1556
+                                  }
+                                ],
+                                "v": "ok"
+                              }
                             },
                             {
                               "id": "b658",
@@ -6414,7 +6643,20 @@
                             "atomic-formula",
                             "relation"
                           ],
-                          "count": 2
+                          "count": 2,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 1497,
+                                "end": 1556
+                              }
+                            ],
+                            "v": "notok",
+                            "why": "closest: range_lt_range_add_single.hle — diverges at term.atomic-term.variable (variable v3 maps to INCONSISTENT Lean terms (app:c:Matrix.mulVecLin/1, app:c:HAdd.hAdd/2) — here it is app:c:Matrix.mulVecLin/1; a FOL variable must denote one thing everywhere)",
+                            "cmp": "LinearMap.range D.mulVecLin ≤ LinearMap.range E.mulVecLin",
+                            "path": "formula.atomic-formula.relation"
+                          }
                         },
                         {
                           "id": "b23",
@@ -6537,7 +6779,17 @@
                             "atomic-formula",
                             "relation"
                           ],
-                          "count": 2
+                          "count": 2,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 2999,
+                                "end": 3046
+                              }
+                            ],
+                            "v": "ok"
+                          }
                         },
                         {
                           "id": "b548",
@@ -6694,7 +6946,17 @@
                             "compound-formula",
                             "connective",
                             "negation"
-                          ]
+                          ],
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 2521,
+                                "end": 2536
+                              }
+                            ],
+                            "v": "ok"
+                          }
                         },
                         {
                           "id": "b552",
@@ -6794,7 +7056,17 @@
                                     "composite-term",
                                     "function-application"
                                   ],
-                                  "count": 1
+                                  "count": 1,
+                                  "lean": {
+                                    "spans": [
+                                      {
+                                        "file": "lean/MaxSupportKernel.lean",
+                                        "start": 1866,
+                                        "end": 1899
+                                      }
+                                    ],
+                                    "v": "notok"
+                                  }
                                 },
                                 {
                                   "id": "b752",
@@ -6866,7 +7138,17 @@
                                 "atomic-formula",
                                 "relation"
                               ],
-                              "count": 2
+                              "count": 2,
+                              "lean": {
+                                "spans": [
+                                  {
+                                    "file": "lean/MaxSupportKernel.lean",
+                                    "start": 1866,
+                                    "end": 1899
+                                  }
+                                ],
+                                "v": "ok"
+                              }
                             },
                             {
                               "id": "b747",
@@ -6889,7 +7171,20 @@
                             "compound-formula",
                             "connective",
                             "negation"
-                          ]
+                          ],
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 1866,
+                                "end": 1899
+                              }
+                            ],
+                            "v": "notok",
+                            "why": "closest: range_lt_range_add_single.hnot — diverges at term.composite-term.function-application (e has 1 argument(s), Lean Pi.single has 2)",
+                            "cmp": "e ∉ LinearMap.range D.mulVecLin",
+                            "path": "formula.compound-formula.connective.negation"
+                          }
                         },
                         {
                           "id": "b24",
@@ -7045,7 +7340,20 @@
                             "atomic-formula",
                             "relation"
                           ],
-                          "count": 2
+                          "count": 2,
+                          "lean": {
+                            "spans": [
+                              {
+                                "file": "lean/MaxSupportKernel.lean",
+                                "start": 2999,
+                                "end": 3046
+                              }
+                            ],
+                            "v": "notok",
+                            "why": "closest: kernel_support_of_max_rank.hlt — diverges at  (add applies 2 arg(s) but Lean has a bare var)",
+                            "cmp": "D.rank < (D + Matrix.single s j (1 : ℝ)).rank",
+                            "path": "formula.atomic-formula.relation"
+                          }
                         },
                         {
                           "id": "b25",
@@ -7065,448 +7373,159 @@
                       ],
                       "label": [
                         "proof"
-                      ]
+                      ],
+                      "lean": {
+                        "spans": [
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 2290,
+                            "end": 2306
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 1135,
+                            "end": 1160
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 1250,
+                            "end": 1283
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 958,
+                            "end": 1014
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 1497,
+                            "end": 1556
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 2999,
+                            "end": 3046
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 2521,
+                            "end": 2536
+                          },
+                          {
+                            "file": "lean/MaxSupportKernel.lean",
+                            "start": 1866,
+                            "end": 1899
+                          }
+                        ]
+                      }
                     }
                   ],
                   "label": [
                     "assumption"
-                  ]
+                  ],
+                  "lean": {
+                    "spans": [
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 2524,
+                        "end": 2535
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 2290,
+                        "end": 2306
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 1135,
+                        "end": 1160
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 1250,
+                        "end": 1283
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 958,
+                        "end": 1014
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 1497,
+                        "end": 1556
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 2999,
+                        "end": 3046
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 2521,
+                        "end": 2536
+                      },
+                      {
+                        "file": "lean/MaxSupportKernel.lean",
+                        "start": 1866,
+                        "end": 1899
+                      }
+                    ]
+                  }
                 }
               ],
               "label": [
                 "proof"
-              ]
-            },
-            {
-              "id": "b528",
-              "pieces": [],
-              "bot": true,
-              "auto": true,
-              "children": [
-                {
-                  "id": "b529",
-                  "pieces": [],
-                  "bot": true,
-                  "auto": true,
-                  "botkind": "inputs",
-                  "children": [
-                    {
-                      "id": "b530",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3499,
-                            "end": 3500
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #5 'x' has no input at this position",
-                        "cmp": "x"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b531",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3511,
-                            "end": 3512
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #6 'y' has no input at this position",
-                        "cmp": "y"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b532",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3610,
-                            "end": 3611
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #7 's' has no input at this position",
-                        "cmp": "s"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b533",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3618,
-                            "end": 3619
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #8 'j' has no input at this position",
-                        "cmp": "j"
-                      },
-                      "children": []
-                    }
-                  ],
-                  "lean": {
-                    "spans": [
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3499,
-                        "end": 3500
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3511,
-                        "end": 3512
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3610,
-                        "end": 3611
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3618,
-                        "end": 3619
-                      }
-                    ]
+              ],
+              "lean": {
+                "spans": [
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 2524,
+                    "end": 2535
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 2290,
+                    "end": 2306
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 1135,
+                    "end": 1160
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 1250,
+                    "end": 1283
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 958,
+                    "end": 1014
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 1497,
+                    "end": 1556
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 2999,
+                    "end": 3046
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 2521,
+                    "end": 2536
+                  },
+                  {
+                    "file": "lean/MaxSupportKernel.lean",
+                    "start": 1866,
+                    "end": 1899
                   }
-                },
-                {
-                  "id": "b534",
-                  "pieces": [],
-                  "bot": true,
-                  "auto": true,
-                  "botkind": "conditions",
-                  "children": [
-                    {
-                      "id": "b535",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3503,
-                            "end": 3508
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #7 'x' type has no condition at this position",
-                        "cmp": "J → ℝ"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b536",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3515,
-                            "end": 3520
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #8 'y' type has no condition at this position",
-                        "cmp": "I → ℝ"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b537",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3532,
-                            "end": 3561
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #9 'hx' type has no condition at this position",
-                        "cmp": "x ∈ LinearMap.ker D.mulVecLin"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b538",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3573,
-                            "end": 3603
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #10 'hy' type has no condition at this position",
-                        "cmp": "y ∈ LinearMap.ker Dᵀ.mulVecLin"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b539",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3610,
-                            "end": 3615
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #11 's' type has no condition at this position",
-                        "cmp": "s : I"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b540",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3618,
-                            "end": 3623
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #12 'j' type has no condition at this position",
-                        "cmp": "j : J"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b541",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 3632,
-                            "end": 3642
-                          }
-                        ],
-                        "v": "notok",
-                        "why": "Lean binder #13 'hsj' type has no condition at this position",
-                        "cmp": "(s, j) ∈ T"
-                      },
-                      "children": []
-                    }
-                  ],
-                  "lean": {
-                    "spans": [
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3503,
-                        "end": 3508
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3515,
-                        "end": 3520
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3532,
-                        "end": 3561
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3573,
-                        "end": 3603
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3610,
-                        "end": 3615
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3618,
-                        "end": 3623
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 3632,
-                        "end": 3642
-                      }
-                    ]
-                  }
-                },
-                {
-                  "id": "b542",
-                  "pieces": [],
-                  "bot": true,
-                  "auto": true,
-                  "botkind": "scaffolding",
-                  "children": [
-                    {
-                      "id": "b543",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 170,
-                            "end": 180
-                          }
-                        ],
-                        "v": "ok",
-                        "why": "formal scaffolding (no NL counterpart)",
-                        "cmp": "variable {"
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b544",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 181,
-                            "end": 182
-                          }
-                        ],
-                        "v": "ok",
-                        "why": "formal scaffolding (no NL counterpart)",
-                        "cmp": " "
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b545",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 183,
-                            "end": 194
-                          }
-                        ],
-                        "v": "ok",
-                        "why": "formal scaffolding (no NL counterpart)",
-                        "cmp": " : Type*} ["
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b546",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 203,
-                            "end": 206
-                          }
-                        ],
-                        "v": "ok",
-                        "why": "formal scaffolding (no NL counterpart)",
-                        "cmp": "] ["
-                      },
-                      "children": []
-                    },
-                    {
-                      "id": "b547",
-                      "pieces": [],
-                      "bot": true,
-                      "auto": true,
-                      "lean": {
-                        "spans": [
-                          {
-                            "file": "lean/MaxSupportKernel.lean",
-                            "start": 215,
-                            "end": 216
-                          }
-                        ],
-                        "v": "ok",
-                        "why": "formal scaffolding (no NL counterpart)",
-                        "cmp": "]"
-                      },
-                      "children": []
-                    }
-                  ],
-                  "lean": {
-                    "spans": [
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 170,
-                        "end": 180
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 181,
-                        "end": 182
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 183,
-                        "end": 194
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 203,
-                        "end": 206
-                      },
-                      {
-                        "file": "lean/MaxSupportKernel.lean",
-                        "start": 215,
-                        "end": 216
-                      }
-                    ]
-                  }
-                }
-              ]
+                ]
+              }
             }
           ],
           "label": [

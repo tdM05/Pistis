@@ -10,6 +10,13 @@
       "src": "items/seymour/pdf_direct_segment/lean/MaxSupportKernel.lean"
     }
   },
+  "_doc_proofs": "Maps a FOL `proof` box id to the Lean DECLARATION(S) whose proof terms formalize that NL proof. Each NL proof STEP is matched against these decls' propositions (their `have`-types + hypotheses); the match's spans are located in each matched prop's source region, exactly like `decls` does for a statement. Authored, not inferred.",
+  "proofs": {
+    "b10": [
+      { "decl": "OAI.SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel.kernel_support_of_max_rank", "src": "items/seymour/pdf_direct_segment/lean/MaxSupportKernel.lean" },
+      { "decl": "OAI.SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel.range_lt_range_add_single", "src": "items/seymour/pdf_direct_segment/lean/MaxSupportKernel.lean" }
+    ]
+  },
   "symbols": {
     "a_matrix_supported_on_T": {
       "lean": "SupportedOn",

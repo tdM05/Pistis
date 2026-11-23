@@ -1,0 +1,43 @@
+{
+  "id": "root",
+  "pieces": [
+    {
+      "start": 0,
+      "end": 39719
+    }
+  ],
+  "children": [
+    {
+      "id": "f1",
+      "pieces": [
+        {
+          "start": 11692,
+          "end": 11709
+        }
+      ],
+      "issue": "The NL lemma assumes D has n ≥ 1 vertices (i.e. V(D) is nonempty), but the Lean formalization places no nonemptiness assumption on V (no `[Nonempty V]` or `0 < Fintype.card V`); the blowup theorems quantify over a possibly-empty vertex type.",
+      "lean_file": "TransitiveBlowup.lean",
+      "lean_line": null,
+      "lean_quote": "",
+      "section": "Lemma 2.3 (Transitive-tournament blowup) statement and proof",
+      "flags": [],
+      "verdict": null
+    },
+    {
+      "id": "f2",
+      "pieces": [
+        {
+          "start": 14478,
+          "end": 14497
+        }
+      ],
+      "issue": "The NL claims the construction works for ANY integer m > |V(D)|, but the Lean fixes the blowup size to exactly n + 1 (the immediate successor of |V(D)| = n), as confirmed by `Nat.lt_succ_self n`; it does not quantify over all m greater than |V(D)|.",
+      "lean_file": "Reduction.lean",
+      "lean_line": 19,
+      "lean_quote": "blowup s (n + 1)",
+      "section": "Proof of Proposition 2.1",
+      "flags": [],
+      "verdict": null
+    }
+  ]
+}

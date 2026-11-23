@@ -54,10 +54,27 @@ def __argExplicit (fnTy : Expr) (n : Nat) : MetaM (Array Bool) :=
       out := out.push d.binderInfo.isExplicit
     pure (out.extract 0 n)
 
+-- BOUNDED delta-unfold: expand a definition ONLY when doing so exposes a LOGICAL
+-- primitive at the head (`Not`/`And`/`Or`/`Iff`/`Eq`/`Exists`/`<`/`≤`/`∈`). This
+-- turns the logical sugar — `Ne a b`→`¬(a = b)`, `a ∉ s`→`¬(a ∈ s)`, `a > b`→`b < a`
+-- — into primitive form WITHOUT a per-symbol table, while leaving named math notions
+-- (`rank`, `range`, `SupportedOn`) FOLDED as opaque atoms (so they don't explode and
+-- the abstract matcher absorbs them). "Unfold the logic; keep the notions."
+def __logicalHead (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .const n _ => [``Not, ``And, ``Or, ``Iff, ``Eq, ``Exists, ``LT.lt, ``LE.le, ``Membership.mem].contains n
+  | _ => false
+
+partial def __unfold (e : Expr) : MetaM Expr :=
+  Meta.transform e (pre := fun node => do
+    match (← Meta.unfoldDefinition? node) with
+    | some n => if __logicalHead n then return .visit n else return .continue
+    | none   => return .continue)
+
 partial def __exprToJson (names : List String) (e : Expr) : MetaM Json := do
   match e with
   | .bvar i => pure <| Json.mkObj [("kind", "var"), ("name", Json.str (names.getD i s!"#{i}"))]
-  | .fvar _ => pure <| Json.mkObj [("kind", "fvar")]
+  | .fvar fid => pure <| Json.mkObj [("kind", "var"), ("name", Json.str (← fid.getUserName).toString)]
   | .mvar _ => pure <| Json.mkObj [("kind", "mvar")]
   | .sort _ => pure <| Json.mkObj [("kind", "sort")]
   | .const n _ => pure <| Json.mkObj [("kind", "const"), ("name", Json.str n.toString)]
@@ -81,6 +98,27 @@ partial def __exprToJson (names : List String) (e : Expr) : MetaM Json := do
       pure <| Json.mkObj [("kind", "forall"), ("binder", Json.str n.toString), ("info", Json.str (reprStr bi)), ("dom", ← __exprToJson names t), ("body", ← __exprToJson (n.toString :: names) b)]
   | .letE n t v b _ => do
       pure <| Json.mkObj [("kind", "let"), ("binder", Json.str n.toString), ("type", ← __exprToJson names t), ("value", ← __exprToJson names v), ("body", ← __exprToJson (n.toString :: names) b)]
+
+-- collect the proof's HAVE-types (every `let` binder's type), ANYWHERE in the term —
+-- the haves are buried deep (inside applications / lambdas), not leading binders. We
+-- descend CONTEXT-AWARE: each enclosing binder becomes a local FVAR (via with*Decl +
+-- instantiate1), so at each `let` its type is CLOSED (no loose de-Bruijn vars) → safe
+-- to __unfold and renders with real variable names. Emitted in-scope (fvars valid).
+partial def __haves (e : Expr) : MetaM (Array Json) := do
+  match e with
+  | .letE n t v b _ => do
+      let tU ← (do try __unfold t catch _ => pure t)
+      withLetDecl n t v fun fv => do
+        let here := Json.mkObj [("binder", Json.str n.toString), ("type", ← __exprToJson [] tU)]
+        pure (#[here] ++ (← __haves (b.instantiate1 fv)))
+  | .lam n d b bi => withLocalDecl n bi d fun fv => __haves (b.instantiate1 fv)
+  | .forallE n d b bi => withLocalDecl n bi d fun fv => __haves (b.instantiate1 fv)
+  | .app .. => do
+      let mut acc : Array Json ← __haves e.getAppFn
+      for a in e.getAppArgs do acc := acc ++ (← __haves a)
+      pure acc
+  | .mdata _ e => __haves e
+  | _ => pure #[]
 
 open Lean Elab in
 #eval show Lean.Elab.Command.CommandElabM Unit from do
@@ -151,7 +189,23 @@ open Lean Elab in
       -- run the Expr→JSON walk inside MetaM (needed for per-arg explicitness)
       let act : MetaM Json := do
         let tyj ← __exprToJson [] ci.type
-        let valj ← match ci.value? with | some v => __exprToJson [] v | none => pure Json.null
+        -- read the VALUE directly off the ConstantInfo: `ci.value?` returns none for
+        -- `thmInfo` in this toolchain (theorem proofs look opaque to value?), but the
+        -- proof Expr IS stored in the field. defn/thm/opaque all carry a .value.
+        let valOpt : Option Expr := match ci with
+          | .defnInfo v => some v.value
+          | .thmInfo v  => some v.value
+          | .opaqueInfo v => some v.value
+          | _ => none
+        let valj ← match valOpt with | some v => __exprToJson [] v | none => pure Json.null
+        -- HAVE-TYPES: the proof's intermediate propositions (the `have`s = `let`
+        -- binders in the proof term). Telescope the value so every enclosing binder
+        -- is a local FVAR (NOT a loose de-Bruijn index) → each let-type is a CLOSED
+        -- term we can safely __unfold (fixing the open-term scramble bug) and whose
+        -- vars render by their real user name. Emit {binder, type} per let-binder.
+        let havesJson : Json ← match valOpt with
+          | some v => do let hs ← (do try __haves v catch _ => pure #[]); pure (Json.arr hs)
+          | none => pure (Json.arr #[])
         -- per-binder (in order): is the binder's TYPE a Prop? i.e. is it a PROOF hypothesis
         -- (a condition) rather than a DATA input. Lets the JS side drop Prop binders from
         -- the input-matching (like it drops `[instImplicit]` instances).
@@ -161,7 +215,7 @@ open Lean Elab in
             let ty ← x.fvarId!.getType
             a := a.push (Json.bool (← isProp ty))
           pure a
-        pure <| Json.mkObj [("name", Json.str declName.toString), ("type", tyj), ("value", valj), ("ranges", rangesJson), ("binders", bindersJson), ("binderProps", Json.arr props)]
+        pure <| Json.mkObj [("name", Json.str declName.toString), ("type", tyj), ("value", valj), ("haves", havesJson), ("ranges", rangesJson), ("binders", bindersJson), ("binderProps", Json.arr props)]
       let out ← Lean.Elab.Command.liftTermElabM act.run'
       IO.println s!"__EXTRACT__{out.compress}"
 

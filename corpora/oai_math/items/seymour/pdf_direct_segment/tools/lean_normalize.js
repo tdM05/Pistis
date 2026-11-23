@@ -23,6 +23,7 @@ const KNOWN = {
   'Or':               { shape: 'or',  skip: 0 },
   'Iff':              { shape: 'iff', skip: 0 },
   'Membership.mem':   { shape: 'mem', skip: 3 },   // mem (α)(γ)(inst) container elem (order varies by Lean ver)
+  'Ne':               { shape: 'ne',  skip: 1 },   // Ne (α) a b  → ¬ (a = b)  (logical sugar)
 };
 
 // an app's args, each as {explicit, node}. Tolerates both the new wrapped shape
@@ -72,6 +73,7 @@ export function normalize(node) {
       if (known) {
         const vals = explicitArgs.map(normalize);
         if (known.shape === 'eq') return { t: 'eq', args: vals };
+        if (known.shape === 'ne') return { t: 'not', args: [{ t: 'eq', args: vals }] };   // ≠ ≡ ¬(=)
         if (known.shape === 'not') return { t: 'not', args: vals };
         if (known.shape === 'and') return { t: 'and', args: vals };
         if (known.shape === 'or') return { t: 'or', args: vals };

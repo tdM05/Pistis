@@ -10,6 +10,7 @@ import { normalize, peelBinders, peelTypeBinders, constNames } from './lean_norm
 import { makeAligner } from './align.js';
 import { extract } from './lean_extract/extract.js';
 import { surface, locate, pretty } from './lean_spans.js';
+import { routeStepToProp } from './llm_route.js';
 
 const SEG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');   // pdf_direct_segment/
 
@@ -20,8 +21,14 @@ const SEG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 //   chars   : the global CHARS string (for symbol slugs)
 //   dict    : lean_dict.json  ({decls, symbols})
 // Returns { ok, reason?, alignment?, findings?, leanDecl? }.
-export function alignBox({ core, root, box, chars, dict }) {
+export function alignBox({ core, root, box, chars, dict, llm }) {
   const C = core;
+  // PROOF: if this box sits inside a `proof` that has a Lean-proof association
+  // (dict.proofs), do STEP-BY-STEP proof alignment instead of statement alignment —
+  // same matcher, same lean_spans span machinery, same result shape (so the UI's
+  // existing "align Lean" paints it). Dispatch before the statement decl walk-up.
+  { let p = box; while (p && !(dict.proofs && dict.proofs[p.id])) p = C.parentOf(root, p.id);
+    if (p) return alignProof({ core, root, proofBox: p, chars, dict, llm }); }
   // align works at the box that carries a Lean decl association. If `box` is
   // INSIDE such a box (e.g. a sub-formula), walk up to the nearest ancestor that
   // has one — so aligning from anywhere inside a definition aligns the definition.
@@ -45,7 +52,7 @@ export function alignBox({ core, root, box, chars, dict }) {
   // aligner can VERIFY type-vs-prop discharges (e.g. `real` only if a binder's
   // type mentions `Real`). Pulled from the TYPE (which carries the binder types).
   const typeBinders = peelTypeBinders(raw.type).map((b, i) => ({ binder: b.binder, info: b.info, dom: b.dom, typeConsts: constNames(b.dom || {}), isProp: !!(raw.binderProps && raw.binderProps[i]) }));
-  const A = makeAligner(C, dict.symbols || {}, symText, { binders: typeBinders, tuples: dict.tuples || {} });
+  const A = makeAligner(C, dict.symbols || {}, symText, { binders: typeBinders, tuples: dict.tuples || {}, root, links: root.links || [], decls: dict.decls || {} });
 
   // attach SOURCE POSITIONS (from the parsed syntax tree, raw.binders) to the Expr
   // binders, so inputs↔binder-NAME and conditions↔binder-TYPE spans resolve to exact
@@ -496,4 +503,198 @@ export function alignBox({ core, root, box, chars, dict }) {
     const base = assoc.src.split('/').pop();   // MaxSupportKernel.lean
     return 'lean/' + base;
   }
+}
+
+// ── PROOF alignment ───────────────────────────────────────────────────────────
+// Match each NL proof STEP against the propositions of the proof's Lean decl(s)
+// (their `have`-types + hypotheses), and allocate Lean source spans per matched
+// piece — the SAME surface+locate span machinery `finish()` uses for a statement,
+// just pointed at each matched prop's own source region. Returns the SAME result
+// shape as alignBox so the UI's "align Lean" paints it. Unfaithfulness-detector
+// semantics: a step is faithful iff SOME prop aligns cleanly; else its closest
+// near-miss (most nodes matched) is reported with the divergence.
+function alignProof({ core, root, proofBox, chars, dict, llm }) {
+  const C = core;
+  const assocs = dict.proofs[proofBox.id];
+  // LLM routing (which prop an UNFAITHFUL step is intended to match) is on by default;
+  // disable via llm:false or PISTIS_NO_LLM=1 (offline/deterministic runs). It never
+  // affects the verdict — only which prop the divergence is reported against.
+  const llmEnabled = llm !== false && process.env.PISTIS_NO_LLM !== '1';
+  const symText = (x) => { const ps = C.pieces(x); if (!ps.length) return '∅'; return chars.slice(ps[0].start, ps[0].end).replace(/\s+/g, ' ').trim().replace(/ /g, '_'); };
+
+  // NL `define`d names → a COPY of their RHS expression box (ids stripped), so `Dτ`
+  // INLINES to `D + τeₛeⱼᵀ` for MATCHING (its body, e.g. the leftover τ, is compared)
+  // WITHOUT attributing any Lean spans/verdict to the `define`'s own boxes — the copy
+  // has no ids, so the span walk skips it and the define box (b550) isn't polluted.
+  const stripIds = (b) => ({ ...b, id: undefined, children: (b.children || []).map(stripIds) });
+  const nlDefs = {};
+  C.walk(proofBox, (n) => {
+    if (C.labelConcrete(n.label) !== 'define') return;
+    const vs = (n.children || []).find((k) => C.labelConcrete(k.label) === 'variable-symbol');
+    const eq = (n.children || []).find((k) => C.labelConcrete(k.label) === 'equality');
+    if (!vs || vs.var == null || !eq) return;
+    const terms = (eq.children || []).filter((k) => { const c = C.labelConcrete(k.label); return c && c !== 'equality-symbol' && c !== 'commentary'; });
+    const rhs = terms.find((t) => !(C.isVariable(t) && t.var === vs.var)) || terms[terms.length - 1];
+    if (rhs) nlDefs[vs.var] = stripIds(rhs);
+  });
+
+  // ── NL steps: formula/definition-application boxes that are DIRECT children of a
+  // proof-structure block (proof / assumption / case) — i.e. the step-level claims. ──
+  const BLOCK = new Set(['proof', 'assumption', 'case', 'case-analysis']);
+  const isStep = (b) => { const c = C.labelConcrete(b.label); return c === 'definition-application' || C.isFormulaish(b); };
+  const steps = [];
+  C.walk(proofBox, (n) => {
+    if (!isStep(n)) return;
+    const par = C.parentOf(root, n.id);
+    if (par && BLOCK.has(C.labelConcrete(par.label))) steps.push(n);
+  });
+
+  // ── Lean propositions: every `let` (have) and `lam` (hypothesis) binder type of
+  // each proof decl, normalized, with its SOURCE REGION located in the .lean file. ──
+  const leanRel = (a) => 'lean/' + a.src.split('/').pop();
+  const props = [];
+  const srcText = {};   // rel -> file text
+  const letEnv = {};    // Lean LOCAL let name -> normalized VALUE (E -> D + single …), for zeta
+  for (const a of assocs) {
+    let raw; try { raw = extract({ decl: a.decl, srcFile: a.src }); } catch (e) { continue; }
+    const rel = leanRel(a);
+    if (srcText[rel] == null) { try { srcText[rel] = readFileSync(path.join(SEG_DIR, rel), 'utf8'); } catch (_) { srcText[rel] = ''; } }
+    const text = srcText[rel];
+    const seen = [];
+    (function w(n) { if (!n || typeof n !== 'object') return;
+      if (n.kind === 'let' && n.type) seen.push([n.binder, n.type]);
+      if (n.kind === 'let' && n.value && letEnv[n.binder] == null) { try { letEnv[n.binder] = normalize(n.value); } catch (_) { } }
+      if (n.kind === 'lam' && n.dom) seen.push([n.binder, n.dom]);
+      for (const k of ['dom', 'body', 'type', 'value', 'fn', 'on']) if (n[k]) w(n[k]);
+      if (Array.isArray(n.args)) n.args.forEach((x) => w(x && x.node ? x.node : x)); })(raw.value);
+    for (const [nm, ty] of seen) {
+      let node; try { node = normalize(ty); } catch (_) { continue; }
+      if (!node) continue;
+      props.push({ tag: a.decl.split('.').pop() + '.' + nm, binder: nm, node, text, file: rel, region: typeRegion(text, nm) });
+    }
+  }
+  // the aligner, with NL define-inlining + Lean let-zeta (bounded LOCAL unfolds only).
+  const A = makeAligner(C, dict.symbols || {}, symText, { binders: [], tuples: dict.tuples || {}, root, links: root.links || [], decls: dict.decls || {}, nlDefs, letEnv });
+  // locate the SOURCE region of a binder's TYPE: `have nm : TYPE :=` → the TYPE; a
+  // signature/`obtain` hyp `(nm : TYPE)` → the TYPE; else the line the binder is on.
+  function typeRegion(text, nm) {
+    if (!text) return null;
+    const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let i = text.indexOf('have ' + nm);
+    if (i >= 0) { const c = text.indexOf(':', i); if (c >= 0) { const a = text.indexOf(':=', c); let e = a >= 0 ? a : text.indexOf('\n', c); if (e < 0) e = text.length; return [c + 1, e]; } }
+    const m = new RegExp('[({\\s]' + esc + '\\s*:').exec(text);
+    if (m) { const c = text.indexOf(':', m.index); let e = text.indexOf(')', c); const nl = text.indexOf('\n', c); if (e < 0 || (nl >= 0 && nl < e)) e = nl; if (e < 0) e = text.length; return [c + 1, e]; }
+    const j = new RegExp('(^|[^\\w])' + esc + '([^\\w]|$)').exec(text);
+    if (j) { const ls = text.lastIndexOf('\n', j.index) + 1; let le = text.indexOf('\n', j.index); if (le < 0) le = text.length; return [ls, le]; }
+    return null;
+  }
+
+  // ── walk a step's alignment tree, allocating Lean spans within [lo,hi] of the
+  // matched prop's source `text` — recurse-first, surface+locate, envelope fallback
+  // for infix ops; a mismatch with no located span falls back to the whole region. ──
+  function spanWalk(n, lo, hi, text, file, spans) {
+    const surf = n.leanNode ? surface(n.leanNode) : null;
+    let loc = surf ? locate(text, lo, hi, surf) : null;
+    const clo = loc ? loc.start : lo, chi = loc ? loc.end : hi;
+    (n.children || []).forEach((c) => spanWalk(c, clo, chi, text, file, spans));
+    if (!loc && n.leanNode && (n.status === 'leaf' || n.status === 'match') && (n.children || []).length) {
+      let a = Infinity, b = -Infinity;
+      for (const c of n.children) { const cs = c.fol && spans[c.fol]; if (cs && cs.start != null) { if (cs.start < a) a = cs.start; if (cs.end > b) b = cs.end; } }
+      if (b > a) loc = { start: a, end: b };
+    }
+    const notok = n.status === 'mismatch' || n.status === 'unmapped';
+    if (loc && n.fol) spans[n.fol] = { file, start: loc.start, end: loc.end, v: notok ? 'notok' : 'ok' };
+    else if (n.fol && notok) spans[n.fol] = { file, start: lo, end: hi, v: 'notok' };
+  }
+
+  const bad = (node) => { let s = 0; (function w(n) { if (!n) return; if (n.status === 'mismatch' || n.status === 'unmapped' || n.status === 'skipped') s++; (n.children || []).forEach(w); })(node); return s; };
+  const good = (node) => { let s = 0; (function w(n) { if (!n) return; if (n.status === 'leaf' || n.status === 'match' || n.status === 'typed') s++; (n.children || []).forEach(w); })(node); return s; };
+  const firstBad = (node) => { let h = null; (function w(n) { if (h || !n) return; if (n.status === 'mismatch' || n.status === 'unmapped' || n.status === 'skipped') { h = n; return; } (n.children || []).forEach(w); })(node); return h; };
+  const nlText = (b) => { const ps = C.pieces(b); return ps.length ? chars.slice(ps[0].start, ps[ps.length - 1].end).replace(/\s+/g, ' ').trim() : ''; };
+  const labelPath = (b) => b && b.label ? b.label.join('.') : '';
+
+  // CANDIDATE PROPS: the props with a locatable source region, deduped by region —
+  // the set a step can be faithful to AND the set the LLM routes among (same set, so
+  // the routed prop always has a span to display). Drops the extraction's hygienic
+  // noise (`a`,`b`,`i`,… with null regions) that can neither be shown nor meaningfully
+  // matched.
+  const cands = (() => { const seen = new Set(), out = [];
+    for (const p of props) { if (!p.region) continue; const k = p.file + ':' + p.region[0] + '-' + p.region[1];
+      if (seen.has(k)) continue; seen.add(k); out.push(p); } return out; })();
+  const regionText = (p) => p.text.slice(p.region[0], p.region[1]).replace(/\s+/g, ' ').trim();
+  const safeAlign = (step, p) => { try { return A.align(step, p.node); } catch (_) { return null; } };
+
+  // ── match each step, allocate spans, collect findings ──
+  const spans = {};
+  const children = [];
+  const findings = [];
+  for (const step of steps) {
+    let hit = null, hitRes = null, best = null, bestGood = -1;
+    for (const f of cands) {
+      let res; try { res = A.align(step, f.node); } catch (_) { continue; }
+      if (bad(res) === 0) { hit = f; hitRes = res; break; }
+      const g = good(res); if (g > bestGood) { bestGood = g; best = f; }
+    }
+    const faithful = !!hit;
+    // FAITHFUL: the clean-matching prop. UNFAITHFUL: ask the LLM which prop this step
+    // is INTENDED to match (routing only — the verdict is already unfaithful); fall
+    // back to the heuristic `best` (max matched nodes) if routing is off or fails.
+    let chosen, res;
+    if (faithful) { chosen = hit; res = hitRes; }
+    else {
+      let pick = null;
+      if (llmEnabled && cands.length) {
+        const idx = routeStepToProp(nlText(step), cands.map(regionText), { model: 'claude-sonnet-5' });
+        if (idx != null) pick = cands[idx];
+      }
+      chosen = pick || best || cands[0] || null;
+      res = chosen ? safeAlign(step, chosen) : null;
+    }
+    if (chosen && res) {
+      const [lo, hi] = chosen.region || [0, 0];
+      if (chosen.region) spanWalk(res, lo, hi, chosen.text, chosen.file, spans);
+      // tag the step's own box with the overall verdict (so the tree badge shows it)
+      res.proofStep = step.id; res.verdict = faithful ? 'faithful' : 'unfaithful'; res.witness = chosen.tag;
+      children.push(res);
+      const fb = faithful ? null : firstBad(res);
+      // GUARANTEE every step maps to SOMEWHERE — the Lean proposition it was matched
+      // (faithful) or compared against (its CLOSEST near-miss, unfaithful). The
+      // step-level span is ALWAYS colored by the step's own verdict, so a faithful
+      // step reads ok even when its top node is a prefix-form relation that didn't
+      // surface-locate (it would otherwise map to nothing), and an unfaithful step
+      // reads notok even when its outer shape (e.g. the `=`) matched and a child is
+      // what diverged (it would otherwise inherit the child's green). Finer per-node
+      // spans from spanWalk stay as children for drill-down.
+      if (chosen.region) {
+        if (faithful) {
+          // keep a precise located span if the walk produced one; else the whole prop.
+          if (!spans[step.id] || spans[step.id].start == null) spans[step.id] = { file: chosen.file, start: lo, end: hi };
+          spans[step.id].v = 'ok'; spans[step.id].witness = chosen.tag;
+        } else {
+          // the WHOLE closest-prop region — so you SEE the candidate it compared to
+          // (not a degenerate sub-token), flagged notok with the divergence reason.
+          spans[step.id] = { file: chosen.file, start: lo, end: hi, v: 'notok',
+            why: fb ? `closest: ${chosen.tag} — diverges at ${labelPath(C.find(root, fb.fol))} (${fb.note})` : `no clean match; closest ${chosen.tag}`,
+            cmp: chosen.text.slice(lo, hi).replace(/\s+/g, ' ').trim(), path: labelPath(step) };
+        }
+      }
+      if (!faithful) {
+        const line = chosen.region ? chosen.text.slice(0, chosen.region[0]).split('\n').length : null;
+        findings.push({ fol: step.id, path: labelPath(step), nl: nlText(step) || '(implicit)',
+          lean: chosen.text && chosen.region ? chosen.text.slice(chosen.region[0], chosen.region[1]).replace(/\s+/g, ' ').trim() : chosen.text,
+          leanLoc: chosen.file + (line ? ':' + line : ''),
+          message: fb ? `closest: ${chosen.tag} — diverges at ${labelPath(C.find(root, fb.fol))} vs Lean (${fb.note})` : `no clean match; closest ${chosen.tag}` });
+      }
+    } else {
+      findings.push({ fol: step.id, path: labelPath(step), nl: nlText(step) || '(implicit)', lean: '', leanLoc: '', message: 'no structurally-matching Lean proposition found' });
+      children.push({ fol: step.id, status: 'unmapped', note: 'no match', children: [] });
+    }
+  }
+
+  const alignment = { fol: proofBox.id, lean: null, leanNode: null, status: 'match', note: '', children };
+  const file0 = assocs[0] ? leanRel(assocs[0]) : '';
+  return { ok: true, alignment, findings, spans, leanRegions: [],
+    leanDecl: assocs.map((a) => a.decl.split('.').pop()).join(' + '),
+    leanFile: file0, leanLine: null,
+    leanSource: '', leanElaborated: '' };
 }

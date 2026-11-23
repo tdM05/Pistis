@@ -43,6 +43,12 @@ export function makeAligner(core, dict = {}, symText = null, opts = {}) {
   const varObs = {};   // folVar -> Set(canonical leanId)
   const obsNodes = {}; // folVar -> [report-node-ref] (to retro-flag on conflict)
   const tupleComps = {}; // folVar -> Set(component binder names) for declared tuples
+  // discovered NL-symbol → Lean-symbol correspondence for THIS alignment. The
+  // caller enforces it GLOBALLY (an NL relation/function must land on the SAME Lean
+  // symbol across every step), which is what stops `∈` from matching `<`.
+  const symObs = {};   // folSym -> Set(lean symbol name / node-type)
+  const recordSym = (folSym, leanSym) => { if (!folSym || folSym === '∅' || !leanSym) return;
+    (symObs[folSym] = symObs[folSym] || new Set()).add(leanSym); };
   const leanId = (n) => { if (!n) return '∅'; if (n.t === 'var') return 'v:' + n.name;
     if (n.t === 'const') return 'c:' + n.name; if (n.t === 'lit') return 'lit:' + n.val;
     if (n.t === 'app') return 'app:' + leanId(n.head) + '/' + (n.args ? n.args.length : 0); return n.t; };
@@ -89,6 +95,16 @@ export function makeAligner(core, dict = {}, symText = null, opts = {}) {
   // typing/sort predicate, matched against a binder type not a body node).
   const dictOf = (name) => dict[name] || null;
 
+  // the fringe TERMS of a Lean node (vars / consts / lits / whole apps), left→right.
+  // Used when an OPAQUE NL relation/function faces a Lean COMPOUND subtree (e.g. the
+  // NL writes an atom `outside(x,T)` where Lean has `¬(x ∈ T)`): the NL atom absorbs
+  // the subtree, and its argument terms line up against these fringe terms.
+  const leafTerms = (n, acc = []) => { if (!n || typeof n !== 'object') return acc;
+    if (n.t === 'var' || n.t === 'const' || n.t === 'lit' || n.t === 'app') { acc.push(n); return acc; }
+    for (const k of ['dom', 'body']) if (n[k]) leafTerms(n[k], acc);
+    if (Array.isArray(n.args)) n.args.forEach((a) => leafTerms(a, acc));
+    return acc; };
+
   // strip Lean app plumbing: given a Lean app node and the number of operands the
   // FOL side expects, return the LAST n args (Lean leads with type/instance args).
   // Lean args are ALREADY trimmed to explicit-only by the normalizer, so the
@@ -103,6 +119,29 @@ export function makeAligner(core, dict = {}, symText = null, opts = {}) {
     const node = (status, note, children) => ({ fol: fol.id, lean: leanTag(lean), leanNode: lean, status, note: note || '', children: children || [] });
 
     if (!lean) return node('unmapped', 'no Lean counterpart');
+
+    // INLINE local definitions so BODIES are compared (bounded — local let/define
+    // values are small; NAMED notions like SupportedOn/rank stay folded as atoms):
+    //   • Lean LOCAL let  E ↦ (D + Matrix.single s j 1)   [zeta]
+    //   • NL `define`d     Dτ ↦ (D + τeₛeⱼᵀ)
+    // Under strict structural faithfulness this correctly SURFACES genuine
+    // differences — the leftover τ, `eₛeⱼᵀ` vs `single`, matrix vs linear map — as
+    // reds (no false positives); it does not try to bridge them.
+    while (lean && lean.t === 'var' && opts.letEnv && opts.letEnv[lean.name]) lean = opts.letEnv[lean.name];
+    if (shape === 'var' && opts.nlDefs && fol.var != null && opts.nlDefs[fol.var]) return alignNode(opts.nlDefs[fol.var], lean);
+
+    // ── definition-application: the NL applies a DEFINITION (e.g. "supported on"),
+    // linked (name-evidence → the def box) to a def already associated with a Lean
+    // decl in lean_dict.decls. It matches iff the Lean prop is HEADED by that decl.
+    // Args aren't re-checked here (detector semantics: may over-claim), so a genuine
+    // `SupportedOn T …` is never a false red; a non-`SupportedOn` prop mismatches.
+    if (lc(fol) === 'definition-application') {
+      const declLeaf = defAppDecl(fol);
+      const lh = lean.t === 'app' ? (lean.head && lean.head.name) : (lean.t === 'const' ? lean.name : null);
+      const ok = !!(declLeaf && lh && (lh === declLeaf || lh.endsWith('.' + declLeaf)));
+      if (ok) recordSym('def:' + declLeaf, lh);
+      return node(ok ? 'leaf' : 'mismatch', ok ? `defApp ↔ ${declLeaf}` : `defApp(${declLeaf || '?'}) vs Lean ${lh || lean.t}`);
+    }
 
     // ── conjunction ──
     // Straight case: both sides are ∧ → pair positionally.
@@ -189,64 +228,56 @@ export function makeAligner(core, dict = {}, symText = null, opts = {}) {
       return node('match', note, fbody ? [alignNode(fbody, lbody)] : []);
     }
 
-    // ── relation: dictionary decides (e.g. outside ≡ ∉ → Lean not(mem)) ──
-    if (shape === 'rel') {
-      const symName = relName(fol);
-      const d = dictOf(symName);
-      // relation realized as negated membership: outside(x,T) ≡ ¬ (x ∈ T)
-      if (d && d.lean === 'not-mem') {
-        if (lean.t !== 'not' || !lean.args || lean.args[0].t !== 'mem')
-          return node('mismatch', `${symName}≡∉ but Lean is ${lean.t}`);
-        const mem = lean.args[0];
-        const memArgs = (mem.args || []).slice();
-        const fterms = termKids(fol);
-        // Lean `Membership.mem`'s two explicit args are {container, element} but
-        // the ORDER is not something we assume. Pick the pairing (as-is vs
-        // swapped) under which the FOL term vars land CONSISTENTLY with how those
-        // same vars are used elsewhere; if neither is clearly consistent, we don't
-        // silently guess — we pair as-is and let the var-consistency pass flag it.
-        let ordered = memArgs;
-        if (memArgs.length === 2 && fterms.length === 2) {
-          const swapped = [memArgs[1], memArgs[0]];
-          ordered = betterPairing(fterms, memArgs, swapped);
-        }
-        return node('leaf', `${symName} ≡ ∉`, matchTerms(fterms, ordered));
+    // ── relation / function application: ABSTRACT (no symbol dictionary) ──
+    // Faithfulness does NOT check the symbol's IDENTITY. A non-logical relation or
+    // function is OPAQUE: the only requirements are (1) Lean has SOME structure in
+    // this position, and (2) the argument terms line up — variable consistency (run
+    // after the walk) does the real checking. `=` is the one fixed relation (shape
+    // 'eq', above); the logical connectives (∧∨¬→∀∃) are fixed too. Everything else
+    // just maps to WHERE it lands in Lean; WHAT it is there is a discovered result,
+    // never a precondition. So no `lean_dict.symbols` lookup here.
+    if (shape === 'rel' || shape === 'app') {
+      const fterms = termKids(fol);
+      const name = shape === 'rel' ? relName(fol) : (fnSymName(fol) === '∅' ? '(implicit)' : fnSymName(fol));
+      // membership is a LOGICAL primitive with a FIXED arg convention: Lean's `mem`
+      // stores (container, element) but the NL writes (element, container). Pair by
+      // that convention so `eₛ ∈ im Dτ` lines its element/container up with Lean's —
+      // NOT blind-absorb (which mis-paired them and poisoned global consistency).
+      if (lean.t === 'mem') {
+        const ma = lean.args || [];
+        const ordered = ma.length === 2 ? [ma[1], ma[0]] : ma;   // → (element, container)
+        recordSym(name, 'mem');
+        return node('leaf', `${name} ↔ ∈`, matchTerms(fterms, ordered));
       }
-      // plain relation ↔ Lean app with const head matching dict
-      if (lean.t === 'app') {
-        const lh = lean.head && lean.head.name;
-        const fterms = termKids(fol);
-        const la = sigArgs(lean.args || [], fterms.length);
-        const ok = d && (d.lean === lh);
-        return node(ok ? 'leaf' : 'mismatch', ok ? `${symName} ≡ ${lh}` : `${symName} ≡ ${d ? d.lean : '?'} vs Lean ${lh || lean.head.t}`, matchTerms(fterms, la));
+      if (lean.t !== 'app') {
+        // a BARE Lean leaf (var/const/lit) has no sub-structure for the NL arguments
+        // to land on — the NL applies to args Lean doesn't have here → structural
+        // MISMATCH, not an absorb. (Stops NL `e(s)` being forced onto Lean's bare
+        // vector `e`, which was mapping the index `s` onto `e` and poisoning others.)
+        if (fterms.length && (lean.t === 'var' || lean.t === 'const' || lean.t === 'lit'))
+          return node('mismatch', `${name} applies ${fterms.length} arg(s) but Lean has a bare ${lean.t}`);
+        // genuine COMPOUND (not / and / …) → the opaque NL symbol ABSORBS that subtree.
+        recordSym(name, lean.t);
+        return node('leaf', `${name} ↔ ${lean.t}`, matchTerms(fterms, leafTerms(lean)));
       }
-      return node('mismatch', `relation ${symName} vs Lean ${lean.t}`);
-    }
-
-    // ── function application: FOL fnapp(sym, terms) ↔ Lean app ──
-    if (shape === 'app') {
-      const fterms = termKids(fol);          // the argument terms
-      const fsym = fnSymName(fol);           // the function symbol name (may be implicit)
-      if (lean.t !== 'app') return node('mismatch', `function-application vs Lean ${lean.t}`);
-      const d = fsym ? dictOf(fsym) : null;
-      // APPLY semantics: the FIRST FOL arg is itself the function (e.g.
-      // val_at_entry(matrix, i, j) ≡ Lean `matrix i j`). This is ONLY used when
-      // the dictionary EXPLICITLY declares {lean:'apply'} — never assumed from an
-      // implicit symbol. Then FOL arg0 ↔ Lean app HEAD, FOL args1.. ↔ Lean args.
-      if (d && d.lean === 'apply') {
-        const head = fterms[0], rest = fterms.slice(1);
-        const la = lean.args || [];
-        const children = [alignNode(head, lean.head)];
-        rest.forEach((t, i) => children.push(alignNode(t, la[i])));
-        return node('leaf', `${fsym} = apply (first arg is the function)`, children);
+      const la = sigArgs(lean.args || [], fterms.length);     // explicit args only
+      const lh = (lean.head && (lean.head.name || lean.head.t)) || 'app';
+      // APPLY shape: ONLY a function whose symbol is IMPLICIT (juxtaposition — a
+      // matrix/vector applied to indices, `D s j` / `xⱼ`) treats its FIRST term as
+      // the function ↔ the Lean app HEAD, rest ↔ the Lean args (n == k+1). A NAMED
+      // operation (explicit symbol: `mul`, `+`, or any relation) never does — its
+      // args align positionally, and an ARITY difference is a real mismatch. This is
+      // what keeps NL `τ·xⱼ` (one extra operand) from being silently absorbed into a
+      // bare `xⱼ`: it stays a mismatch, surfacing the `τ`.
+      if (shape === 'app' && fnSymImplicit(fol) && fterms.length === la.length + 1) {
+        const kids = [alignNode(fterms[0], lean.head)];
+        fterms.slice(1).forEach((t, i) => kids.push(alignNode(t, la[i])));
+        return node('leaf', `${name} ↔ apply(${lh})`, kids);
       }
-      // otherwise: an ordinary function symbol applied to terms. It must match the
-      // Lean app's head const via the dictionary, else it's flagged.
-      const lh = lean.head && lean.head.name;
-      const ok = d && d.lean === lh;
-      return node(ok ? 'leaf' : 'mismatch',
-        ok ? `${fsym} ≡ ${lh}` : `function ${fsym === '∅' ? '(implicit)' : fsym} ↔ Lean ${lh || lean.head && lean.head.t || '?'}${d ? ' (dict says ' + d.lean + ')' : ' (no dictionary entry)'}`,
-        matchTerms(fterms, lean.args || []));
+      if (fterms.length !== la.length)
+        return node('mismatch', `${name} has ${fterms.length} argument(s), Lean ${lh} has ${la.length}`, matchTerms(fterms, la));
+      recordSym(name, lh);
+      return node('leaf', `${name} ↔ ${lh}`, matchTerms(fterms, la));
     }
 
     // ── leaves: variable / constant ──
@@ -299,6 +330,21 @@ export function makeAligner(core, dict = {}, symText = null, opts = {}) {
   const termKids = (b) => operandKids(b).filter((k) => { const c = lc(k); return c !== 'relation-symbol'; });
   const relName = (b) => { const s = (b.children || []).find((k) => lc(k) === 'relation-symbol'); return s ? symName(s) : '∅'; };
   const fnSymName = (b) => { const s = (b.children || []).find((k) => lc(k) === 'function-symbol'); return s ? symName(s) : '∅'; };
+  // is the function-symbol IMPLICIT (no written glyph — pure juxtaposition)? Such a
+  // node is a matrix/vector APPLICATION (`D s j`, `xⱼ`); a function-symbol with an
+  // actual span (`mul`'s ·, `+`) is a NAMED operation. Drives apply-vs-named above.
+  const fnSymImplicit = (b) => { const s = (b.children || []).find((k) => lc(k) === 'function-symbol'); return !s || s.implicit === true || !(s.pieces && s.pieces.length); };
+  // the Lean decl leaf-name a definition-application applies: follow its
+  // name-evidence's `def` link to the definition box, walk up to the box registered
+  // in lean_dict.decls, and take that decl's last component (e.g. 'SupportedOn').
+  const defAppDecl = (b) => {
+    const nameEv = (b.children || []).find((k) => lc(k) === 'name-evidence') || b;
+    const link = (opts.links || []).find((l) => l.from === nameEv.id && l.kind === 'def');
+    if (!link || !opts.root || !opts.decls) return null;
+    let x = C.find(opts.root, link.to);
+    while (x) { if (opts.decls[x.id]) return opts.decls[x.id].decl.split('.').pop(); x = C.parentOf(opts.root, x.id); }
+    return null;
+  };
   const constName = (b) => symName(b);
   // symbol's authored name, else its slug (span text via symText), else ∅
   const symName = (b) => C.symNameOf(b, symText || (() => '∅'));
@@ -345,6 +391,7 @@ export function makeAligner(core, dict = {}, symText = null, opts = {}) {
     for (const k in varObs) delete varObs[k];
     for (const k in obsNodes) delete obsNodes[k];
     for (const k in tupleComps) delete tupleComps[k];
+    for (const k in symObs) delete symObs[k];
     const root = alignNode(folBox, lean);
     for (const v in varObs) {
       if (varObs[v].size > 1) {
@@ -357,5 +404,12 @@ export function makeAligner(core, dict = {}, symText = null, opts = {}) {
     }
     return root;
   }
-  return { align, alignNode, concreteNode, _peel: null };
+  // observations discovered by the LAST align() call: each FOL variable's Lean
+  // identities and each FOL symbol's Lean counterpart(s). The caller uses these to
+  // enforce GLOBAL consistency across all steps of a proof.
+  const observations = () => ({
+    vars: Object.fromEntries(Object.entries(varObs).map(([k, v]) => [k, [...v]])),
+    syms: Object.fromEntries(Object.entries(symObs).map(([k, v]) => [k, [...v]])),
+  });
+  return { align, alignNode, concreteNode, observations, _peel: null };
 }

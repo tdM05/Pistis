@@ -1,0 +1,289 @@
+import Mathlib.LinearAlgebra.Matrix.Rank
+import Mathlib.Basic.Real.Basic
+
+namespace OAI
+
+namespace SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel
+
+open Matrix
+
+variable {I J : Type*} [Fintype I] [Fintype J]
+
+def SupportedOn (T : Set (I × J)) (D : Matrix I J ℝ) : Prop :=
+  ∀ s j, (s, j) ∉ T → D s j = 0
+
+theorem range_lt_range_add_single [DecidableEq I] [DecidableEq J]
+    (D : Matrix I J ℝ) {x : J → ℝ} {y : I → ℝ}
+    (hx : D *ᵥ x = 0) (hy : Dᵀ *ᵥ y = 0)
+    (s : I) (j : J) (hxj : x j ≠ 0) (hys : y s ≠ 0) :
+    LinearMap.range D.mulVecLin <
+      LinearMap.range (D + Matrix.single s j (1 : ℝ)).mulVecLin := by
+  let E : Matrix I J ℝ := D + Matrix.single s j 1
+  let e : I → ℝ := Pi.single s 1
+  change LinearMap.range D.mulVecLin < LinearMap.range E.mulVecLin
+  have hsingle (w : J → ℝ) :
+      Matrix.single s j (1 : ℝ) *ᵥ w = w j • e := by
+    ext i
+    simp [Matrix.single_mulVec, Function.update_apply, Pi.single_apply, e]
+  have hEw (w : J → ℝ) :
+      E.mulVecLin w = D.mulVecLin w + w j • e := by
+    change (D + Matrix.single s j (1 : ℝ)) *ᵥ w = D *ᵥ w + w j • e
+    rw [Matrix.add_mulVec, hsingle]
+  have hEx : E.mulVecLin x = x j • e := by
+    rw [hEw]
+    change D *ᵥ x + x j • e = x j • e
+    rw [hx, zero_add]
+  have he : e ∈ LinearMap.range E.mulVecLin := by
+    have hm : x j • e ∈ LinearMap.range E.mulVecLin := ⟨x, hEx⟩
+    have hs := (LinearMap.range E.mulVecLin).smul_mem (x j)⁻¹ hm
+    simpa only [smul_smul, inv_mul_cancel₀ hxj, one_smul] using hs
+  have hle : LinearMap.range D.mulVecLin ≤ LinearMap.range E.mulVecLin := by
+    intro z hz
+    rcases hz with ⟨w, rfl⟩
+    have hm : E.mulVecLin w ∈ LinearMap.range E.mulVecLin := ⟨w, rfl⟩
+    have hs := (LinearMap.range E.mulVecLin).sub_mem hm
+      ((LinearMap.range E.mulVecLin).smul_mem (w j) he)
+    rw [hEw] at hs
+    simpa only [add_sub_cancel_right] using hs
+  have hnot : e ∉ LinearMap.range D.mulVecLin := by
+    rintro ⟨w, hw⟩
+    have ha : dotProduct y (D.mulVecLin w) = 0 := by
+      change dotProduct y (D *ᵥ w) = 0
+      rw [← Matrix.dotProduct_transpose_mulVec D w y, hy, dotProduct_zero]
+    rw [hw] at ha
+    exact hys (by simpa [e] using ha)
+  exact lt_iff_le_not_ge.mpr ⟨hle, fun hge => hnot (hge he)⟩
+
+theorem kernel_support_of_max_rank {T : Set (I × J)} {D : Matrix I J ℝ}
+    (hD : SupportedOn T D)
+    (hmax : ∀ A : Matrix I J ℝ, SupportedOn T A → A.rank ≤ D.rank)
+    {x : J → ℝ} {y : I → ℝ}
+    (hx : D *ᵥ x = 0) (hy : Dᵀ *ᵥ y = 0)
+    {s : I} {j : J} (hsj : (s, j) ∈ T) :
+    x j * y s = 0 := by
+  classical
+  by_contra hxy
+  have hxj : x j ≠ 0 := by
+    intro h
+    exact hxy (by rw [h, zero_mul])
+  have hys : y s ≠ 0 := by
+    intro h
+    exact hxy (by rw [h, mul_zero])
+  have hsupport : SupportedOn T (D + Matrix.single s j (1 : ℝ)) := by
+    intro i k hik
+    have hne : ¬(s = i ∧ j = k) := by
+      rintro ⟨rfl, rfl⟩
+      exact hik hsj
+    change D i k + Matrix.single s j (1 : ℝ) i k = 0
+    rw [hD i k hik, Matrix.single_apply_of_ne s j (1 : ℝ) i k hne, zero_add]
+  have hlt : D.rank < (D + Matrix.single s j (1 : ℝ)).rank := by
+    change Module.finrank ℝ (LinearMap.range D.mulVecLin) <
+      Module.finrank ℝ (LinearMap.range (D + Matrix.single s j (1 : ℝ)).mulVecLin)
+    exact Submodule.finrank_lt_finrank_of_lt
+      (range_lt_range_add_single D hx hy s j hxj hys)
+  exact (not_lt_of_ge (hmax _ hsupport)) hlt
+
+theorem kernel_support {T : Set (I × J)} {D : Matrix I J ℝ}
+    (hD : SupportedOn T D)
+    (hmax : ∀ A : Matrix I J ℝ, SupportedOn T A → A.rank ≤ D.rank)
+    {x : J → ℝ} {y : I → ℝ}
+    (hx : x ∈ LinearMap.ker D.mulVecLin)
+    (hy : y ∈ LinearMap.ker Dᵀ.mulVecLin)
+    {s : I} {j : J} (hsj : (s, j) ∈ T) :
+    x j * y s = 0 := by
+  exact kernel_support_of_max_rank hD hmax
+    (LinearMap.mem_ker.mp hx) (LinearMap.mem_ker.mp hy) hsj
+
+end SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel
+
+end OAI
+
+
+-- ── Expr → JSON extractor (appended to a copy of a .lean source file) ──
+-- Walks the ELABORATED Expr of one declaration and emits a structured JSON tree
+-- on a line prefixed with __EXTRACT__. Robust: operates on the kernel Expr (all
+-- notation unfolded, implicits explicit), not on surface syntax.
+--   kinds: forall | lam | app | const | var | sort | lit | let | proj | fvar | mvar
+-- The driver (lean_extract.js) substitutes OAI.SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel.kernel_support_of_max_rank with the fully-qualified name.
+section ExtractProbe
+open Lean Meta
+
+-- does this command's declId name equal `nm`? (the DEFINED name, not any ident it
+-- mentions — so a theorem that merely USES `SupportedOn` is not matched).
+def __declNameIs (nm : String) (cmd : Lean.Syntax) : Bool :=
+  match cmd.find? (fun n => n.getKind == ``Lean.Parser.Command.declId) with
+  | some declId => (declId.getArg 0).getId.toString == nm
+  | none => false
+
+-- byte-range JSON for a syntax node, or null.
+def __rangeJson (s : Lean.Syntax) : Json :=
+  match s.getRange? with
+  | some r => Json.mkObj [("start", Json.num r.start.byteIdx), ("stop", Json.num r.stop.byteIdx)]
+  | none => Json.null
+
+-- collect binder entries under `s`, IN ORDER (pre-order walk), ONE PER BOUND NAME.
+-- A binder `( <names> <: type> )` may bind SEVERAL names (`{I J : Type*}` → I, J):
+-- we emit one entry per individual name ident, each with that name's own range and
+-- the binder's shared TYPE-ascription range. This makes the emitted list line up
+-- 1:1 with the elaborated Expr binders (which are also one-per-name).
+partial def __collectBinders (s : Lean.Syntax) (acc : Array Json) : Array Json :=
+  let kinds : List Lean.Name := [``Lean.Parser.Term.explicitBinder, ``Lean.Parser.Term.implicitBinder, ``Lean.Parser.Term.instBinder, ``Lean.Parser.Term.strictImplicitBinder]
+  let acc := if kinds.contains s.getKind then
+      let args := s.getArgs
+      let nameGroup := args.getD 1 Lean.Syntax.missing
+      let typeR := if args.size > 2 then __rangeJson (args.getD 2 Lean.Syntax.missing) else Json.null
+      -- the name group is a `null` node whose children are the individual idents;
+      -- an instBinder may have an anonymous name group (just the type) → fall back
+      -- to the whole binder range as the "name".
+      let idents := nameGroup.getArgs.filter (fun n => n.isIdent)
+      if idents.isEmpty then
+        acc.push (Json.mkObj [("name", __rangeJson s), ("type", typeR)])
+      else
+        idents.foldl (fun a id => a.push (Json.mkObj [("name", __rangeJson id), ("type", typeR)])) acc
+    else acc
+  s.getArgs.foldl (fun a c => __collectBinders c a) acc
+
+-- explicitness of each argument of an application, read from the FUNCTION'S type
+-- (Meta.forallTelescopeReducing): a BinderInfo per positional arg. Lets the JS
+-- side keep only EXPLICIT args instead of guessing "last N" (which hid mismatches).
+def __argExplicit (fnTy : Expr) (n : Nat) : MetaM (Array Bool) :=
+  forallTelescopeReducing fnTy fun xs _ => do
+    let mut out := #[]
+    for x in xs do
+      let d ← x.fvarId!.getDecl
+      out := out.push d.binderInfo.isExplicit
+    pure (out.extract 0 n)
+
+-- GENERAL delta-unfold: replace every definition application by its definition,
+-- everywhere, to fixpoint. Turns `Ne a b`→`¬(a = b)`, `a ∉ s`→`¬(a ∈ s)`, `a > b`→
+-- `b < a`, instance projections, etc. — into primitive form, with NO per-symbol
+-- table. (Scoped by the caller to the have-types, so named notions elsewhere stay.)
+partial def __unfold (e : Expr) : MetaM Expr :=
+  Meta.transform e (pre := fun node => do
+    match (← Meta.unfoldDefinition? node) with
+    | some n => return .visit n
+    | none   => return .continue)
+
+partial def __exprToJson (names : List String) (e : Expr) : MetaM Json := do
+  match e with
+  | .bvar i => pure <| Json.mkObj [("kind", "var"), ("name", Json.str (names.getD i s!"#{i}"))]
+  | .fvar _ => pure <| Json.mkObj [("kind", "fvar")]
+  | .mvar _ => pure <| Json.mkObj [("kind", "mvar")]
+  | .sort _ => pure <| Json.mkObj [("kind", "sort")]
+  | .const n _ => pure <| Json.mkObj [("kind", "const"), ("name", Json.str n.toString)]
+  | .lit (.natVal n) => pure <| Json.mkObj [("kind", "lit"), ("val", Json.str (toString n))]
+  | .lit (.strVal s) => pure <| Json.mkObj [("kind", "lit"), ("val", Json.str s)]
+  | .mdata _ e => __exprToJson names e
+  | .proj s i e => do pure <| Json.mkObj [("kind", "proj"), ("struct", Json.str s.toString), ("idx", Json.str (toString i)), ("on", ← __exprToJson names e)]
+  | .app .. => do
+      let fn := e.getAppFn
+      let args := e.getAppArgs
+      let fnTy ← (do try inferType fn catch _ => pure (mkSort Level.zero))
+      let expl ← (do try __argExplicit fnTy args.size catch _ => pure (Array.replicate args.size true))
+      let argsJson ← args.mapIdxM (fun i a => do
+        let j ← __exprToJson names a
+        let isExpl := expl.getD i true
+        pure <| Json.mkObj [("explicit", Json.bool isExpl), ("node", j)])
+      pure <| Json.mkObj [("kind", "app"), ("fn", ← __exprToJson names fn), ("args", Json.arr argsJson)]
+  | .lam n t b bi => do
+      pure <| Json.mkObj [("kind", "lam"), ("binder", Json.str n.toString), ("info", Json.str (reprStr bi)), ("dom", ← __exprToJson names t), ("body", ← __exprToJson (n.toString :: names) b)]
+  | .forallE n t b bi => do
+      pure <| Json.mkObj [("kind", "forall"), ("binder", Json.str n.toString), ("info", Json.str (reprStr bi)), ("dom", ← __exprToJson names t), ("body", ← __exprToJson (n.toString :: names) b)]
+  | .letE n t v b _ => do
+      -- the have-TYPE is what proof-step matching compares against → fully unfold it
+      -- so `≠`/`∉`/`>`/… arrive in primitive `¬`/`∈`/`<` form (no bandage table).
+      let t ← (do try __unfold t catch _ => pure t)
+      pure <| Json.mkObj [("kind", "let"), ("binder", Json.str n.toString), ("type", ← __exprToJson names t), ("value", ← __exprToJson names v), ("body", ← __exprToJson (n.toString :: names) b)]
+
+open Lean Elab in
+#eval show Lean.Elab.Command.CommandElabM Unit from do
+  let declName := `OAI.SeymourSecondNeighborhood.LinearAlgebra.MaxSupportKernel.kernel_support_of_max_rank
+  let env ← getEnv
+  match env.find? declName with
+  | none => IO.println "__EXTRACT_ERR__ declaration not found"
+  | some ci =>
+      -- source ranges from the environment (no frontend/syntax-tree needed):
+      --   declRange = the whole declaration; nameRange = the definiendum token.
+      -- Both as 0-based {line,col}. The JS side turns these into char offsets and
+      -- parses per-binder spans within the signature region (decl start → `:=`).
+      let rangesJson : Json ← do
+        match ← Lean.findDeclarationRanges? declName with
+        | some r =>
+            pure <| Json.mkObj [
+              ("declStart", Json.mkObj [("line", Json.num r.range.pos.line), ("col", Json.num r.range.pos.column)]),
+              ("declEnd",   Json.mkObj [("line", Json.num r.range.endPos.line), ("col", Json.num r.range.endPos.column)]),
+              ("nameStart", Json.mkObj [("line", Json.num r.selectionRange.pos.line), ("col", Json.num r.selectionRange.pos.column)]),
+              ("nameEnd",   Json.mkObj [("line", Json.num r.selectionRange.endPos.line), ("col", Json.num r.selectionRange.endPos.column)])]
+        | none => pure Json.null
+      -- PER-BINDER source ranges, ONE ENTRY PER BOUND NAME, IN ORDER — exactly
+      -- matching the elaborated Expr's leading binders. Re-parse the module and
+      -- accumulate, in source order:
+      --   • binders from every `variable` command seen BEFORE the target decl
+      --     (these are injected as the LEADING Expr binders, when the decl uses them),
+      --   • then the target decl's OWN SIGNATURE binders (its `optDeclSig`, NOT the
+      --     body — so `∀ s j` in the body is excluded).
+      -- Stop at the target decl. The JS side zips these to the Expr binders by order
+      -- (aligning from the END, since `variable` binders the decl doesn't use are
+      -- dropped from the Expr).
+      let bindersJson : Json ← do
+        let srcText ← IO.FS.readFile "__leanx_2550052.lean"
+        let inputCtx := Parser.mkInputContext srcText "__leanx_2550052.lean"
+        let (_, pstate0, msgs) ← Parser.parseHeader inputCtx
+        let leaf := declName.components.getLast!.toString
+        let mut state := pstate0
+        let mut acc : Array Json := #[]
+        let mut done := false
+        let mut count := 0
+        repeat
+          -- parse each command with the CURRENT scope (namespace + opens). Scope-affecting
+          -- commands (`open`, `namespace`, …) are elaborated as we go so that SCOPED
+          -- notation (e.g. Matrix's `ᵀ` from `open Matrix`) is active when we reach the
+          -- target. Without this a notation-heavy signature mis-parses at the notation and
+          -- the binder list is TRUNCATED (the trailing binders get silently dropped).
+          let sc ← Lean.Elab.Command.getScope
+          let pmctx : Parser.ParserModuleContext := { env := (← getEnv), options := {}, currNamespace := sc.currNamespace, openDecls := sc.openDecls }
+          let (cmdStx, state', _) := Parser.parseCommand inputCtx pmctx state msgs
+          let k := cmdStx.getKind
+          if __declNameIs leaf cmdStx then
+            -- the target decl: collect ONLY its signature (optDeclSig), not the body
+            let sig := cmdStx.find? (fun n => n.getKind == ``Lean.Parser.Command.optDeclSig
+                                           || n.getKind == ``Lean.Parser.Command.declSig)
+            acc := __collectBinders (sig.getD cmdStx) acc
+            done := true
+          else if k == ``Lean.Parser.Command.variable then
+            acc := __collectBinders cmdStx acc
+          else if k == ``Lean.Parser.Command.open then
+            -- activate `open …` so its SCOPED notation (e.g. Matrix's `ᵀ`) parses in the
+            -- target's signature. We only need `open` (not `namespace`, which would leave
+            -- the probe with unclosed namespaces since we break at the target before `end`).
+            (try Lean.Elab.Command.elabCommand cmdStx catch _ => pure ())
+          state := state'
+          count := count + 1
+          if done || Parser.isTerminalCommand cmdStx || count > 500 then break
+        pure (Json.arr acc)
+      -- run the Expr→JSON walk inside MetaM (needed for per-arg explicitness)
+      let act : MetaM Json := do
+        let tyj ← __exprToJson [] ci.type
+        -- read the VALUE directly off the ConstantInfo: `ci.value?` returns none for
+        -- `thmInfo` in this toolchain (theorem proofs look opaque to value?), but the
+        -- proof Expr IS stored in the field. defn/thm/opaque all carry a .value.
+        let valOpt : Option Expr := match ci with
+          | .defnInfo v => some v.value
+          | .thmInfo v  => some v.value
+          | .opaqueInfo v => some v.value
+          | _ => none
+        let valj ← match valOpt with | some v => __exprToJson [] v | none => pure Json.null
+        -- per-binder (in order): is the binder's TYPE a Prop? i.e. is it a PROOF hypothesis
+        -- (a condition) rather than a DATA input. Lets the JS side drop Prop binders from
+        -- the input-matching (like it drops `[instImplicit]` instances).
+        let props ← forallTelescopeReducing ci.type fun xs _ => do
+          let mut a : Array Json := #[]
+          for x in xs do
+            let ty ← x.fvarId!.getType
+            a := a.push (Json.bool (← isProp ty))
+          pure a
+        pure <| Json.mkObj [("name", Json.str declName.toString), ("type", tyj), ("value", valj), ("ranges", rangesJson), ("binders", bindersJson), ("binderProps", Json.arr props)]
+      let out ← Lean.Elab.Command.liftTermElabM act.run'
+      IO.println s!"__EXTRACT__{out.compress}"
+
+end ExtractProbe

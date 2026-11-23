@@ -39,6 +39,11 @@ faithfulness bugs (where the NL and the Lean say structurally different things).
 3. Lean spans are stamped **top-down**: binders use exact parse-tree byte offsets;
    body nodes are rendered back to surface text and located within the parent's span.
    Un-locatable infix ops (`*`,`=`) take the envelope of their located children.
+4. **Proof alignment** (`alignProof`): each NL step matches against the proof decl's
+   candidate props (`have`-types + hypotheses, deduped to those with a locatable
+   source region). Faithful iff SOME prop matches cleanly (bad=0); else unfaithful.
+   EVERY step maps to a span — faithful→its matched prop; unfaithful→its intended prop,
+   colored by the step's OWN verdict. See the LLM-router principle below.
 
 ## Working principles (learned, load-bearing)
 - **Faithfulness = "exactly the same thing."** `a=b` ≠ `b=a`, `a>b` ≠ `b<a`. The
@@ -52,9 +57,18 @@ faithfulness bugs (where the NL and the Lean say structurally different things).
   (proved `have`s, the goal). Matching an NL claim to an antecedent is a false
   positive.
 - **Proofs:** align each NL step-proposition against the TYPE of a `have` (or goal).
-  Absence of a match means "couldn't locate / abstain" — **never** "unfaithful"
-  (a step can be faithful yet refactored into another lemma, specialized, or
-  absorbed into a tactic). Only a positive contradiction justifies "unfaithful".
+  (Historical stance: absence of a match = "abstain", never "unfaithful". The CURRENT
+  build uses the strict **detector** contract the user chose: no clean structural
+  match ⇒ **unfaithful** — over-claiming faithful is acceptable, a false "unfaithful"
+  is not. Severity/semantic rescue is a LATER pass.)
+- **LLM router (routing-only, NEVER judges).** The structural checker owns the verdict.
+  For an UNFAITHFUL step only, a single Sonnet call (`tools/llm_route.js`, model
+  `claude-sonnet-5`, via the `claude` CLI headless reusing Bedrock auth) picks WHICH
+  candidate prop the step is INTENDED to match — output is a bare index `1..n`, nothing
+  else, so it cannot rationalize a step into "faithful" or add noise. Default on;
+  `--no-llm` / `PISTIS_NO_LLM=1` disables (falls back to the max-matched-nodes
+  heuristic). It only chooses the prop the divergence is reported against; it has no
+  channel to the verdict, so soundness is preserved. Faithful steps never call it.
 
 ## Segmentation convention (proofs)
 One idea per segment, **no ands** — conjuncts become flat sibling steps, the "and"
