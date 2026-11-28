@@ -21,6 +21,7 @@
 
 import { execFileSync } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { makeCore } from './core.js';
@@ -152,10 +153,64 @@ function abort(tag, msg) {
 // run; headless mode adds nothing, so the invocation is unchanged. The claude process
 // runs with cwd=DIR so any file tools resolve against the item directory (lean/,
 // chars.txt); this is inert for a no-tool headless call.
+// ---- agentic sandbox (proot) ------------------------------------------------
+// Agentic mode grants the model real tools, so it must NOT be able to reach the repo /
+// human ground truth (../pdf_direct_segment/tree.json). OS namespaces (bwrap) are off
+// here, so we use proot — an unprivileged, ptrace-based filesystem jail that remaps the
+// root for claude AND every process it spawns (shell, lean, lake). The jail exposes ONLY
+// resolved copies of the lean files + chars.txt (as /work) plus the minimum needed to run
+// claude; the repo is never mounted, so no tool/shell can read it by any path.
+const PROOT = (() => {
+  for (const c of [getFlag('proot', null), process.env.PROOT, path.join(DIR, 'tools', 'proot')]) {
+    if (!c) continue; try { fs.accessSync(c, fs.constants.X_OK); return c; } catch (_) {}
+  }
+  return null;
+})();
+let SANDBOX = null;   // built lazily on the first agentic call
+function ensureSandbox() {
+  if (SANDBOX) return SANDBOX;
+  if (!PROOT) { console.error(`[run] FATAL: agentic mode needs proot (unprivileged sandbox) but none found. Put the static binary at ${path.relative(DIR, path.join(DIR, 'tools', 'proot'))} or pass --proot <path> / PROOT=<path>.`); process.exit(3); }
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'pistis-sbx-'));   // OUTSIDE the repo
+  const jail = path.join(base, 'root'), jtmp = path.join(base, 'tmp'), work = path.join(base, 'work');
+  const shm = path.join(base, 'shm'), cfg = path.join(base, 'claude-cfg');
+  fs.mkdirSync(jail); fs.mkdirSync(jtmp); fs.mkdirSync(shm); fs.mkdirSync(cfg); fs.mkdirSync(path.join(work, 'lean'), { recursive: true });
+  leanFiles.forEach((f) => fs.writeFileSync(path.join(work, 'lean', f), leanTexts[f]));   // resolved copies, no symlink
+  fs.writeFileSync(path.join(work, 'chars.txt'), NL);
+  const HOME = os.homedir(); let alt = null; try { const r = fs.realpathSync(HOME); if (r !== HOME) alt = r; } catch (_) {}
+  // FRESH, MEMORY-WIPED ~/.claude: copy ONLY auth (+ settings) into a writable throwaway
+  // dir. We must NOT bind the real ~/.claude — it holds history.jsonl / projects / sessions
+  // / shell-snapshots, i.e. prior conversations that could reveal the ground truth. The
+  // jailed agent gets a blank-slate config: it can authenticate but has no memory.
+  for (const f of ['.credentials.json', 'settings.json']) { const src = path.join(HOME, '.claude', f); if (fs.existsSync(src)) { fs.copyFileSync(src, path.join(cfg, f)); try { fs.chmodSync(path.join(cfg, f), 0o600); } catch (_) {} } }
+  const binds = [];
+  for (const [src, dst] of [['/usr', '/usr'], ['/usr/bin', '/bin'], ['/lib', '/lib'], ['/lib64', '/lib64'], ['/etc', '/etc'], ['/dev', '/dev'], ['/proc', '/proc']]) if (fs.existsSync(src)) binds.push('-b', `${src}:${dst}`);
+  binds.push('-b', `${shm}:/dev/shm`);   // private empty shared-memory (overrides /dev/shm; no cross-process leak)
+  binds.push('-b', `${jtmp}:/tmp`);
+  // ONLY the home subtrees claude (and, for --lean-build, lean) needs — both HOME mount
+  // aliases (e.g. /u/taddmao and /h/56/taddmao). The real ~/.claude is NOT here; the fresh
+  // `cfg` is bound in its place. Nothing else of HOME is exposed.
+  const subs = ['.local/bin', '.local/share/claude', '.config', '.nvm'].concat(LEAN_BUILD ? ['.elan', '.cache'] : []);
+  for (const h of [HOME, alt].filter(Boolean)) {
+    for (const s of subs) { const p = path.join(h, s); if (fs.existsSync(p)) binds.push('-b', `${p}:${p}`); }
+    binds.push('-b', `${cfg}:${path.join(h, '.claude')}`);   // blank-slate ~/.claude (auth only)
+  }
+  binds.push('-b', `${work}:/work`);
+  const argvPrefix = ['-r', jail, ...binds, '-w', '/work'];
+  const env = { ...process.env, HOME, PATH: `${path.join(HOME, '.local/bin')}:/usr/bin:/bin` };
+  SANDBOX = { base, argvPrefix, env };
+  console.error(`  [sandbox] proot jail ${path.relative(process.cwd(), base) || base} — lean/+chars.txt only; repo hidden; fresh (memory-wiped) ~/.claude; private /dev/shm`);
+  return SANDBOX;
+}
+
 function runClaude(extraArgs, prompt, tag) {
   const seq = String(SEQ++).padStart(3, '0'); const t0 = Date.now();
-  const raw = execFileSync('claude', ['-p', '--model', model, '--output-format', 'json', ...modeArgs(), ...extraArgs],
-    { input: prompt, encoding: 'utf8', cwd: DIR, maxBuffer: 64 * 1024 * 1024, timeout: 30 * 60 * 1000, stdio: ['pipe', 'pipe', 'inherit'] });
+  const claudeArgs = ['-p', '--model', model, '--output-format', 'json', ...modeArgs(), ...extraArgs];
+  // headless = bare claude (no tools, nothing to jail). agentic = claude inside the proot jail.
+  let execFile, execArgs, execEnv;
+  if (MODE === 'agentic') { const sb = ensureSandbox(); execFile = PROOT; execArgs = [...sb.argvPrefix, 'claude', ...claudeArgs]; execEnv = sb.env; }
+  else { execFile = 'claude'; execArgs = claudeArgs; execEnv = process.env; }
+  const raw = execFileSync(execFile, execArgs,
+    { input: prompt, encoding: 'utf8', cwd: DIR, env: execEnv, maxBuffer: 64 * 1024 * 1024, timeout: 30 * 60 * 1000, stdio: ['pipe', 'pipe', 'inherit'] });
   let text = raw, sid = null, meta = {};
   try {
     const j = JSON.parse(raw);
