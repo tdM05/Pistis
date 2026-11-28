@@ -30,6 +30,23 @@ const argv = process.argv.slice(2);
 const getFlag = (n, d) => { const i = argv.indexOf('--' + n); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
 const level = Number(getFlag('level', '1'));
 const model = getFlag('model', 'us.anthropic.claude-opus-4-8');
+// How each LLM call is made:
+//   headless (default) — one-shot `claude -p`, NO tools: the model answers purely from
+//                        the inline prompt (the original naive baseline).
+//   agentic            — the full Claude Code harness: grant read-only tools so the
+//                        model can OPEN the item's files (lean/, chars.txt) to ground
+//                        its answer and iterate. Same prompt, same levels — only the
+//                        affordances differ, so headless-vs-agentic is comparable per
+//                        level. --lean-build additionally grants Bash (e.g. to run
+//                        lake/lean and actually check a claim); off by default.
+const MODE = getFlag('mode', 'headless');
+const LEAN_BUILD = argv.includes('--lean-build');
+if (!['headless', 'agentic'].includes(MODE)) { console.error(`--mode must be 'headless' or 'agentic' (got '${MODE}')`); process.exit(1); }
+if (LEAN_BUILD && MODE !== 'agentic') { console.error(`--lean-build requires --mode agentic`); process.exit(1); }
+// Extra CLI args that turn a call into an agentic (tool-enabled) harness run. Empty in
+// headless mode, so the headless invocation is byte-for-byte what it always was.
+const AGENTIC_TOOLS = ['Read', 'Grep', 'Glob'].concat(LEAN_BUILD ? ['Bash'] : []);
+function modeArgs() { return MODE === 'agentic' ? ['--allowedTools', AGENTIC_TOOLS.join(',')] : []; }
 
 const NL = fs.readFileSync(path.join(DIR, 'chars.txt'), 'utf8');
 
@@ -81,16 +98,29 @@ let RUN_DIR = null, SEQ = 0; const FAILURES = [];
 function runDir() { if (!RUN_DIR) { RUN_DIR = path.join(DIR, 'findings', 'transcripts', `level${level}`, RUN_TS); fs.mkdirSync(RUN_DIR, { recursive: true }); } return RUN_DIR; }
 let LAST_TX = null;    // repo-relative path of the most recent transcript file
 let LAST_SID = null;   // claude session id of the most recent call (for --resume)
-// Run claude headless with JSON output so we capture the session_id (lets us RESUME
-// the same session/transcript for follow-ups, e.g. boundary disambiguation).
+// Run claude with JSON output so we capture the session_id (lets us RESUME the same
+// session/transcript for follow-ups, e.g. boundary disambiguation). In agentic mode
+// `modeArgs()` adds --allowedTools so the SAME call becomes a tool-enabled harness
+// run; headless mode adds nothing, so the invocation is unchanged. The claude process
+// runs with cwd=DIR so any file tools resolve against the item directory (lean/,
+// chars.txt); this is inert for a no-tool headless call.
 function runClaude(extraArgs, prompt, tag) {
   const seq = String(SEQ++).padStart(3, '0'); const t0 = Date.now();
-  const raw = execFileSync('claude', ['-p', '--model', model, '--output-format', 'json', ...extraArgs],
-    { input: prompt, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 20 * 60 * 1000, stdio: ['pipe', 'pipe', 'inherit'] });
-  let text = raw, sid = null;
-  try { const j = JSON.parse(raw); if (j && typeof j === 'object') { if (j.result !== undefined) text = j.result; sid = j.session_id || null; } } catch (_) { /* not json — keep raw */ }
+  const raw = execFileSync('claude', ['-p', '--model', model, '--output-format', 'json', ...modeArgs(), ...extraArgs],
+    { input: prompt, encoding: 'utf8', cwd: DIR, maxBuffer: 64 * 1024 * 1024, timeout: 30 * 60 * 1000, stdio: ['pipe', 'pipe', 'inherit'] });
+  let text = raw, sid = null, meta = {};
+  try {
+    const j = JSON.parse(raw);
+    if (j && typeof j === 'object') {
+      if (j.result !== undefined) text = j.result;
+      sid = j.session_id || null;
+      // agentic runs report how much the harness did — record it so we can SEE that
+      // tools engaged (num_turns > 1) and what it cost, without stream parsing.
+      for (const k of ['num_turns', 'total_cost_usd', 'duration_ms', 'duration_api_ms', 'is_error']) if (j[k] !== undefined) meta[k] = j[k];
+    }
+  } catch (_) { /* not json — keep raw */ }
   const file = path.join(runDir(), `${seq}_${tag}.json`);
-  try { fs.writeFileSync(file, JSON.stringify({ seq: +seq, tag, model, when: new Date().toISOString(), ms: Date.now() - t0, session_id: sid, prompt, reply: text }, null, 2)); } catch (e) { console.error('  [transcript] save failed:', e.message); }
+  try { fs.writeFileSync(file, JSON.stringify({ seq: +seq, tag, mode: MODE, leanBuild: LEAN_BUILD, model, when: new Date().toISOString(), ms: Date.now() - t0, session_id: sid, ...meta, prompt, reply: text }, null, 2)); } catch (e) { console.error('  [transcript] save failed:', e.message); }
   LAST_TX = path.relative(DIR, file); LAST_SID = sid;
   return text;
 }
@@ -283,7 +313,7 @@ function checkTiling(children) {
 
 function main() {
   if (![0, 1, 2].includes(level)) { console.error('level must be 0, 1, or 2'); process.exit(1); }
-  console.error(`[run] level ${level}, model ${model}`);
+  console.error(`[run] level ${level}, model ${model}, mode ${MODE}${MODE === 'agentic' ? ` (tools: ${AGENTIC_TOOLS.join(', ')})` : ''}`);
   const children = runLevel(level);
 
   const gaps = checkTiling(children);
@@ -311,7 +341,7 @@ function main() {
   try {
     const rd = runDir();
     fs.writeFileSync(path.join(rd, 'tree.json'), JSON.stringify(tree, null, 2) + '\n');
-    fs.writeFileSync(path.join(rd, 'manifest.json'), JSON.stringify({ level, model, when: new Date().toISOString(), runTs: RUN_TS, calls: SEQ, topBoxes: children.length, verdicts: vc, faithErrors: errCount, failures: FAILURES }, null, 2) + '\n');
+    fs.writeFileSync(path.join(rd, 'manifest.json'), JSON.stringify({ level, model, mode: MODE, leanBuild: LEAN_BUILD, when: new Date().toISOString(), runTs: RUN_TS, calls: SEQ, topBoxes: children.length, verdicts: vc, faithErrors: errCount, failures: FAILURES }, null, 2) + '\n');
   } catch (e) { console.error('  [snapshot] save failed:', e.message); }
 
   if (FAILURES.length) console.error(`[run] WARNING: failures ${FAILURES.join(', ')}`);

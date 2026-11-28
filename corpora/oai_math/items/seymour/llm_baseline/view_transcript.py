@@ -111,6 +111,22 @@ def render(d, path, show_nl=False, show_lean=False):
         col("meta", f" tag:   {d.get('tag','?')}      model: {d.get('model','?')}"),
         col("meta", f" when:  {d.get('when','?')}   ({d.get('ms','?')} ms)"),
     ]
+    # mode line: headless (no tools) vs agentic (harness w/ tools). For agentic runs
+    # show how much the harness did (turns) + cost, when the transcript recorded them.
+    mode = d.get("mode")
+    if mode:
+        extra = ""
+        if mode == "agentic":
+            bits = []
+            if d.get("leanBuild"):
+                bits.append("lean-build")
+            if d.get("num_turns") is not None:
+                bits.append(f"{d.get('num_turns')} turns")
+            if d.get("total_cost_usd") is not None:
+                bits.append(f"${d.get('total_cost_usd')}")
+            if bits:
+                extra = "  (" + ", ".join(bits) + ")"
+        lines.append(col("meta", f" mode:  {mode}{extra}"))
     if folded:
         lines.append(col("meta", " NL source / Lean folded by default — expand with --nl, --lean, or --full"))
     lines += [sep, "",
