@@ -184,6 +184,23 @@ function segmentRegion(parentBox, tag) {
     let pick = {}; try { pick = parseObject(resumeLLM(segSid, dp, 'segment_' + tag + '_disambig')) || {}; } catch (_) {}
     amb.forEach((a, k) => { const n = +pick[letters[k]]; const occ = a.r.occ; a.r.off = (n >= 1 && n <= occ.length) ? occ[n - 1] : occ[0]; });
   }
+  // NOT-FOUND boundaries (start_text matched NOTHING — a verbatim mismatch, e.g. the
+  // model normalized a symbol like ≠→!= or reflowed whitespace). Rather than silently
+  // dropping the split, RESUME the session, show the actual text where the part must
+  // begin, and ask for the EXACT verbatim start_text. Re-match; anything still missing
+  // falls through to the forward-search fallback below.
+  const miss = resolved.map((r, i) => (r.off === null && !(r.occ && r.occ.length) ? { i, r } : null)).filter(Boolean);
+  if (miss.length && segSid) {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const prevOff = (i) => { for (let j = i - 1; j >= 0; j--) if (resolved[j].off != null) return resolved[j].off; return lo; };
+    const blocks = miss.map((a, k) => {
+      const window = NL.slice(prevOff(a.i), hi);
+      return `Marker ${letters[k]}  — your start_text was ${JSON.stringify(a.r.txt)}, but that exact string does not occur in the text. Here is the text in which this part must begin:\n"""${window}"""\nCopy the EXACT verbatim substring (same characters, spacing, and symbols) from the text above where this part begins.`;
+    }).join('\n\n');
+    const dp = `Some of your start_text markers do not appear verbatim in the source — probably a changed symbol or altered whitespace. For each marker below, give the corrected start_text copied EXACTLY from the shown text.\n\n${blocks}\n\nOutput ONLY a JSON object mapping each marker letter to its corrected start_text string, e.g. {"A": "..."}.`;
+    let fix = {}; try { fix = parseObject(resumeLLM(segSid, dp, 'segment_' + tag + '_refind')) || {}; } catch (_) {}
+    miss.forEach((a, k) => { const t = (fix[letters[k]] || '').trim(); if (!t) return; const occ = occurrencesOf(t); if (occ.length) { a.r.off = occ.find((o) => o >= lo) ?? occ[0]; a.r.txt = t; } });
+  }
   // any still-unresolved (0 occurrences, or no session) → forward search from the
   // previous boundary, flagged. Keeps the tiling intact.
   let cursor = lo;

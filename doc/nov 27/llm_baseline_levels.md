@@ -30,3 +30,7 @@ roughly 2 faithfulness errors per level and 10 segments per level would be rough
 
 ### Is knowing this level and it having this high precision and this high accuracy useful in practice? for example on the openai results?
 this could be like some qualitative analysis of human found fiathfulnes errors and we can provide an estimate based on precision of lower bound of faithfulness errors, and we already identify where to look so that is nice.
+
+### is more levels better juste because the agent has more rounds? for example, what if we just got claude code harness with that many rounds.
+
+### is the more levels better just because less context per round? for instnace what if we tried claude spawn a subagnt and it decides however it wants to split so long as the subagents get that same amount of context?
