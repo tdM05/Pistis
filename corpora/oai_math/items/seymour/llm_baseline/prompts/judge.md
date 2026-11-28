@@ -6,8 +6,10 @@ TEXT:
 LEAN:
 {{LEAN}}
 
-`lean_map` entries must be EXACT declaration names copied verbatim from the Lean above (nothing invented).
+A SPAN is {"file","target","context"}: `file` is one of the Lean files above (the name shown after `----- FILE:`), `target` is an exact verbatim Lean substring from that file, and `context` is a LARGER verbatim substring of the SAME file that contains `target` exactly once (so it locates unambiguously). A single symbol (e.g. `=`) is a valid `target` — use `context` to pin which occurrence. Copy both verbatim (same characters, spacing, symbols). Add `"approx": true` when the span is only an ANCHOR for where something SHOULD be, not a real counterpart.
 
-Reply ONLY with JSON: {"lean_map": [<exact decl name(s) from the Lean, or [] if none>], "verdict": "faithful" | "unfaithful", "reason": [<one-sentence reason>, ...]}
+`lean_spans` = where this TEXT maps in the Lean. If it is formalized, give the exact span(s). If NOTHING in the Lean corresponds, give exactly ONE approx anchor span marking where it should be.
 
-`reason` is a JSON array of strings. If unfaithful, list each DISTINCT faithfulness error as its own entry; each entry must be exactly one sentence (make it a long single sentence if it is truly one reason, but never combine two separate reasons into one entry). If faithful, `reason` must be [] (empty).
+`reason` = a JSON array with ONE entry per DISTINCT faithfulness error. Each entry is {"text","file","target","context","approx"}: `text` is exactly one sentence (one reason — make it a long single sentence if it is truly one reason, but never merge two reasons), and the span points to the offending Lean fragment, or an approx anchor marking where a missing thing belongs. If the TEXT is faithful, `reason` is [].
+
+Reply ONLY with JSON: {"lean_spans": [{"file":"...","target":"...","context":"...","approx":false}, ...], "verdict": "faithful" | "unfaithful", "reason": [{"text":"...","file":"...","target":"...","context":"...","approx":false}, ...]}

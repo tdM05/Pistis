@@ -336,8 +336,15 @@ function clearLean(){ const b=selId&&find(selId); if(!b)return; delete b.lean; m
 async function jumpToLean(b){ const spans=leanSpans(b); if(!spans.length) return; const first=spans[0];
   if(first.file!==LEAN_FILE) await showLeanFile(first.file);
   paintLeanHighlights();   // clear (keeps any live flash)
-  spans.forEach((p)=>{ if(p.file===LEAN_FILE) paintLeanRange(p.start,p.end,SEL_OUTLINE,{sel:true}); });
+  spans.forEach((p)=>{ if(p.file===LEAN_FILE) paintLeanRange(p.start,p.end,SEL_OUTLINE,{sel:true, dep:!!p.approx}); });
   const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=first.start);
+  if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); }
+// jump to / highlight ONE span {file,start,end,approx?} — used by per-reason rows so each
+// faithfulness error scrolls to its own Lean location. approx anchors are drawn striped.
+async function jumpToSpan(p){ if(!p||p.file==null) return; if(p.file!==LEAN_FILE) await showLeanFile(p.file);
+  paintLeanHighlights();
+  paintLeanRange(p.start,p.end,SEL_OUTLINE,{sel:true, dep:!!p.approx});
+  const el=[...$('leanCode').querySelectorAll('.lean-src')].reverse().find((s)=>+s.dataset.start<=p.start);
   if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); }
 
 // click in the Lean pane → select the box whose Lean span covers char `ch`. When
@@ -1618,18 +1625,35 @@ function openReasonPopup(id){ const b=find(id); if(!b||!(b.verdict==='ok'||b.ver
   hd.style.color=b.verdict==='ok'?'#15803d':b.verdict==='notok'?'#b91c1c':'#6b7280'; card.appendChild(hd);
   const nm=document.createElement('div'); nm.style.cssText='font:12px var(--mono);color:#555;margin:2px 0 2px';
   nm.textContent=labelTag(b)+' · '+label(b); card.appendChild(nm);
-  if(b.lean_map!==undefined){ const mp=document.createElement('div'); mp.style.cssText='font:12px var(--mono);margin:2px 0 2px;color:'+((b.lean_map&&b.lean_map.length)?'#0366d6':'#b91c1c');
-    mp.textContent='Lean map: '+((b.lean_map&&b.lean_map.length)?b.lean_map.join(', '):'(none — not formalized)'); card.appendChild(mp); }
+  // Lean mapping = CHARACTER SPANS (box.lean.spans) or box.lean.none. Show a count +
+  // the files; clicking a span row jumps to / highlights that Lean text.
+  if(b.lean!==undefined){ const sp=leanSpans(b); const mapped=sp.length>0;
+    const mp=document.createElement('div'); mp.style.cssText='font:12px var(--mono);margin:2px 0 2px;color:'+(mapped?'#0366d6':'#b91c1c');
+    mp.textContent='Lean map: '+(mapped?`${sp.length} span${sp.length>1?'s':''} (${[...new Set(sp.map((p)=>p.file.replace(/^lean\//,'')))].join(', ')})`:'(none — not formalized)');
+    if(mapped){ mp.style.cursor='pointer'; mp.title='jump to the Lean spans'; mp.onclick=()=>{ jumpToLean(b); }; }
+    card.appendChild(mp); }
   const sub=document.createElement('div'); sub.style.cssText='font:11px var(--mono);color:#999;margin:6px 0 4px;text-transform:uppercase;letter-spacing:.05em';
-  // reason is a LIST of one-sentence entries (one per distinct faithfulness error);
-  // legacy trees may still carry a single string.
-  const reasons=Array.isArray(b.reason)?b.reason:(b.reason?[b.reason]:[]);
-  sub.textContent="LLM's reason"+(reasons.length>1?`s (${reasons.length})`:'')+" (verbatim)"; card.appendChild(sub);
-  const body=document.createElement('div'); body.style.cssText='line-height:1.55;user-select:text';
+  // reason is a LIST of distinct faithfulness errors. Each entry is now an object
+  // {text, file?, start?, end?, approx?} — text is one sentence, and the span points to
+  // the offending Lean fragment (dashed = approx anchor "where it should be"). Legacy
+  // trees may carry bare strings. Each error row with a span is clickable → jumps to it.
+  const reasons=(Array.isArray(b.reason)?b.reason:(b.reason?[b.reason]:[])).map((r)=>(typeof r==='string'?{text:r}:r)).filter((r)=>r&&r.text);
+  const withSpan=reasons.filter((r)=>r.file!=null).length;
+  sub.textContent="LLM's reason"+(reasons.length>1?`s (${reasons.length})`:'')+(withSpan?' — click a row to jump to its Lean span':''); card.appendChild(sub);
+  const body=document.createElement('div'); body.style.cssText='line-height:1.5;user-select:text';
   if(!reasons.length){ body.style.whiteSpace='pre-wrap'; body.textContent='(no reason recorded)'; }
-  else if(reasons.length===1){ body.style.whiteSpace='pre-wrap'; body.textContent=reasons[0]; }
-  else { const ol=document.createElement('ol'); ol.style.cssText='margin:0;padding-left:20px';
-    reasons.forEach((r)=>{ const li=document.createElement('li'); li.style.marginBottom='6px'; li.textContent=r; ol.appendChild(li); }); body.appendChild(ol); }
+  else { const ol=document.createElement(reasons.length>1?'ol':'div'); if(reasons.length>1) ol.style.cssText='margin:0;padding-left:20px';
+    reasons.forEach((r)=>{ const li=document.createElement(reasons.length>1?'li':'div'); li.style.marginBottom='6px';
+      const span=r.file!=null;
+      const txt=document.createElement('span'); txt.textContent=r.text; li.appendChild(txt);
+      if(span){ const chip=document.createElement('span');
+        chip.style.cssText='margin-left:6px;font:11px var(--mono);color:'+(r.approx?'#b45309':'#0366d6')+';cursor:pointer;border:1px solid '+(r.approx?'#f59e0b':'#0366d6')+';border-radius:3px;padding:0 4px;'+(r.approx?'border-style:dashed;':'');
+        chip.textContent=(r.approx?'≈ ':'→ ')+r.file.replace(/^lean\//,'');
+        chip.title=(r.approx?'approximate anchor — where this should be':'jump to the offending Lean span');
+        chip.onclick=(e)=>{ e.stopPropagation(); jumpToSpan(r); };
+        li.appendChild(chip); }
+      ol.appendChild(li); });
+    body.appendChild(ol); }
   card.appendChild(body);
   const cl=document.createElement('div'); cl.style.cssText='cursor:pointer;color:#888;margin-top:12px'; cl.textContent='✕ close'; cl.onclick=closeFaithPopup; card.appendChild(cl);
   document.body.appendChild(ov);

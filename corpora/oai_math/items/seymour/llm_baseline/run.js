@@ -1,23 +1,23 @@
 #!/usr/bin/env node
-// run.js — NAIVE LLM baseline: reproduce what pdf_direct_segment does by HAND,
-// but LLM-driven. The LLM segments the paper into LABELLED boxes (schema labels:
-// organizer-section / commentary / definition / theorem) that TILE chars.txt,
-// rendered by the UNMODIFIED original UI. Basics first: segmentation + labels +
-// EXACT spans. (Faithfulness verdicts are a later layer.)
+// run.js — NAIVE LLM baseline.
 //
-// EXACT SPANS: the LLM cannot count char offsets, and guessed offsets cut
-// mid-formula. So the LLM returns each part's VERBATIM start text; we locate it in
-// chars.txt by search (forward from the previous boundary) — every cut lands on a
-// real token boundary, and we VERIFY the result tiles gap-free (like edit.js split
-// / check_split.py). Only inputs: chars.txt + lean/*.lean.
+// WHAT:    the LLM segments the paper into schema-labelled boxes and judges each box's
+//          faithfulness against the Lean, producing the box tree the UI renders.
+// INPUTS:  chars.txt + lean/*.lean.
 //
-// Levels (depth of segmentation, like the box tree's depth):
-//   0: whole paper = one organizer-section box.
-//   1: top-level tiling — the paper's sections (title/abstract/§1..§6/refs).
-//   2: level 1, then each organizer-section split into its parts
-//      (definition / theorem / commentary / nested organizer-section).
+// COMMANDS:
+//   run:     node run.js --level N
+//   resume:  node run.js --continue <run-folder> --level N   (deepen an existing run)
 //
-// Usage: node run.js --level {0|1|2} [--model us.anthropic.claude-opus-4-8]
+// FLAGS (name — default — meaning):
+//   --level N          1       tree depth to build (0 = whole paper as one box).
+//   --model ID         us.anthropic.claude-opus-4-8   which model to call.
+//   --mode M           headless   headless = no tools (pure naive baseline);
+//                                  agentic  = grant read-only Read/Grep/Glob tools.
+//   --lean-build       off     agentic only: also grant Bash (run lake/lean).
+//   --retries K        2       clarify retries before a required span/boundary ABORTS.
+//   --continue DIR     —       resume+deepen the run in DIR (else a new run folder).
+//   --allow-mismatch   off     allow --continue under a different model/mode.
 
 import { execFileSync } from 'child_process';
 import fs from 'fs';
@@ -47,6 +47,16 @@ if (LEAN_BUILD && MODE !== 'agentic') { console.error(`--lean-build requires --m
 // headless mode, so the headless invocation is byte-for-byte what it always was.
 const AGENTIC_TOOLS = ['Read', 'Grep', 'Glob'].concat(LEAN_BUILD ? ['Bash'] : []);
 function modeArgs() { return MODE === 'agentic' ? ['--allowedTools', AGENTIC_TOOLS.join(',')] : []; }
+// Pipeline resume: --continue <run-folder> loads an existing run and DEEPENS it to the
+// requested --level, reusing every split/verdict already computed (so levels nest and
+// nothing is redone). A fresh run (no --continue) starts a new date+model+mode+id folder.
+// NOTE: this is DISTINCT from the claude --resume used inside a call for disambiguation.
+const CONTINUE_DIR = getFlag('continue', null);
+const ALLOW_MISMATCH = argv.includes('--allow-mismatch');
+if (!Number.isInteger(level) || level < 0) { console.error(`--level must be a non-negative integer (got '${getFlag('level', '1')}')`); process.exit(1); }
+// How many clarify RETRIES a step gets before it ABORTS the whole run (so required
+// spans/boundaries are never silently dropped — you inspect the transcript instead).
+const RETRIES = (() => { const n = +getFlag('retries', '2'); return Number.isInteger(n) && n >= 0 ? n : 2; })();
 
 const NL = fs.readFileSync(path.join(DIR, 'chars.txt'), 'utf8');
 
@@ -70,34 +80,72 @@ const canSplit = (c) => !isComm(c) && !C.isLeafLabel(c);
 // Lean corpus (whole thing handed to each faithfulness judge — naive, no routing).
 const leanDir = path.join(DIR, 'lean');
 const leanFiles = fs.readdirSync(leanDir).filter((f) => f.endsWith('.lean')).sort();
-const leanBlob = leanFiles.map((f) => `----- FILE: ${f} -----\n` + fs.readFileSync(path.join(leanDir, f), 'utf8')).join('\n\n');
-// the set of REAL declaration names in the Lean — a lean_map entry must be one of
-// these (Lean names are unique identifiers, so this is an exact closed set). Used to
-// (a) show the judge the allowed names and (b) validate/repair its lean_map.
-const LEAN_DECL_NAMES = (() => {
-  const re = /^\s*(?:noncomputable\s+|private\s+|protected\s+|scoped\s+)*(?:theorem|lemma|def|abbrev|structure|inductive|class|instance)\s+([A-Za-z_][A-Za-z0-9_'.]*)/gm;
-  const s = new Set(); let m; while ((m = re.exec(leanBlob)) !== null) s.add(m[1]);
-  return s;
-})();
+const leanTexts = {};   // bare filename -> raw file text (span offsets are file-relative)
+leanFiles.forEach((f) => { leanTexts[f] = fs.readFileSync(path.join(leanDir, f), 'utf8'); });
+const leanBlob = leanFiles.map((f) => `----- FILE: ${f} -----\n` + leanTexts[f]).join('\n\n');
 
-// NL as anchored lines `@OFFSET|text` (offsets only help the LLM READ; the actual
-// boundary is always re-derived from verbatim start_text, never from the anchor).
-function anchoredNL(lo = 0, hi = NL.length) {
-  const out = []; let off = 0;
-  for (const line of NL.split('\n')) {
-    const s = off, e = off + line.length;
-    if (e >= lo && s < hi) out.push(`@${s}|${line}`);
-    off = e + 1;
+// ---- locate: the ONE substring-finder shared by NL boundaries and Lean spans ----
+// The model gives a `target` (the exact substring it means) plus a larger `context`
+// that contains the target, so we can pin it even when the target alone repeats.
+// Returns {ok, start, end} (offsets into haystack) or {ok:false, why}.
+function occurrencesIn(hay, sub, lo, hi) {
+  const out = []; if (!sub) return out; let k = hay.indexOf(sub, lo);
+  while (k >= 0 && k + sub.length <= hi) { out.push(k); k = hay.indexOf(sub, k + 1); } return out;
+}
+function locate(hay, target, context, lo = 0, hi = hay.length) {
+  target = target || ''; context = context || '';
+  if (!target) return { ok: false, why: 'empty target' };
+  if (context && context.includes(target)) {
+    const cocc = occurrencesIn(hay, context, lo, hi);
+    if (cocc.length !== 1) return { ok: false, why: cocc.length ? `context occurs ${cocc.length}×` : 'context not found verbatim' };
+    const cs = cocc[0], ce = cs + context.length;
+    const tocc = occurrencesIn(hay, target, cs, ce);
+    if (tocc.length !== 1) return { ok: false, why: tocc.length ? `target occurs ${tocc.length}× inside context` : 'target not inside context' };
+    return { ok: true, start: tocc[0], end: tocc[0] + target.length };
   }
-  return out.join('\n');
+  // no usable context → the target alone must be unique
+  const tocc = occurrencesIn(hay, target, lo, hi);
+  if (tocc.length === 1) return { ok: true, start: tocc[0], end: tocc[0] + target.length };
+  return { ok: false, why: tocc.length ? `target occurs ${tocc.length}× (needs context)` : 'target not found verbatim' };
 }
 
-// ---- transcripts (always-on, timestamped, never clobbered) ------------------
+// ---- run folder (date+model+mode+id) + transcripts --------------------------
+// A RUN lives in findings/runs/<id>/ : tree.json (full internal tree = source of
+// truth, carries pipeline flags), state.json (manifest + per-level stats), and
+// transcripts/ (one file per LLM call). Per-level UI views are written as
+// level<N>.json here AND mirrored to findings/tree.level<N>.json for the viewer.
 const RUN_TS = new Date().toISOString().replace(/[:.]/g, '-');
-let RUN_DIR = null, SEQ = 0; const FAILURES = [];
-function runDir() { if (!RUN_DIR) { RUN_DIR = path.join(DIR, 'findings', 'transcripts', `level${level}`, RUN_TS); fs.mkdirSync(RUN_DIR, { recursive: true }); } return RUN_DIR; }
+const modelSlug = model.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+let RUN_DIR;           // absolute path to the run folder
+if (CONTINUE_DIR) {
+  RUN_DIR = path.isAbsolute(CONTINUE_DIR) ? CONTINUE_DIR : path.resolve(process.cwd(), CONTINUE_DIR);
+  if (!fs.existsSync(path.join(RUN_DIR, 'tree.json'))) { console.error(`--continue: no tree.json found in ${RUN_DIR}`); process.exit(1); }
+} else {
+  RUN_DIR = path.join(DIR, 'findings', 'runs', `${RUN_TS}_${modelSlug}_${MODE}${LEAN_BUILD ? '-lb' : ''}_${Math.random().toString(36).slice(2, 6)}`);
+  fs.mkdirSync(RUN_DIR, { recursive: true });
+}
+const TRANSCRIPT_DIR = path.join(RUN_DIR, 'transcripts');
+let SEQ = 0; const FAILURES = [];
+function runDir() { if (!fs.existsSync(TRANSCRIPT_DIR)) fs.mkdirSync(TRANSCRIPT_DIR, { recursive: true }); return TRANSCRIPT_DIR; }
+// on resume, continue transcript numbering past what's already there (never clobber)
+if (CONTINUE_DIR && fs.existsSync(TRANSCRIPT_DIR)) {
+  const nums = fs.readdirSync(TRANSCRIPT_DIR).map((f) => parseInt(f, 10)).filter((n) => !Number.isNaN(n));
+  SEQ = nums.length ? Math.max(...nums) + 1 : 0;
+}
 let LAST_TX = null;    // repo-relative path of the most recent transcript file
 let LAST_SID = null;   // claude session id of the most recent call (for --resume)
+// atomic JSON write (tmp + rename) so a crash mid-write can never corrupt a file.
+function writeJSONAtomic(file, obj) { const tmp = file + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n'); fs.renameSync(tmp, file); }
+// HARD STOP a step that could not get a required span/boundary after RETRIES retries.
+// Prior boxes are already persisted (per-box), so --continue resumes from here; the
+// full call-by-call log (initial + every retry) is in the run's transcripts/ for you to
+// inspect exactly what the model kept producing.
+function abort(tag, msg) {
+  console.error(`\n[run] ABORT at ${tag}: ${msg}`);
+  console.error(`[run] retries exhausted (--retries ${RETRIES}). Inspect the full log: ${path.relative(DIR, TRANSCRIPT_DIR)}/`);
+  console.error(`[run] resume after fixing with: node run.js --continue ${path.relative(DIR, RUN_DIR)} --level ${level}`);
+  process.exit(2);
+}
 // Run claude with JSON output so we capture the session_id (lets us RESUME the same
 // session/transcript for follow-ups, e.g. boundary disambiguation). In agentic mode
 // `modeArgs()` adds --allowedTools so the SAME call becomes a tool-enabled harness
@@ -149,47 +197,105 @@ function objectCall(prompt, tag) {
   return o;
 }
 
-// ---- faithfulness judge: one box's NL vs the whole Lean → {verdict,reason,map} -
-// Formal boxes (needsMap) MUST map to a Lean declaration; an empty map means the
-// claim is NOT formalized → unfaithful. org boxes are judged coarsely with no map.
+// locate one requested span {file,target,context,approx?} within its file's text →
+// {ok, span:{file,start,end,approx?}} (file-relative offsets, 'lean/<name>' form) or
+// {ok:false,why}. `approx` (an anchor "where it should be", not a real counterpart) is
+// carried through from the request.
+function locateLeanSpan(e) {
+  const file = String(e && e.file || '').replace(/^lean\//, '').trim();
+  const txt = leanTexts[file];
+  if (!txt) return { ok: false, why: `unknown file '${e && e.file}'` };
+  const r = locate(txt, String(e.target || '').trim(), String(e.context || '').trim());
+  if (!r.ok) return { ok: false, why: r.why };
+  const span = { file: 'lean/' + file, start: r.start, end: r.end };
+  if (e.approx) span.approx = true;
+  return { ok: true, span };
+}
+const parseSpanList = (o) => (o && Array.isArray(o.lean_spans) ? o.lean_spans : (o && o.lean_spans ? [o.lean_spans] : []));
+
+// ---- faithfulness judge: one box's NL vs the whole Lean ----------------------
+// TWO span channels, both located via {file,target,context} (target disambiguated by
+// context, `approx:true` = an anchor where something SHOULD be rather than a real
+// counterpart):
+//   • box mapping (`lean_spans`): where the box corresponds in Lean. Formal boxes MUST
+//     have >=1; if nothing corresponds, a single approx anchor. A box counts as really
+//     formalized only via a NON-approx span.
+//   • per-reason spans (`reason[i]` = {text,file,target,context,approx?}): EVERY distinct
+//     unfaithfulness item carries its own span (exact offending fragment, or an approx
+//     anchor marking where the missing thing belongs). [] when faithful.
+// Required spans (mustMap boxes only) are RETRIED up to RETRIES; if any still can't be
+// obtained, the run ABORTS (never a silent drop). org/commentary need no span.
 function judgeText(nlText, label, mustMap, tag) {
   const tmpl = fs.readFileSync(path.join(DIR, 'prompts', 'judge.md'), 'utf8');
   const prompt = tmpl.replace('{{LABEL}}', label).replace('{{NL}}', nlText).replace('{{LEAN}}', leanBlob);
-  console.error(`  [judge ${tag}] NL ~${Math.round(nlText.length / 4)}t vs ${leanFiles.length} lean files${mustMap ? ' (map required)' : ' (org, coarse)'}`);
+  console.error(`  [judge ${tag}] NL ~${Math.round(nlText.length / 4)}t vs ${leanFiles.length} lean files${mustMap ? ' (span map required)' : ' (org — no span required)'}`);
   const o = objectCall(prompt, 'judge_' + tag);
   const v = String(o.verdict || '').toLowerCase();
-  let map = (Array.isArray(o.lean_map) ? o.lean_map : (o.lean_map ? [o.lean_map] : [])).map((x) => String(x).trim()).filter(Boolean);
-  // VALIDATE lean_map against the real decl names. Any entry that is not an actual
-  // declaration is a hallucination; resume the session, tell the judge exactly which
-  // names are invalid + the allowed list, and take its correction. Anything STILL
-  // invalid is dropped (and flagged) so lean_map only ever holds real decls.
-  let bad = map.filter((n) => !LEAN_DECL_NAMES.has(n));
-  if (bad.length && LAST_SID) {
-    const dp = `These lean_map entries are NOT declarations in the Lean above: ${JSON.stringify(bad)}. Copy the exact declaration name verbatim from the Lean, or drop it if nothing truly applies.\nReply ONLY with JSON {"lean_map": [<corrected exact names, or [] if none truly apply>]}.`;
+
+  // collect every REQUIRED span request so they share the retry/abort policy. Each pending
+  // item has a `desc` (shown to the model on retry) and a `sink` that receives the located
+  // span. Required spans (only for mustMap boxes — org/comm need none) come from:
+  //   (a) a span the model gave that we could not locate,
+  //   (b) NO box-mapping span at all → demand one (exact, or an approx anchor),
+  //   (c) a reason with no locatable span → demand one (every error carries a span).
+  const pending = [];
+  const mapSpans = [];
+  parseSpanList(o).forEach((e) => {
+    const r = locateLeanSpan(e);
+    if (r.ok) mapSpans.push(r.span);
+    else if (mustMap) pending.push({ desc: `the box-mapping span (your file=${JSON.stringify(e && e.file)} target=${JSON.stringify(e && e.target)} could not be located: ${r.why})`, sink: (s) => mapSpans.push(s) });
+  });
+  if (mustMap && !mapSpans.length && !pending.length) pending.push({ desc: `the box-mapping span for this ${label}: where it is formalized in the Lean, or exactly ONE approx anchor (approx:true) marking where it should be`, sink: (s) => mapSpans.push(s) });
+
+  // reason entries: {text,file,target,context,approx} (bare string accepted as legacy).
+  const reasonReq = Array.isArray(o.reason) ? o.reason : (o.reason != null ? [o.reason] : []);
+  const reasons = [];
+  reasonReq.forEach((e) => {
+    const text = typeof e === 'string' ? e.trim() : String((e && e.text) || '').trim();
+    if (!text) return;
+    const rr = { text }; reasons.push(rr);
+    const gaveSpan = typeof e === 'object' && (e.file || e.target);
+    if (gaveSpan) { const r = locateLeanSpan(e); if (r.ok) Object.assign(rr, r.span); else if (mustMap) pending.push({ desc: `the Lean span for the error "${text}" (your file=${JSON.stringify(e.file)} target=${JSON.stringify(e.target)} could not be located: ${r.why})`, sink: (s) => Object.assign(rr, s) }); }
+    else if (mustMap) pending.push({ desc: `the Lean span for the error "${text}": the offending Lean fragment, or an approx anchor (approx:true) for where the missing thing belongs`, sink: (s) => Object.assign(rr, s) });
+  });
+
+  // RETRY up to RETRIES times for every unresolved required span, then ABORT. Required
+  // spans are NEVER silently dropped — the run stops so you can inspect the transcript.
+  for (let attempt = 1; pending.some((p) => !p._done) && attempt <= RETRIES && LAST_SID; attempt++) {
+    const items = pending.map((p, k) => ({ p, k })).filter((x) => !x.p._done);
+    const blocks = items.map((x) => `Item ${x.k + 1}: give ${x.p.desc}.`).join('\n');
+    const dp = `Provide the required Lean spans below (retry ${attempt}/${RETRIES}). A span is {"file","target","context","approx"}: file one of [${leanFiles.join(', ')}], target a verbatim substring of that file, context a larger verbatim substring of the SAME file containing the target exactly once, "approx":true only for an anchor.\n${blocks}\nReply ONLY with JSON {"fixes": {"<item number>": {"file":...,"target":...,"context":...,"approx":false}, ...}}.`;
     try {
-      const o2 = parseObject(resumeLLM(LAST_SID, dp, 'judge_' + tag + '_remap')) || {};
-      map = (Array.isArray(o2.lean_map) ? o2.lean_map : (o2.lean_map ? [o2.lean_map] : [])).map((x) => String(x).trim()).filter(Boolean);
+      const o2 = parseObject(resumeLLM(LAST_SID, dp, `judge_${tag}_retry${attempt}`)) || {};
+      const fixes = (o2 && o2.fixes) || {};
+      pending.forEach((p, k) => { if (p._done) return; const f = fixes[String(k + 1)]; if (!f) return; const r = locateLeanSpan(f); if (r.ok) { p.sink(r.span); p._done = true; } });
     } catch (_) {}
-    bad = map.filter((n) => !LEAN_DECL_NAMES.has(n));
   }
-  if (bad.length) { FAILURES.push('badmap_' + tag); console.error(`    [judge ${tag}] dropping invalid lean_map entr${bad.length > 1 ? 'ies' : 'y'}: ${JSON.stringify(bad)}`); map = map.filter((n) => LEAN_DECL_NAMES.has(n)); }
+  const unresolved = pending.filter((p) => !p._done);
+  if (unresolved.length) abort(`judge_${tag}`, `${unresolved.length} required Lean span(s) unresolved after ${RETRIES} retr${RETRIES === 1 ? 'y' : 'ies'}: ${unresolved.map((p) => p.desc).join(' | ')}`);
+
+  // de-dup box mapping spans
+  const seen = new Set(); const spans = mapSpans.filter((s) => { const k = `${s.file}:${s.start}:${s.end}`; if (seen.has(k)) return false; seen.add(k); return true; });
+
   let verdict = v === 'faithful' ? 'ok' : v === 'unfaithful' ? 'notok' : 'unknown';
-  if (mustMap && verdict === 'ok' && !map.length) verdict = 'notok';   // no map = not formalized
-  // reason is a LIST of one-sentence entries (one per distinct faithfulness error);
-  // coerce a legacy/stray string into a single-entry list.
-  const reason = (Array.isArray(o.reason) ? o.reason : (o.reason != null ? [o.reason] : []))
-    .map((x) => String(x).trim()).filter(Boolean);
-  if (mustMap && verdict === 'notok' && !map.length && !reason.length) reason.push('Not formalized — no Lean declaration maps to this text.');
-  return { verdict, reason, lean_map: map };
+  const exactMap = spans.filter((s) => !s.approx);
+  if (mustMap && verdict === 'ok' && !exactMap.length) verdict = 'notok';   // only anchored ⇒ not really formalized
+  // a notok formal box must carry at least one reason, and that reason must have a span —
+  // reuse the (guaranteed-present) box anchor so the synthesized error is still clickable.
+  if (mustMap && verdict === 'notok' && !reasons.length) { const anchor = spans.find((s) => s.approx) || spans[0]; const rr = { text: 'Not formalized — no exact Lean counterpart.' }; if (anchor) Object.assign(rr, anchor); reasons.push(rr); }
+  return { verdict, reasons, spans };
 }
-// Attach a verdict (+reason, +map) to a box in place.
+// Attach verdict (+per-reason spans, +box mapping spans) to a box in place. A formal box
+// stores its box-level mapping as box.lean.spans (UI click jumps/highlights; entries may
+// carry approx:true for anchors), or box.lean.none if even an anchor was unavailable.
+// Each reason is {text, file?, start?, end?, approx?}. org boxes carry no box.lean.
 function judgeBox(b, tag) {
   const { start, end } = b.pieces[0];
   const concrete = concreteOf(b.label);
   const mustMap = needsMap(concrete);
-  const { verdict, reason, lean_map } = judgeText(NL.slice(start, end), concrete, mustMap, tag);
-  b.verdict = verdict; b.reason = reason; b.transcript = LAST_TX;   // link box → its LLM transcript
-  if (mustMap) b.lean_map = lean_map;
+  const { verdict, reasons, spans } = judgeText(NL.slice(start, end), concrete, mustMap, tag);
+  b.verdict = verdict; b.reason = reasons; b.transcript = LAST_TX;   // link box → its LLM transcript
+  if (mustMap) b.lean = spans.length ? { spans } : { none: true };
 }
 
 let idc = 1; const nid = () => 'b' + idc++;
@@ -198,7 +304,8 @@ function box(labelPath, lo, hi, children = []) { return { id: nid(), label: labe
 // ---- segment the region covered by `parentBox` into labelled, located parts ---
 // The LLM is offered EXACTLY the concrete label-paths the schema allows as children
 // of parentBox (ISA-expanded via core.allowedLabelPaths). It returns, per part, a
-// full dotted label-path + the verbatim start text; we lock boundaries to the text.
+// full dotted label-path + a verbatim target+context marking where the part begins;
+// locate() pins each boundary to an exact offset.
 function segmentRegion(parentBox, tag) {
   const lo = parentBox.pieces[0].start, hi = parentBox.pieces[0].end;
   const paths = C.allowedLabelPaths(ROOTBOX, parentBox === ROOTBOX ? ROOTBOX : parentBox);
@@ -212,64 +319,40 @@ function segmentRegion(parentBox, tag) {
   const parts = arrayCall(prompt, 'segment_' + tag);
   const segSid = LAST_SID;   // the session that produced this segmentation (for resume)
 
-  // Occurrences of `txt` in [lo,hi). The boundary is EXACT iff there is exactly one.
-  const occurrencesOf = (txt) => { const o = []; if (!txt) return o; let k = NL.indexOf(txt, lo); while (k >= 0 && k + txt.length <= hi) { o.push(k); k = NL.indexOf(txt, k + 1); } return o; };
-
+  // Each part gives where it BEGINS as {target, context}: target = verbatim start text,
+  // context = a larger verbatim window containing it (so the boundary locates uniquely
+  // even if the target alone repeats). The first part always begins at `lo`.
   const resolved = parts.map((p, i) => {
-    const txt = (p.start_text || '').trim();
     const label = (p.label && allowedSet.has(String(p.label))) ? String(p.label).split('.') : fallback;
+    const target = (p.target || p.start_text || '').trim();   // start_text accepted as legacy alias
+    const context = (p.context || '').trim();
     if (i === 0) return { off: lo, label };
-    const occ = occurrencesOf(txt);
-    if (occ.length === 1) return { off: occ[0], label };        // unique → exact
-    return { off: null, label, txt, occ };                      // 0 or >1 → resolve below
+    const r = locate(NL, target, context, lo, hi);
+    return r.ok ? { off: r.start, label } : { off: null, label, target, context, why: r.why };
   });
 
-  // DISAMBIGUATE the non-unique boundaries by RESUMING the same session: show the LLM
-  // each candidate occurrence with just enough surrounding context to tell them apart,
-  // and ask which one it meant. (Unique boundaries never hit the LLM again.)
-  const amb = resolved.map((r, i) => (r.off === null && r.occ && r.occ.length > 1 ? { i, r } : null)).filter(Boolean);
-  if (amb.length && segSid) {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const blocks = amb.map((a, k) => {
-      const { txt, occ } = a.r;
-      let c = 24; while (c < 600 && new Set(occ.map((o) => NL.slice(Math.max(0, o - c), o + txt.length + c))).size !== occ.length) c += 24;
-      const ctx = Math.min(600, c * 2);
-      const cands = occ.map((o, n) => `   ${n + 1}) …${NL.slice(Math.max(lo, o - ctx), o).replace(/\s+/g, ' ')}⟦▶START◀⟧${NL.slice(o, Math.min(hi, o + ctx)).replace(/\s+/g, ' ')}…`).join('\n');
-      return `Marker ${letters[k]}  (start_text = ${JSON.stringify(txt)}) occurs ${occ.length} times — which one begins the part you intended?\n${cands}`;
-    }).join('\n\n');
-    const dp = `When you split the text just now, these start_text markers each occur MORE THAN ONCE, so I can't tell which occurrence you meant. For each marker, the ⟦▶START◀⟧ shows where that occurrence begins. Pick the occurrence that starts the part you intended.\n\n${blocks}\n\nOutput ONLY a JSON object mapping each marker letter to the chosen number, e.g. {"A": 2}.`;
-    let pick = {}; try { pick = parseObject(resumeLLM(segSid, dp, 'segment_' + tag + '_disambig')) || {}; } catch (_) {}
-    amb.forEach((a, k) => { const n = +pick[letters[k]]; const occ = a.r.occ; a.r.off = (n >= 1 && n <= occ.length) ? occ[n - 1] : occ[0]; });
-  }
-  // NOT-FOUND boundaries (start_text matched NOTHING — a verbatim mismatch, e.g. the
-  // model normalized a symbol like ≠→!= or reflowed whitespace). Rather than silently
-  // dropping the split, RESUME the session, show the actual text where the part must
-  // begin, and ask for the EXACT verbatim start_text. Re-match; anything still missing
-  // falls through to the forward-search fallback below.
-  const miss = resolved.map((r, i) => (r.off === null && !(r.occ && r.occ.length) ? { i, r } : null)).filter(Boolean);
-  if (miss.length && segSid) {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const prevOff = (i) => { for (let j = i - 1; j >= 0; j--) if (resolved[j].off != null) return resolved[j].off; return lo; };
-    const blocks = miss.map((a, k) => {
+  // RETRY unlocatable boundaries up to RETRIES times (show each failing marker's
+  // target/context + why + the region it must begin in; ask for a corrected
+  // target+context copied verbatim). If any boundary is STILL unlocatable, ABORT — a
+  // boundary is never silently snapped, so you inspect the transcript instead.
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const prevOff = (i) => { for (let j = i - 1; j >= 0; j--) if (resolved[j].off != null) return resolved[j].off; return lo; };
+  const unresolvedBoundaries = () => resolved.map((r, i) => ({ r, i })).filter((x) => x.r.off === null);
+  for (let attempt = 1; unresolvedBoundaries().length && attempt <= RETRIES && segSid; attempt++) {
+    const items = unresolvedBoundaries();
+    const blocks = items.map((a, k) => {
       const window = NL.slice(prevOff(a.i), hi);
-      return `Marker ${letters[k]}  — your start_text was ${JSON.stringify(a.r.txt)}, but that exact string does not occur in the text. Here is the text in which this part must begin:\n"""${window}"""\nCopy the EXACT verbatim substring (same characters, spacing, and symbols) from the text above where this part begins.`;
+      return `Marker ${letters[k]} — target ${JSON.stringify(a.r.target)} / context ${JSON.stringify(a.r.context)} could not be located (${a.r.why}). This part begins somewhere in:\n"""${window}"""\nGive a target (the verbatim text where this part begins) AND a larger verbatim context from the shown text that contains that target exactly once.`;
     }).join('\n\n');
-    const dp = `Some of your start_text markers do not appear verbatim in the source — probably a changed symbol or altered whitespace. For each marker below, give the corrected start_text copied EXACTLY from the shown text.\n\n${blocks}\n\nOutput ONLY a JSON object mapping each marker letter to its corrected start_text string, e.g. {"A": "..."}.`;
-    let fix = {}; try { fix = parseObject(resumeLLM(segSid, dp, 'segment_' + tag + '_refind')) || {}; } catch (_) {}
-    miss.forEach((a, k) => { const t = (fix[letters[k]] || '').trim(); if (!t) return; const occ = occurrencesOf(t); if (occ.length) { a.r.off = occ.find((o) => o >= lo) ?? occ[0]; a.r.txt = t; } });
+    const dp = `Some boundaries could not be located verbatim (retry ${attempt}/${RETRIES}; probably a changed symbol or altered whitespace). For each marker, give corrected {"target","context"} copied EXACTLY from the shown text.\n\n${blocks}\n\nOutput ONLY a JSON object mapping each marker letter to {"target":"...","context":"..."}.`;
+    let fix = {}; try { fix = parseObject(resumeLLM(segSid, dp, `segment_${tag}_retry${attempt}`)) || {}; } catch (_) {}
+    items.forEach((a, k) => { const g = fix[letters[k]]; if (!g) return; const r = locate(NL, (g.target || '').trim(), (g.context || '').trim(), lo, hi); if (r.ok) { a.r.off = r.start; a.r.target = (g.target || '').trim(); } });
   }
-  // any still-unresolved (0 occurrences, or no session) → forward search from the
-  // previous boundary, flagged. Keeps the tiling intact.
+  const stillBad = unresolvedBoundaries();
+  if (stillBad.length) abort(`segment_${tag}`, `${stillBad.length} boundary/boundaries could not be located after ${RETRIES} retr${RETRIES === 1 ? 'y' : 'ies'}`);
+  // clamp boundaries monotonic within [lo,hi] (all are located now; this only orders them)
   let cursor = lo;
-  resolved.forEach((r, i) => {
-    if (r.off === null) {
-      const occ = (r.occ && r.occ.length) ? r.occ : occurrencesOf(r.txt);
-      const fwd = occ.find((o) => o >= cursor);
-      r.off = fwd != null ? fwd : (occ[0] != null ? occ[0] : cursor);
-      if (!occ.length) console.error(`    [${tag}] boundary ${i} start_text not found; kept cursor`);
-    }
-    r.off = Math.max(cursor, Math.min(r.off, hi)); cursor = r.off;
-  });
+  resolved.forEach((r) => { r.off = Math.max(cursor, Math.min(r.off, hi)); cursor = r.off; });
 
   const segs = [];
   for (let i = 0; i < resolved.length; i++) {
@@ -281,77 +364,127 @@ function segmentRegion(parentBox, tag) {
   return segs;
 }
 
-// ---- schema-driven recursive split → root box tree --------------------------
-// Each box is split into schema-allowed children; a child recurses iff its concrete
-// label canSplit (composite, not a leaf label, not comm) and depth remains. Each box
-// stops on its own — siblings need not reach the same depth. depth below root = LEVEL.
-function buildChildren(parentBox, depth, tag) {
-  const segs = segmentRegion(parentBox, tag);
-  if (!segs || segs.length <= 1) return null;             // can't split further here
-  return segs.map((s, i) => {
-    const b = box(s.label, s.lo, s.hi);
-    if (depth > 1 && canSplit(concreteOf(s.label))) {
-      const kids = buildChildren(b, depth - 1, `${tag}_${i}`);
-      if (kids) b.children = kids;
-    }
-    return b;
-  });
-}
-function runLevel(lvl) {
-  if (lvl === 0) return [box(['organizer-section'], 0, NL.length)];
-  return buildChildren(ROOTBOX, lvl, `L${lvl}`) || [box(['organizer-section'], 0, NL.length)];
+// ---- nested deepening build: ONE growing tree, reused across levels ----------
+// The whole paper is a single organizer-section box (depth 0; its allowed splits equal
+// ROOT_SLOTS, so it segments exactly like the old root). "Level N" = that box expanded
+// to depth N: at each level we JUDGE the current leaves, then SPLIT the splittable ones
+// to form the next level. Every box is split once and judged once (when it is first a
+// leaf, at its own depth); deeper levels REUSE that work. So levels truly NEST (level N
+// is a refinement of level N-1) and nothing is recomputed. `--continue` re-runs this
+// over a loaded tree, filling only what is missing.
+let PAPER = null;                                  // the whole-paper box (tree root content)
+const STATE = { levels: {} };                      // per-level stats, persisted to state.json
+
+function walkDepth(node, d, fn) { fn(node, d); (node.children || []).forEach((c) => walkDepth(c, d + 1, fn)); }
+
+// persist the FULL internal tree + state after every mutation (atomic) → crash-safe and
+// resumable to the last completed box.
+function persist() {
+  if (!PAPER) return;
+  const container = { id: 'root', pieces: [], children: [PAPER], links: [], lean: {} };
+  const builtLevel = Object.keys(STATE.levels).length ? Math.max(...Object.keys(STATE.levels).map(Number)) : -1;
+  writeJSONAtomic(path.join(RUN_DIR, 'tree.json'), container);
+  writeJSONAtomic(path.join(RUN_DIR, 'state.json'), { model, mode: MODE, leanBuild: LEAN_BUILD, runTs: RUN_TS, builtLevel, updated: new Date().toISOString(), calls: SEQ, levels: STATE.levels, failures: FAILURES });
 }
 
-// ---- coverage check: the top-level boxes must TILE [0,NL.length) ------------
-function checkTiling(children) {
-  const sorted = [...children].sort((a, b) => a.pieces[0].start - b.pieces[0].start);
-  let cur = 0; const gaps = [];
-  for (const c of sorted) { const { start, end } = c.pieces[0]; if (start !== cur) gaps.push([cur, start]); cur = Math.max(cur, end); }
-  if (cur !== NL.length) gaps.push([cur, NL.length]);
-  return gaps;
+// judge a box once (idempotent). Marks _judged so a resume never re-judges it. Records
+// the model/mode that produced the verdict (so a --allow-mismatch resume stays auditable).
+function ensureJudged(b) {
+  if (b._judged) return;
+  if (needsVerdict(concreteOf(b.label))) { judgeBox(b, b.id); b.judgedModel = model; b.judgedMode = MODE; }
+  b._judged = true; persist();
+}
+// split a box once (idempotent). Marks _split; a terminal label, or a split yielding
+// <=1 segment, becomes a permanent leaf. Children carry their depth and must tile the
+// parent exactly (segmentRegion guarantees a gapless cover).
+function ensureSplit(b, d) {
+  if (b._split) return;
+  if (canSplit(concreteOf(b.label))) {
+    const segs = segmentRegion(b, `seg_d${d}_${b.id}`);
+    if (segs && segs.length > 1) {
+      b.children = segs.map((s) => { const nb = box(s.label, s.lo, s.hi); nb._depth = d + 1; return nb; });
+      let cur = b.pieces[0].start;
+      for (const c of b.children) { if (c.pieces[0].start !== cur) throw new Error(`tiling gap under ${b.id} at ${cur}`); cur = c.pieces[0].end; }
+      if (cur !== b.pieces[0].end) throw new Error(`tiling short under ${b.id}: ${cur} != ${b.pieces[0].end}`);
+    }
+  }
+  b._split = true; persist();
+}
+
+// a CLEAN UI copy of the subtree pruned so depth-`maxd` boxes are leaves. Leaves keep
+// verdict/reason/lean(spans)/transcript; internal nodes carry none (UI derives by rollup).
+function viewAtDepth(node, d, maxd) {
+  const leaf = d >= maxd || !(node.children && node.children.length);
+  const out = { id: node.id, label: node.label, pieces: node.pieces, children: [] };
+  if (leaf) {
+    for (const k of ['verdict', 'reason', 'lean', 'transcript']) if (node[k] !== undefined) out[k] = node[k];
+  } else {
+    out.children = node.children.map((c) => viewAtDepth(c, d + 1, maxd));
+  }
+  return out;
+}
+// write the level-N view (run folder + the viewer's default findings/ location) and
+// return its leaf stats.
+function emitLevel(N) {
+  const view = { id: 'root', pieces: [], children: [viewAtDepth(PAPER, 0, N)], links: [], lean: {} };
+  writeJSONAtomic(path.join(RUN_DIR, `level${N}.json`), view);
+  writeJSONAtomic(path.join(DIR, 'findings', `tree.level${N}.json`), view);
+  const vc = {}; let leaves = 0, errs = 0;
+  (function rec(n) {
+    if (n.children && n.children.length) return n.children.forEach(rec);
+    if (n.verdict !== undefined) { vc[n.verdict] = (vc[n.verdict] || 0) + 1; leaves++; if (n.verdict === 'notok') errs += Array.isArray(n.reason) ? n.reason.length : (n.reason ? 1 : 0); }
+  })(view.children[0]);
+  return { leaves, verdicts: vc, faithErrors: errs };
+}
+
+// restore an existing run so we can deepen it without redoing work.
+function loadRun() {
+  const stored = JSON.parse(fs.readFileSync(path.join(RUN_DIR, 'tree.json'), 'utf8'));
+  const paper = stored.children && stored.children[0];
+  if (!paper) throw new Error('loaded tree.json has no paper box');
+  let maxId = 0; walkDepth(paper, 0, (n) => { const m = /^b(\d+)$/.exec(n.id); if (m) maxId = Math.max(maxId, +m[1]); });
+  idc = maxId + 1;                                 // continue ids without collision
+  walkDepth(paper, 0, (n, d) => { n._depth = d; }); // recompute depth fresh
+  return paper;
 }
 
 function main() {
-  if (![0, 1, 2].includes(level)) { console.error('level must be 0, 1, or 2'); process.exit(1); }
-  console.error(`[run] level ${level}, model ${model}, mode ${MODE}${MODE === 'agentic' ? ` (tools: ${AGENTIC_TOOLS.join(', ')})` : ''}`);
-  const children = runLevel(level);
+  console.error(`[run] level ${level}, model ${model}, mode ${MODE}${MODE === 'agentic' ? ` (tools: ${AGENTIC_TOOLS.join(', ')})` : ''}${CONTINUE_DIR ? ` · continue ${path.basename(RUN_DIR)}` : ''}`);
+  if (CONTINUE_DIR) {
+    let prev = {}; try { prev = JSON.parse(fs.readFileSync(path.join(RUN_DIR, 'state.json'), 'utf8')); } catch (_) {}
+    const mism = [];
+    if (prev.model && prev.model !== model) mism.push(`model ${prev.model} → ${model}`);
+    if (prev.mode && prev.mode !== MODE) mism.push(`mode ${prev.mode} → ${MODE}`);
+    if (prev.leanBuild !== undefined && prev.leanBuild !== LEAN_BUILD) mism.push(`leanBuild ${prev.leanBuild} → ${LEAN_BUILD}`);
+    if (mism.length && !ALLOW_MISMATCH) { console.error(`[run] FATAL: --continue params differ from the run (${mism.join('; ')}). Re-run with --allow-mismatch to override.`); process.exit(1); }
+    if (mism.length) console.error(`[run] WARNING: continuing with changed ${mism.join('; ')}`);
+    Object.assign(STATE.levels, prev.levels || {});
+    PAPER = loadRun();
+    console.error(`[run] continued — reusing existing splits/verdicts, computing only what's missing`);
+  } else {
+    PAPER = box(['organizer-section'], 0, NL.length); PAPER._depth = 0;
+  }
 
-  const gaps = checkTiling(children);
-  if (gaps.length) { console.error(`[run] FATAL: top-level boxes do not tile — gaps ${JSON.stringify(gaps)}`); process.exit(1); }
-  console.error(`[run] coverage OK: ${children.length} top boxes tile [0,${NL.length}) (0 gaps)`);
-
-  // FAITHFULNESS PASS: LLM-judge only non-comm LEAVES. Formal leaves must map to the
-  // Lean (empty map = not formalized = unfaithful); org leaves get a coarse verdict.
-  // comm = terminal (no verdict). A box WITH children carries no verdict of its own —
-  // the UI derives it by rolling up its children (any ✗ ⇒ ✗, all ✓ ⇒ ✓). No bias:
-  // every judge call sees only its box's NL + the Lean, never any other verdict.
-  const toJudge = [];
-  const collect = (bs) => bs.forEach((b) => { const leaf = !(b.children && b.children.length); if (leaf && needsVerdict(concreteOf(b.label))) toJudge.push(b); if (!leaf) collect(b.children); });
-  collect(children);
-  console.error(`[run] judging ${toJudge.length} non-comm leaf box(es) for faithfulness...`);
-  toJudge.forEach((b) => judgeBox(b, `${b.id}`));
-  const vc = toJudge.reduce((m, b) => ((m[b.verdict] = (m[b.verdict] || 0) + 1), m), {});
-  console.error(`[run] verdicts (leaves): ${JSON.stringify(vc)}`);
-  // total DISTINCT faithfulness errors = sum of reason entries over notok leaves.
-  const errCount = toJudge.filter((b) => b.verdict === 'notok').reduce((n, b) => n + (Array.isArray(b.reason) ? b.reason.length : (b.reason ? 1 : 0)), 0);
-  console.error(`[run] level ${level}: ${errCount} faithfulness error(s) across ${vc.notok || 0} unfaithful leaf box(es)`);
-
-  const tree = { id: 'root', pieces: [], children, links: [], lean: {} };
-  fs.writeFileSync(path.join(DIR, 'findings', `tree.level${level}.json`), JSON.stringify(tree, null, 2) + '\n');
-  try {
-    const rd = runDir();
-    fs.writeFileSync(path.join(rd, 'tree.json'), JSON.stringify(tree, null, 2) + '\n');
-    fs.writeFileSync(path.join(rd, 'manifest.json'), JSON.stringify({ level, model, mode: MODE, leanBuild: LEAN_BUILD, when: new Date().toISOString(), runTs: RUN_TS, calls: SEQ, topBoxes: children.length, verdicts: vc, faithErrors: errCount, failures: FAILURES }, null, 2) + '\n');
-  } catch (e) { console.error('  [snapshot] save failed:', e.message); }
+  // DEEPEN: for each level 0..target, judge the current depth-d leaves, emit the view,
+  // then split those boxes to form depth d+1 (idempotent calls skip finished work).
+  for (let d = 0; d <= level; d++) {
+    const atD = []; walkDepth(PAPER, 0, (n, dd) => { if (dd === d) atD.push(n); });
+    if (!atD.length) { console.error(`[run] level ${d}: no boxes at this depth (tree bottomed out) — stopping`); break; }
+    atD.forEach((b) => ensureJudged(b));
+    STATE.levels[d] = emitLevel(d); persist();
+    const s = STATE.levels[d];
+    console.error(`[run] level ${d}: ${s.leaves} judged leaf box(es), verdicts ${JSON.stringify(s.verdicts)}, ${s.faithErrors} faithfulness error(s)`);
+    if (d < level) atD.forEach((b) => ensureSplit(b, d));
+  }
 
   if (FAILURES.length) console.error(`[run] WARNING: failures ${FAILURES.join(', ')}`);
-  console.error(`[run] wrote findings/tree.level${level}.json — ${children.length} top-level boxes:`);
-  const dump = (bs, ind) => bs.forEach((c) => {
-    const t = NL.slice(c.pieces[0].start, c.pieces[0].start + 42).replace(/\s+/g, ' ');
-    const v = c.verdict ? ` ${c.verdict === 'ok' ? '✓' : c.verdict === 'notok' ? '✗' : '?'}` : '';
-    console.error(`  ${ind}${c.id} ${concreteOf(c.label)}${v}  | ${t}`);
-    if (c.children && c.children.length) dump(c.children, ind + '  ');
-  });
-  dump(children, '');
+  console.error(`[run] run folder: ${path.relative(DIR, RUN_DIR)}  (tree.json, state.json, level0..${level}.json)`);
+  const dump = (n, ind) => {
+    const t = NL.slice(n.pieces[0].start, n.pieces[0].start + 42).replace(/\s+/g, ' ');
+    const v = n.verdict !== undefined ? ` ${n.verdict === 'ok' ? '✓' : n.verdict === 'notok' ? '✗' : '?'}` : '';
+    console.error(`  ${ind}${n.id} ${concreteOf(n.label)}${v} | ${t}`);
+    (n.children || []).forEach((c) => dump(c, ind + '  '));
+  };
+  dump(PAPER, '');
 }
 main();
