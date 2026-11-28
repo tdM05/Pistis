@@ -51,36 +51,48 @@ def resolve(p):
     return p
 
 
-def _is_header(line):
-    s = line.strip()
-    return s.startswith("===") and s.endswith("===")
+def _marker(line):
+    """The data-block markers used by the prompts: a standalone `TEXT:` starts the
+    NL source, a standalone `LEAN:` starts the Lean. Returns 'nl'/'lean' or None."""
+    t = line.strip()
+    if t == "TEXT:":
+        return "nl"
+    if t == "LEAN:":
+        return "lean"
+    return None
+
+
+def _is_tail(line):
+    """A line that ends a data block: the trailing instructions after the data
+    (they start with `Reply ONLY` or a backtick, never present inside NL/Lean)."""
+    t = line.strip()
+    return t.startswith("Reply ONLY") or t.startswith("`")
 
 
 def fold_prompt(prompt, show_nl, show_lean):
-    """Render the prompt, but COLLAPSE the big data sections (the NL source and the
-    Lean) to a one-line placeholder unless expanded. Sections are the `=== … ===`
-    blocks; a header mentioning LEAN folds unless show_lean, one mentioning
-    NATURAL-LANGUAGE / TEXT REGION folds unless show_nl. Everything else (the
-    instructions) stays visible."""
+    """Render the prompt, but COLLAPSE the big data blocks to a one-line placeholder
+    unless expanded. The NL source follows a `TEXT:` line and the Lean follows a
+    `LEAN:` line; each block runs until the next marker or the trailing instructions.
+    Everything else (the instructions) stays visible."""
     out = []
     i = 0
     lines = prompt.split("\n")
-    while i < len(lines):
+    n = len(lines)
+    while i < n:
         ln = lines[i]
-        if _is_header(ln):
-            up = ln.upper()
-            fold = (("LEAN" in up and not show_lean) or
-                    (("NATURAL-LANGUAGE" in up or "TEXT REGION" in up) and not show_nl))
-            # collect the section body (until next header or EOF)
+        kind = _marker(ln)
+        if kind:
+            # collect the block body: until the next marker or a tail instruction
             j = i + 1
-            while j < len(lines) and not _is_header(lines[j]):
+            while j < n and not _marker(lines[j]) and not _is_tail(lines[j]):
                 j += 1
             body = lines[i + 1:j]
+            show = show_nl if kind == "nl" else show_lean
             out.append(col("tool", "  " + ln.strip()))
-            if fold:
+            if not show:
                 nchars = sum(len(b) for b in body)
-                kind = "--lean" if "LEAN" in up else "--nl"
-                out.append(col("meta", f"    ⟨ collapsed · {len(body)} lines, {nchars} chars · expand with {kind} (or --full) ⟩"))
+                flag = "--nl" if kind == "nl" else "--lean"
+                out.append(col("meta", f"    ⟨ collapsed · {len(body)} lines, {nchars} chars · expand with {flag} (or --full) ⟩"))
             else:
                 out += [col("user", "  " + b) for b in body]
             i = j

@@ -1621,8 +1621,16 @@ function openReasonPopup(id){ const b=find(id); if(!b||!(b.verdict==='ok'||b.ver
   if(b.lean_map!==undefined){ const mp=document.createElement('div'); mp.style.cssText='font:12px var(--mono);margin:2px 0 2px;color:'+((b.lean_map&&b.lean_map.length)?'#0366d6':'#b91c1c');
     mp.textContent='Lean map: '+((b.lean_map&&b.lean_map.length)?b.lean_map.join(', '):'(none — not formalized)'); card.appendChild(mp); }
   const sub=document.createElement('div'); sub.style.cssText='font:11px var(--mono);color:#999;margin:6px 0 4px;text-transform:uppercase;letter-spacing:.05em';
-  sub.textContent="LLM's reason (verbatim)"; card.appendChild(sub);
-  const body=document.createElement('div'); body.style.cssText='white-space:pre-wrap;line-height:1.55;user-select:text'; body.textContent=b.reason||'(no reason recorded)'; card.appendChild(body);
+  // reason is a LIST of one-sentence entries (one per distinct faithfulness error);
+  // legacy trees may still carry a single string.
+  const reasons=Array.isArray(b.reason)?b.reason:(b.reason?[b.reason]:[]);
+  sub.textContent="LLM's reason"+(reasons.length>1?`s (${reasons.length})`:'')+" (verbatim)"; card.appendChild(sub);
+  const body=document.createElement('div'); body.style.cssText='line-height:1.55;user-select:text';
+  if(!reasons.length){ body.style.whiteSpace='pre-wrap'; body.textContent='(no reason recorded)'; }
+  else if(reasons.length===1){ body.style.whiteSpace='pre-wrap'; body.textContent=reasons[0]; }
+  else { const ol=document.createElement('ol'); ol.style.cssText='margin:0;padding-left:20px';
+    reasons.forEach((r)=>{ const li=document.createElement('li'); li.style.marginBottom='6px'; li.textContent=r; ol.appendChild(li); }); body.appendChild(ol); }
+  card.appendChild(body);
   const cl=document.createElement('div'); cl.style.cssText='cursor:pointer;color:#888;margin-top:12px'; cl.textContent='✕ close'; cl.onclick=closeFaithPopup; card.appendChild(cl);
   document.body.appendChild(ov);
 }

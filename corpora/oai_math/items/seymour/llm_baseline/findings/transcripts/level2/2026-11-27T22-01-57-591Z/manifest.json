@@ -1,9 +1,0 @@
-{
-  "level": 2,
-  "model": "us.anthropic.claude-opus-4-8",
-  "when": "2026-11-27T22:22:32.541Z",
-  "runTs": "2026-11-27T22-01-57-591Z",
-  "calls": 41,
-  "topBoxes": 8,
-  "failures": []
-}

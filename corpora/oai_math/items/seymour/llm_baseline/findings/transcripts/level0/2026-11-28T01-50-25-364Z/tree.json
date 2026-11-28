@@ -13,7 +13,10 @@
           "end": 39719
         }
       ],
-      "children": []
+      "children": [],
+      "verdict": "ok",
+      "reason": [],
+      "transcript": "findings/transcripts/level0/2026-11-28T01-50-25-364Z/000_judge_b1.json"
     }
   ],
   "links": [],

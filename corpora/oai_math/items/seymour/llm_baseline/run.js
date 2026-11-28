@@ -54,6 +54,14 @@ const canSplit = (c) => !isComm(c) && !C.isLeafLabel(c);
 const leanDir = path.join(DIR, 'lean');
 const leanFiles = fs.readdirSync(leanDir).filter((f) => f.endsWith('.lean')).sort();
 const leanBlob = leanFiles.map((f) => `----- FILE: ${f} -----\n` + fs.readFileSync(path.join(leanDir, f), 'utf8')).join('\n\n');
+// the set of REAL declaration names in the Lean — a lean_map entry must be one of
+// these (Lean names are unique identifiers, so this is an exact closed set). Used to
+// (a) show the judge the allowed names and (b) validate/repair its lean_map.
+const LEAN_DECL_NAMES = (() => {
+  const re = /^\s*(?:noncomputable\s+|private\s+|protected\s+|scoped\s+)*(?:theorem|lemma|def|abbrev|structure|inductive|class|instance)\s+([A-Za-z_][A-Za-z0-9_'.]*)/gm;
+  const s = new Set(); let m; while ((m = re.exec(leanBlob)) !== null) s.add(m[1]);
+  return s;
+})();
 
 // NL as anchored lines `@OFFSET|text` (offsets only help the LLM READ; the actual
 // boundary is always re-derived from verbatim start_text, never from the anchor).
@@ -120,10 +128,29 @@ function judgeText(nlText, label, mustMap, tag) {
   console.error(`  [judge ${tag}] NL ~${Math.round(nlText.length / 4)}t vs ${leanFiles.length} lean files${mustMap ? ' (map required)' : ' (org, coarse)'}`);
   const o = objectCall(prompt, 'judge_' + tag);
   const v = String(o.verdict || '').toLowerCase();
-  const map = Array.isArray(o.lean_map) ? o.lean_map.map(String) : (o.lean_map ? [String(o.lean_map)] : []);
+  let map = (Array.isArray(o.lean_map) ? o.lean_map : (o.lean_map ? [o.lean_map] : [])).map((x) => String(x).trim()).filter(Boolean);
+  // VALIDATE lean_map against the real decl names. Any entry that is not an actual
+  // declaration is a hallucination; resume the session, tell the judge exactly which
+  // names are invalid + the allowed list, and take its correction. Anything STILL
+  // invalid is dropped (and flagged) so lean_map only ever holds real decls.
+  let bad = map.filter((n) => !LEAN_DECL_NAMES.has(n));
+  if (bad.length && LAST_SID) {
+    const dp = `These lean_map entries are NOT declarations in the Lean above: ${JSON.stringify(bad)}. Copy the exact declaration name verbatim from the Lean, or drop it if nothing truly applies.\nReply ONLY with JSON {"lean_map": [<corrected exact names, or [] if none truly apply>]}.`;
+    try {
+      const o2 = parseObject(resumeLLM(LAST_SID, dp, 'judge_' + tag + '_remap')) || {};
+      map = (Array.isArray(o2.lean_map) ? o2.lean_map : (o2.lean_map ? [o2.lean_map] : [])).map((x) => String(x).trim()).filter(Boolean);
+    } catch (_) {}
+    bad = map.filter((n) => !LEAN_DECL_NAMES.has(n));
+  }
+  if (bad.length) { FAILURES.push('badmap_' + tag); console.error(`    [judge ${tag}] dropping invalid lean_map entr${bad.length > 1 ? 'ies' : 'y'}: ${JSON.stringify(bad)}`); map = map.filter((n) => LEAN_DECL_NAMES.has(n)); }
   let verdict = v === 'faithful' ? 'ok' : v === 'unfaithful' ? 'notok' : 'unknown';
   if (mustMap && verdict === 'ok' && !map.length) verdict = 'notok';   // no map = not formalized
-  return { verdict, reason: String(o.reason || ''), lean_map: map };
+  // reason is a LIST of one-sentence entries (one per distinct faithfulness error);
+  // coerce a legacy/stray string into a single-entry list.
+  const reason = (Array.isArray(o.reason) ? o.reason : (o.reason != null ? [o.reason] : []))
+    .map((x) => String(x).trim()).filter(Boolean);
+  if (mustMap && verdict === 'notok' && !map.length && !reason.length) reason.push('Not formalized — no Lean declaration maps to this text.');
+  return { verdict, reason, lean_map: map };
 }
 // Attach a verdict (+reason, +map) to a box in place.
 function judgeBox(b, tag) {
@@ -275,13 +302,16 @@ function main() {
   toJudge.forEach((b) => judgeBox(b, `${b.id}`));
   const vc = toJudge.reduce((m, b) => ((m[b.verdict] = (m[b.verdict] || 0) + 1), m), {});
   console.error(`[run] verdicts (leaves): ${JSON.stringify(vc)}`);
+  // total DISTINCT faithfulness errors = sum of reason entries over notok leaves.
+  const errCount = toJudge.filter((b) => b.verdict === 'notok').reduce((n, b) => n + (Array.isArray(b.reason) ? b.reason.length : (b.reason ? 1 : 0)), 0);
+  console.error(`[run] level ${level}: ${errCount} faithfulness error(s) across ${vc.notok || 0} unfaithful leaf box(es)`);
 
   const tree = { id: 'root', pieces: [], children, links: [], lean: {} };
   fs.writeFileSync(path.join(DIR, 'findings', `tree.level${level}.json`), JSON.stringify(tree, null, 2) + '\n');
   try {
     const rd = runDir();
     fs.writeFileSync(path.join(rd, 'tree.json'), JSON.stringify(tree, null, 2) + '\n');
-    fs.writeFileSync(path.join(rd, 'manifest.json'), JSON.stringify({ level, model, when: new Date().toISOString(), runTs: RUN_TS, calls: SEQ, topBoxes: children.length, failures: FAILURES }, null, 2) + '\n');
+    fs.writeFileSync(path.join(rd, 'manifest.json'), JSON.stringify({ level, model, when: new Date().toISOString(), runTs: RUN_TS, calls: SEQ, topBoxes: children.length, verdicts: vc, faithErrors: errCount, failures: FAILURES }, null, 2) + '\n');
   } catch (e) { console.error('  [snapshot] save failed:', e.message); }
 
   if (FAILURES.length) console.error(`[run] WARNING: failures ${FAILURES.join(', ')}`);
