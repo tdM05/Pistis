@@ -1,0 +1,364 @@
+{
+  "id": "root",
+  "pieces": [],
+  "children": [
+    {
+      "id": "b1",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 0,
+          "end": 76
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b2",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 76,
+          "end": 299
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b3",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 299,
+          "end": 865
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b4",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 865,
+          "end": 965
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "The segment states Theorem 1.1: every nonempty finite oriented graph has a vertex v with |N⁺₁(v)| ≤ |N⁺₂(v)|. The Lean theorem `exists_goodVertex (r : V → V → Prop) (hr : IsOriented r) : ∃ v, GoodVertex r v` (Main.lean, under `variable {V} [Fintype V] [DecidableEq V] [Nonempty V]`) captures this exactly: Fintype V = finite, Nonempty V = nonempty, IsOriented (loopless + asymmetric) = oriented graph. `GoodVertex r v` unfolds to `(firstNeighbors r v).card ≤ (secondNeighbors r v).card`, where firstNeighbors = {w | r v w} = N⁺₁(v) (out-neighbors) and secondNeighbors = {w | w ≠ v ∧ ¬r v w ∧ ∃ u, r v u ∧ r u w} = N⁺₂(v) (second out-neighborhood), with the ≤ direction matching. Same statement, hypotheses, quantifier (∃ v), and inequality direction."
+    },
+    {
+      "id": "b5",
+      "label": [
+        "commentary"
+      ],
+      "pieces": [
+        {
+          "start": 965,
+          "end": 3864
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b6",
+      "label": [
+        "commentary"
+      ],
+      "pieces": [
+        {
+          "start": 3864,
+          "end": 6552
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b7",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 6552,
+          "end": 6903
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b8",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 6903,
+          "end": 7140
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "The segment is formalized by `counterexample_reduction` in Reduction.lean: `(hr : IsOriented r) (hcounter : Counterexample r) → ∃ n, 0 < n ∧ ∃ g : (Fin n × Fin (n+1)) → (Fin n × Fin (n+1)) → Prop, IsOriented g ∧ PositiveIndegree g ∧ StrictSubsetGrowth g`. The hypothesis matches 'Theorem 1.1 has a counterexample' (an oriented relation r that is a Counterexample). The conclusion produces a graph g on the finite vertex type `Fin n × Fin (n+1)`, which is nonempty since n > 0 (so both factors are inhabited), matching 'finite nonempty oriented graph G'. IsOriented g gives 'oriented'; PositiveIndegree g (∀ v, ∃ u, r u v) gives 'every vertex has positive indegree'; and StrictSubsetGrowth g, defined as `∀ S, S.Nonempty → S ≠ univ → S.card + (image r (image r S)).card < 2 * (image r S).card`, exactly matches inequality (2): |U| + |F²_G(U)| < 2|F_G(U)| for every ∅ ≠ U ⊊ V(G), with image r S = F_G(U), image r (image r S) = F²_G(U), and the nonempty-proper-subset range. Same quantifiers, same inequality direction, nothing dropped or altered."
+    },
+    {
+      "id": "b9",
+      "label": [
+        "commentary"
+      ],
+      "pieces": [
+        {
+          "start": 7140,
+          "end": 7746
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b10",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 7746,
+          "end": 11176
+        }
+      ],
+      "children": [],
+      "verdict": "notok",
+      "reason": "The NL Lemma 2.2 asserts, from the single choice of a minimum-order and (subject to that) minimum-arc graph D satisfying |N⁺₁(v)|>|N⁺₂(v)| for all v, a THREE-part conclusion: (a) D is strongly connected, (b) every vertex has positive indegree, and (c) |F₂(S)\\F(S)| < |F(S)\\S| for every ∅≠S⊊V(D). The closest Lean statement is `subsetDeficit_of_minimal`, which concludes ONLY `SubsetDeficit r`, i.e. part (c): `(image r (image r S) \\ image r S).card < (image r S \\ S).card` for all nonempty S ≠ univ. (The inequality (c) itself is formalized faithfully — same direction, same quantifier over nonempty proper subsets.) But the Lean drops conclusions (a) and (b) entirely from this lemma's conclusion, and moreover it recasts strong connectivity as a HYPOTHESIS: `subsetDeficit_of_minimal` takes `NonemptyBoundary r` (every nonempty proper S has an out-arc leaving it — exactly the no-sink-component/strong-connectivity condition) as an assumption rather than deriving it. The NL's 'minimum order' hypothesis is likewise replaced by this derived `NonemptyBoundary` assumption (OrderMinimal is not used here), and positive indegree does not appear at all. So the Lean statement neither proves nor states the full lemma: two of the three asserted conclusions are missing and strong connectivity has been moved from conclusion to hypothesis."
+    },
+    {
+      "id": "b11",
+      "label": [
+        "commentary"
+      ],
+      "pieces": [
+        {
+          "start": 11176,
+          "end": 11623
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b12",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 11623,
+          "end": 14293
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "The segment is Lemma 2.3 (transitive-tournament blowup), and it is captured by the theorems in TransitiveBlowup.lean. The construction `blowup r m := fun p q => r p.1 q.1 ∨ (p.1 = q.1 ∧ p.2 < q.2)` on vertex type `V × Fin m` exactly realizes the NL: distinct blocks `p.1 ≠ q.1` get an arc iff `r p.1 q.1` (all arcs from block v to block w for each arc v→w, and no other cross-block arcs), while within a block `p.1 = q.1` the order `p.2 < q.2` is a transitive tournament (arcs smaller→larger label). The three asserted conclusions each have a matching theorem: `blowup_isOriented` (G is oriented), `blowup_positiveIndegree` (all indegrees positive, from `PositiveIndegree r`), and `blowup_strictSubsetGrowth` (G satisfies (2) = `StrictSubsetGrowth`, i.e. |U| − 2|F_G U| + |F²_G U| < 0). Its hypotheses match the NL: `IsOriented r`, `PositiveIndegree r`, `SubsetDeficit r` (condition (3): |F²S\\FS| < |FS\\S| for every nonempty proper subset — exactly the parenthesized-difference-negative step in the proof), and `Fintype.card V < m` (m > n, n = |V(D)|). The quantifier scope (nonempty proper S) and the inequality directions line up with the NL proof's final bound and its use of (3). The detailed estimates (6),(7) are internal proof steps, not separate claims. Faithful."
+    },
+    {
+      "id": "b13",
+      "label": [
+        "commentary"
+      ],
+      "pieces": [
+        {
+          "start": 14293,
+          "end": 14531
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b14",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 14531,
+          "end": 14956
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b15",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 14956,
+          "end": 15739
+        }
+      ],
+      "children": [],
+      "verdict": "unknown",
+      "reason": "(judge gave no parseable verdict; see transcripts)"
+    },
+    {
+      "id": "b16",
+      "label": [
+        "commentary"
+      ],
+      "pieces": [
+        {
+          "start": 15739,
+          "end": 16045
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b17",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 16045,
+          "end": 16673
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "The segment's Lemma 3.2 statement is captured by `kernel_support_of_max_rank` (and the equivalent `kernel_support`) in MaxSupportKernel.lean. NL: T ⊆ I×J with I,J finite ↔ Lean `{T : Set (I × J)}` with `[Fintype I] [Fintype J]`. NL 'D supported on T' ↔ `hD : SupportedOn T D` where `SupportedOn T D := ∀ s j, (s,j) ∉ T → D s j = 0`. NL 'maximum rank among all real matrices supported on T' ↔ `hmax : ∀ A, SupportedOn T A → A.rank ≤ D.rank`. D : R^J → R^I is represented as `Matrix I J ℝ` acting by `*ᵥ`; x ∈ ker D ↔ `D *ᵥ x = 0`, y ∈ ker Dᵀ ↔ `Dᵀ *ᵥ y = 0`, (s,j) ∈ T ↔ `hsj : (s,j) ∈ T` with s : I, j : J. Conclusion x_j y_s = 0 ↔ `x j * y s = 0`. All quantifiers are universal (free implicit vars / hypotheses), indices and the i-vs-j orientation line up, and nothing is dropped or altered. The accompanying proof text is just the justification and carries no additional formal claim."
+    },
+    {
+      "id": "b18",
+      "label": [
+        "commentary"
+      ],
+      "pieces": [
+        {
+          "start": 16673,
+          "end": 27401
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b19",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 27401,
+          "end": 27640
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b20",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 27640,
+          "end": 31800
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "Proposition 4.1 asserts there is no nonempty finite oriented graph with every vertex having an in-neighbor in which the one-step image operator F satisfies |U|+|F²(U)| < 2|F(U)| for all ∅≠U⊊V(G). The Lean counterpart is `no_strictSubsetGrowth_of_pruning` in ExtremalContradiction.lean, stated with `[Fintype V] [Nonempty V]` (nonempty finite), `hr : IsOriented r` (oriented), `hpos : PositiveIndegree r` (every vertex has an in-neighbor), concluding `¬ StrictSubsetGrowth r`. `StrictSubsetGrowth r` is `∀ S, S.Nonempty → S ≠ univ → S.card + (image r (image r S)).card < 2 * (image r S).card`, which exactly encodes condition (17): F = image r, F² = image r ∘ image r, the quantifier ranges over nonempty proper subsets (∅≠U⊊V(G)), and the strict inequality direction (<) matches. The theorem additionally takes `hprune : PruningStatement r` as a hypothesis, which faithfully corresponds to the proof's explicit invocation of the pruning lemma (Lemma 3.1); PruningStatement is itself proved separately (theorem `pruning`), so the overall result is unconditional (as used in Main.lean). The statement, hypotheses, quantifiers, and inequality direction all agree."
+    },
+    {
+      "id": "b21",
+      "label": [
+        "commentary"
+      ],
+      "pieces": [
+        {
+          "start": 31800,
+          "end": 32029
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b22",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 32029,
+          "end": 32264
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b23",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 32264,
+          "end": 34204
+        }
+      ],
+      "children": [],
+      "verdict": "notok",
+      "reason": "The NL segment is Corollary 5.1 on *weighted* second-neighborhood forms, asserting three distinct claims: (i) for every vertex weighting η:V→[0,∞) there is a vertex v with η(N⁺₁(v)) ≤ η(N⁺₂(v)); (ii) there exists a vertex weighting η with ∑η=1 such that η(N⁺₁(v)) ≤ η(N⁺₂(v)) for *every* v; and (iii) an arc-weighting statement with βʷ_v(s)=max({0}∪{w(us)−w(vs):v→u→s}) and ∑_s βʷ_v(s) ≥ ∑_{u∈N⁺₁(v)} w(vu) for some v. None of this appears anywhere in the Lean. The Lean formalizes only the *unweighted* Second Neighborhood Conjecture: GoodVertex r v is (firstNeighbors r v).card ≤ (secondNeighbors r v).card (plain cardinalities, no weighting function), and the top-level result exists_goodVertex proves ∃ v, GoodVertex r v. There is no vertex weighting η:V→[0,∞), no weighted sum η(S)=∑η(x), no arc weighting w:A(D)→[0,∞), no βʷ_v(s), and no 'total weight one' normalization. The weighted corollary and its three parts are entirely unformalized."
+    },
+    {
+      "id": "b24",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 34204,
+          "end": 34793
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "b25",
+      "label": [
+        "theorem"
+      ],
+      "pieces": [
+        {
+          "start": 34793,
+          "end": 36326
+        }
+      ],
+      "children": [],
+      "verdict": "notok",
+      "reason": "The NL segment is Corollary 6.1, which makes three concrete formal claims about oriented graphs and directed cycles: (i) if D has no directed 3-cycle then some vertex v has d+(v) ≤ |Z(v)| and n−1 ≥ 2d+(v)+d−(v); (ii) if δ+(D) ≥ n/3 and δ−(D) ≥ n/3 then D contains a directed 3-cycle; (iii) if the graph is r-regular (d+=d−=r) with directed girth exactly four then n ≥ 3r+1, where Z(v) is the set of non-neighbors excluding v. The Lean formalization contains none of these statements. It formalizes the Second Neighborhood Conjecture itself (culminating in Main.lean's `exists_goodVertex`: every finite oriented graph has a vertex v with |N+1(v)| ≤ |N+2(v)|) via a reduction/pruning/generic-rank argument. There is no Lean definition of directed 3-cycle, directed girth, the non-neighbor set Z(v) (the `Z` in PruningDefinitions is an unrelated Finset of index pairs for a matrix-support/pruning construction), the degree-threshold statement δ± ≥ n/3, or the regular-girth-four bound n ≥ 3r+1. The quantities d+, d−, δ± and the inequalities n−1 ≥ 2d+(v)+d−(v) do not appear. Thus the corollary's claims are neither stated nor proved in the given Lean; the segment is not formalized at all."
+    },
+    {
+      "id": "b26",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 36326,
+          "end": 39719
+        }
+      ],
+      "children": []
+    }
+  ],
+  "links": [],
+  "lean": {}
+}

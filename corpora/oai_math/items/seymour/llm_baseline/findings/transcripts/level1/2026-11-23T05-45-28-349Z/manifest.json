@@ -1,0 +1,11 @@
+{
+  "level": 1,
+  "model": "us.anthropic.claude-opus-4-8",
+  "when": "2026-11-23T05:53:46.554Z",
+  "runTs": "2026-11-23T05-45-28-349Z",
+  "calls": 11,
+  "topBoxes": 26,
+  "failures": [
+    "judge_b15"
+  ]
+}

@@ -873,7 +873,7 @@ function drawArrows(){ const svg=$('arrowLayer'); if(!svg) return; const host=$(
 }
 
 /* ───────────────── paint highlights on the PDF ───────────────── */
-function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); renderFol(); }
+function render(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); renderRight(); }
 // status-bar stats for the CURRENT LEVEL box: coverage of its region by children
 // + its own structural warnings. (Root = whole paper → children-vs-paper coverage.)
 function renderLevelStats(){ const el=$('levelStats'); if(!el) return; el.innerHTML='';
@@ -904,7 +904,7 @@ function toggleJunk(){ JUNK_MODE=!JUNK_MODE; const b=$('junkbox'); if(b) b.class
   flash(JUNK_MODE?'junk mode ON — n = box all uncovered text, e = add it to selected':'junk mode off'); }
 // right-click popover: SHOW the id/text (and path) in auto-selected inputs so you
 // can just press Ctrl/Cmd+C — no clipboard API needed (works over SSH http).
-function showIdPopover(x,y,idText,pathText){ closeCtxMenu();
+function showIdPopover(x,y,idText,pathText,txPath){ closeCtxMenu();
   const m=document.createElement('div'); m.id='ctxmenu'; m.className='ctxmenu';
   m.style.left=x+'px'; m.style.top=y+'px';
   const mk=(lab,val,sel)=>{ const wrap=document.createElement('div'); wrap.className='ctxrow';
@@ -913,6 +913,11 @@ function showIdPopover(x,y,idText,pathText){ closeCtxMenu();
     inp.onclick=()=>inp.select(); wrap.appendChild(inp); if(sel) wrap._sel=inp; return wrap; };
   const first=mk('id : text', idText, true); m.appendChild(first);
   m.appendChild(mk('path', pathText));
+  // BASELINE: this box's LLM transcript (exact prompt + reply). Shows the path and a
+  // ready-to-copy command to open it in the transcript viewer.
+  if(txPath){ m.appendChild(mk('transcript', txPath));
+    const script=(BASEDIR?BASEDIR.replace(/\/$/,'')+'/':'')+'view_transcript.py';
+    m.appendChild(mk('view cmd', 'python3 '+script+' '+txPath)); }
   document.body.appendChild(m);
   const r=m.getBoundingClientRect(); if(r.right>innerWidth) m.style.left=(x-r.width)+'px'; if(r.bottom>innerHeight) m.style.top=(y-r.height)+'px';
   if(first._sel){ first._sel.focus(); first._sel.select(); }   // ready for Ctrl/Cmd+C
@@ -1100,6 +1105,17 @@ function treeRow(node,isRoot){
   // (The per-node align-status badge was redundant with the faithfulness badge below:
   // for a MAPPED box the only outcomes are faithful / unfaithful, which the ⊢→✓/✗ badge
   // already states. So there is ONE Lean marker — the faithfulness verdict.)
+  // BASELINE faithfulness badge: the LLM's per-box verdict. Green ✓ = faithful,
+  // red ✗ = not faithful. CLICKING shows the LLM's VERBATIM reason (for both). Boxes
+  // with no verdict (commentary / not judged) get no badge — so the tree scans at a
+  // glance for what worked vs what didn't.
+  if(!isRoot && (node.verdict==='ok'||node.verdict==='notok'||node.verdict==='unknown')){ const v=node.verdict;
+    const w=document.createElement('span'); w.className='structbadge sv-'+(v==='unknown'?'notok':v);
+    w.textContent=(v==='notok'?'✗':v==='ok'?'✓':'?');
+    if(v==='unknown'){ w.style.background='#9ca3af'; w.style.borderColor='#9ca3af'; }
+    w.style.cursor='pointer'; w.title=(v==='ok'?'faithful':v==='notok'?'NOT faithful':'no verdict (judge output unparseable)')+' — click for the LLM’s reason';
+    w.onclick=(e)=>{ e.stopPropagation(); openReasonPopup(node.id); };
+    row.appendChild(w); }
   // STRUCTURAL-FAITHFULNESS badge: computed by the align run, persisted. Green =
   // structurally ok (necessary conditions hold, ASSUMING atoms faithful); red = a
   // necessary condition is violated (shape / order / var inconsistency) + reason.
@@ -1155,7 +1171,7 @@ function treeRow(node,isRoot){
   if(!isRoot) row.oncontextmenu=(e)=>{ e.preventDefault(); e.stopPropagation();
     const txt=pieces(node).length?CHARS.slice(pieces(node)[0].start,pieces(node)[0].end).replace(/\s+/g,' ').trim():(node.implicit?'(implicit)':'(no span)');
     const pathIds=[]; let x=node; while(x && x!==ROOT){ pathIds.unshift(x.id); x=parentOf(x.id); }
-    showIdPopover(e.clientX,e.clientY,`${node.id}: "${txt}"`, pathIds.join(' › ')); };
+    showIdPopover(e.clientX,e.clientY,`${node.id}: "${txt}"`, pathIds.join(' › '), node.transcript); };
   // drag-to-reparent (like a file tree): drag a row onto another → becomes its child
   if(!isRoot) row.draggable=true;
   row.addEventListener('dragstart',(e)=>{ e.stopPropagation(); DRAG_ID=node.id; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',node.id);}catch(_){} });
@@ -1432,6 +1448,59 @@ function folPartBlock(label,items,inline){ const blk=document.createElement('div
       row.appendChild(folTokensEl(it.tokens)); }); blk.appendChild(row); }
   else items.forEach((it)=>blk.appendChild(folItemBlock(it)));
   return blk; }
+// ───────── right-bottom panel: 3 tabs (Selection / Level / All levels) ─────────
+let RTAB='sel';
+function setRTab(t){ RTAB=t;
+  $('rtabSel').classList.toggle('active',t==='sel');
+  $('rtabLevel').classList.toggle('active',t==='level');
+  $('rtabAll').classList.toggle('active',t==='all');
+  for(const id of ['folPin','folAlign']){ const b=$(id); if(b) b.style.display=(t==='sel'?'':'none'); }
+  renderRight(); }
+function renderRight(){ if(RTAB==='level') return renderLevelTab(); if(RTAB==='all') return renderAllTab(); return renderFol(); }
+// count leaf verdicts in a tree (derived parents don't carry a verdict).
+function countLeaves(tree){ const c={ok:0,notok:0,unknown:0,comm:0,judged:0,leaves:0};
+  (function w(n){ const leaf=!(n.children&&n.children.length);
+    if(leaf){ c.leaves++; if(labelConcrete(n.label)==='commentary') c.comm++;
+      const v=n.verdict; if(v==='ok'){c.ok++;c.judged++;} else if(v==='notok'){c.notok++;c.judged++;} else if(v==='unknown'){c.unknown++;c.judged++;} }
+    (n.children||[]).forEach(w); })(tree);
+  return c; }
+function copyField(host,label,val){ const r=document.createElement('div'); r.className='ctxrow'; r.style.margin='4px 0';
+  const l=document.createElement('div'); l.className='ctxlab'; l.textContent=label; r.appendChild(l);
+  const i=document.createElement('input'); i.className='ctxinp'; i.readOnly=true; i.value=val; i.onclick=()=>i.select(); r.appendChild(i); host.appendChild(r); }
+function statRow(host,label,val,color){ const d=document.createElement('div'); d.className='ffield';
+  const k=document.createElement('span'); k.className='fk'; k.textContent=label; d.appendChild(k);
+  const v=document.createElement('span'); v.className='fv'; v.textContent=val; if(color)v.style.color=color; d.appendChild(v); host.appendChild(d); }
+function renderLevelTab(){ const host=$('folView'); if(!host) return; host.innerHTML='';
+  const title=$('rightFolTitle'); if(title) title.textContent='level '+CUR_LEVEL+' · stats';
+  const c=countLeaves(ROOT);
+  const h=document.createElement('div'); h.className='fverdict fv-notok'; h.style.background='#2a2118'; h.style.color='#ffcf99'; h.style.borderLeftColor='#ff9f43';
+  h.textContent=`level ${CUR_LEVEL}: ${c.notok} unfaithful / ${c.judged} judged`; host.appendChild(h);
+  statRow(host,'✓ faithful', c.ok, '#4ade80');
+  statRow(host,'✗ unfaithful', c.notok, '#fca5a5');
+  statRow(host,'? unknown', c.unknown, '#fcd34d');
+  statRow(host,'· commentary', c.comm, '#b6bcc6');
+  statRow(host,'judged leaves', c.judged);
+  statRow(host,'total leaves', c.leaves);
+  const segs=(ROOT && ROOT._segment_transcripts) || [];
+  const lab=document.createElement('div'); lab.className='freasonlabel'; lab.textContent=`segmentation transcripts (${segs.length})`; host.appendChild(lab);
+  if(!segs.length){ const n=document.createElement('div'); n.className='folnone'; n.textContent='(none found for this level)'; host.appendChild(n); }
+  segs.forEach((s)=>{ copyField(host,'seg '+s.tag, s.path);
+    copyField(host,'view cmd', 'python3 '+(BASEDIR?BASEDIR.replace(/\/$/,'')+'/':'')+'view_transcript.py '+s.path); });
+}
+let ALL_STATS_FOR=null;   // cache the level we last summarized "all" against
+async function renderAllTab(){ const host=$('folView'); if(!host) return; host.innerHTML='';
+  const title=$('rightFolTitle'); if(title) title.textContent='all levels · stats';
+  const note=document.createElement('div'); note.className='folnone'; note.textContent='summarizing all levels…'; host.appendChild(note);
+  let levels=[]; try{ levels=await fetch('/levels').then((r)=>r.ok?r.json():[]); }catch(_){}
+  const rows=[];
+  for(const L of levels){ const t=await fetchTreeForLevel(L); if(t) rows.push({L, ...countLeaves(t)}); }
+  if(RTAB!=='all') return;   // tab changed while loading
+  host.innerHTML='';
+  const lab=document.createElement('div'); lab.className='freasonlabel'; lab.textContent='unfaithful / judged, per level'; host.appendChild(lab);
+  rows.forEach((r)=>{ statRow(host,'level '+r.L, `${r.notok} ✗  /  ${r.judged} judged   ( ${r.ok} ✓, ${r.unknown} ?, ${r.comm} comm )`, r.notok?'#fca5a5':'#4ade80'); });
+  const hint=document.createElement('div'); hint.className='folnone'; hint.style.marginTop='8px'; hint.textContent='pick a level in the header dropdown to inspect its boxes.'; host.appendChild(hint);
+}
+
 // render the FOL-tab target box into #folView (only when the FOL tab is active).
 function renderFol(){ const host=$('folView'); if(!host) return;
   host.innerHTML=''; const tid=folTargetId(); const box=tid&&tid!=='root'?find(tid):null;
@@ -1537,6 +1606,26 @@ function openFaithPopup(id){ const b=find(id); if(!b||!b.lean||b.lean.v!=='notok
   document.body.appendChild(ov);
 }
 function closeFaithPopup(){ const ov=$('faithOv'); if(ov) ov.remove(); }
+// BASELINE: popup showing the LLM's VERBATIM reason for a box's faithfulness
+// verdict (faithful or unfaithful). Opened by clicking the ✓/✗ tree badge.
+function openReasonPopup(id){ const b=find(id); if(!b||!(b.verdict==='ok'||b.verdict==='notok'||b.verdict==='unknown')) return;
+  closeFaithPopup();
+  const ov=document.createElement('div'); ov.className='faithov'; ov.id='faithOv';
+  ov.onclick=(e)=>{ if(e.target===ov) closeFaithPopup(); };
+  const card=document.createElement('div'); card.className='faithcard'; ov.appendChild(card);
+  const hd=document.createElement('div'); hd.className='faithhd';
+  hd.textContent=(b.verdict==='ok'?'✓ faithful':b.verdict==='notok'?'✗ not faithful':'? no verdict');
+  hd.style.color=b.verdict==='ok'?'#15803d':b.verdict==='notok'?'#b91c1c':'#6b7280'; card.appendChild(hd);
+  const nm=document.createElement('div'); nm.style.cssText='font:12px var(--mono);color:#555;margin:2px 0 2px';
+  nm.textContent=labelTag(b)+' · '+label(b); card.appendChild(nm);
+  if(b.lean_map!==undefined){ const mp=document.createElement('div'); mp.style.cssText='font:12px var(--mono);margin:2px 0 2px;color:'+((b.lean_map&&b.lean_map.length)?'#0366d6':'#b91c1c');
+    mp.textContent='Lean map: '+((b.lean_map&&b.lean_map.length)?b.lean_map.join(', '):'(none — not formalized)'); card.appendChild(mp); }
+  const sub=document.createElement('div'); sub.style.cssText='font:11px var(--mono);color:#999;margin:6px 0 4px;text-transform:uppercase;letter-spacing:.05em';
+  sub.textContent="LLM's reason (verbatim)"; card.appendChild(sub);
+  const body=document.createElement('div'); body.style.cssText='white-space:pre-wrap;line-height:1.55;user-select:text'; body.textContent=b.reason||'(no reason recorded)'; card.appendChild(body);
+  const cl=document.createElement('div'); cl.style.cssText='cursor:pointer;color:#888;margin-top:12px'; cl.textContent='✕ close'; cl.onclick=closeFaithPopup; card.appendChild(cl);
+  document.body.appendChild(ov);
+}
 // LOCATION PATH from an ancestor box down to a descendant node, in DISPLAY labels —
 // the labelTag of every box along the way (e.g. conds, form.rel), joined by '/'. A
 // segment gets a #n suffix when it has same-labelTag siblings, so it reads as a
@@ -1838,7 +1927,7 @@ function updateLeanUI(){ const box=selId&&find(selId);
 }
 function clearSel(){ window.getSelection().removeAllRanges(); curSel=null; }
 function flash(m){ $('status').textContent=m; setTimeout(()=>{if($('status').textContent===m)$('status').textContent='';},3000); }
-function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); renderFol(); }
+function refreshAll(){ paintHighlights(); drawArrows(); renderTree(); updateSelUI(); paintLeanHighlights(); renderErrors(); renderLevelStats(); renderRight(); }
 
 /* ───────────────── undo / redo ───────────────── */
 // snapshot stack of ROOT JSON. HIST[HISTi] is the CURRENT state; undo moves the
@@ -1933,8 +2022,9 @@ async function reloadTree(){
 // serves the chosen one at /tree.json?level=N. The header dropdown switches runs
 // (no restart). This is the ONLY addition over the original UI.
 let CUR_LEVEL=0;
+let BASEDIR='';   // absolute llm_baseline dir (from the served tree) → cwd-independent view cmd
 async function fetchTreeForLevel(n){ try{ return await fetch('../tree.json?level='+n,{cache:'no-store'}).then((r)=>r.ok?r.json():null); }catch(_){ return null; } }
-function adoptTree(t){ ROOT=(t&&t.children)?t:{id:'root',pieces:[],children:[]};
+function adoptTree(t){ BASEDIR=(t&&t._basedir)||BASEDIR; ROOT=(t&&t.children)?t:{id:'root',pieces:[],children:[]};
   idCounter=1; levelId='root'; selId=null; FOL_PIN=null;
   walk(ROOT,(n)=>{const m=/^b(\d+)$/.exec(n.id||'');if(m)idCounter=Math.max(idCounter,+m[1]+1);}); }
 async function switchLevel(n){ CUR_LEVEL=n; adoptTree(await fetchTreeForLevel(n)); histInit(); dirty=false; refreshAll(); flash('level '+n); }
@@ -1951,6 +2041,8 @@ async function init(){
   setupSplitters();
   await populateLevels();
   renderTree();      // paint the segment tree immediately (the PDF render below is slow)
+  // Wire the right-panel tabs NOW (before the slow PDF render) so they work at once.
+  $('rtabSel').onclick=()=>setRTab('sel'); $('rtabLevel').onclick=()=>setRTab('level'); $('rtabAll').onclick=()=>setRTab('all');
   await renderPdf();
   await initLean();
   // a selection lives in exactly one pane: PDF text layer OR Lean code. Read

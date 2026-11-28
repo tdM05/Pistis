@@ -10,10 +10,12 @@
       "pieces": [
         {
           "start": 0,
-          "end": 76
+          "end": 299
         }
       ],
-      "children": []
+      "children": [],
+      "verdict": "ok",
+      "reason": "The abstract's claim — every nonempty finite oriented graph has a vertex with at least as many directed-distance-two vertices as distance-one vertices — is captured by Main.lean's `exists_goodVertex` (for `[Fintype V] [Nonempty V]`, any `IsOriented r`, `∃ v, GoodVertex r v`), where `GoodVertex` is `(firstNeighbors r v).card ≤ (secondNeighbors r v).card`. Nothing in the abstract is contradicted or materially missing."
     },
     {
       "id": "b2",
@@ -22,11 +24,13 @@
       ],
       "pieces": [
         {
-          "start": 76,
-          "end": 299
+          "start": 299,
+          "end": 6552
         }
       ],
-      "children": []
+      "children": [],
+      "verdict": "ok",
+      "reason": "Theorem 1.1 is captured exactly as `exists_goodVertex` (Main.lean): for `IsOriented r` on a `[Nonempty] [Fintype]` type, `∃ v, GoodVertex r v`, where `firstNeighbors`/`secondNeighbors` match N+1 and N+2 (distance-exactly-two, excluding v and N+1). `IsOriented` (loopless + asymmetric) matches the oriented-graph definition; multiple/opposite arcs are excluded by the relational model. The proof-strategy ingredients all appear: minimal counterexample (MinimalCounterexample), subset deficit inequality (SubsetDeficit), transitive blowup to inequality (1) (StrictSubsetGrowth), positive indegree, and the pruning lemma / extremal contradiction. The only NL content not in the Lean is the vertex/arc-weighted equivalences and the directed-triangle consequence, but these are explicitly deferred to Sections 5–6 and are not the formal content of this section."
     },
     {
       "id": "b3",
@@ -35,50 +39,58 @@
       ],
       "pieces": [
         {
-          "start": 299,
-          "end": 865
+          "start": 6552,
+          "end": 14531
         }
       ],
-      "children": []
+      "children": [],
+      "verdict": "ok",
+      "reason": "All three results of Section 2 are present and faithfully formalized: Proposition 2.1 is `counterexample_reduction` (from a `Counterexample` it builds the blowup graph `g` on `Fin n × Fin (n+1)` that `IsOriented`, has `PositiveIndegree`, and satisfies `StrictSubsetGrowth`, i.e. |U|+|F²(U)|<2|F(U)| for ∅≠U⊊V); Lemma 2.2 (subset deficit (3), |F²(S)\\F(S)|<|F(S)\\S|) is `subsetDeficit_of_minimal` built on a minimum-order/minimum-arc counterexample via the arc-deletion deficitPotential argument; Lemma 2.3 (transitive-tournament blowup) is `blowup`/`blowup_isOriented`/`blowup_positiveIndegree`/`blowup_strictSubsetGrowth` with the lexicographic product and m>n. F is the ordinary (non-disjoint) image, matching the NL. The only non-literal point, immaterial to the coarse content, is that D's strong connectivity is not stated as a standalone property but only through the two consequences actually used (PositiveIndegree and NonemptyBoundary); nothing in the section is contradicted or materially missing."
     },
     {
       "id": "b4",
       "label": [
-        "theorem"
+        "organizer-section"
       ],
       "pieces": [
         {
-          "start": 865,
-          "end": 965
+          "start": 14531,
+          "end": 27401
         }
       ],
-      "children": []
+      "children": [],
+      "verdict": "ok",
+      "reason": "The section's two results are both captured: Lemma 3.1 (Pruning) appears as PruningStatement/PruningResult with all four content claims — R'⊆R, C'⊆C, conflict-freeness, retention of initially conflict-free members, and the deletion bound |R\\R'|+|C\\C'| ≤ |H| + |uncoveredZ| (exactly (8)) — and is proved (`pruning`); the underlying Conflict/Z/H definitions match the prose. Lemma 3.2 (Kernels at maximum support rank) is captured by `kernel_support`/`kernel_support_of_max_rank` with the x_j·y_s=0 conclusion, and the supporting augmented-graph/matching/generic-rank/kernel-lift/König machinery is all present and consistent with the proof outline. Nothing in the formal content is contradicted or materially absent."
     },
     {
       "id": "b5",
       "label": [
-        "commentary"
+        "organizer-section"
       ],
       "pieces": [
         {
-          "start": 965,
-          "end": 3864
+          "start": 27401,
+          "end": 32029
         }
       ],
-      "children": []
+      "children": [],
+      "verdict": "ok",
+      "reason": "Prop 4.1 is captured by no_strictSubsetGrowth_of_pruning (¬StrictSubsetGrowth given IsOriented, PositiveIndegree, and the pruning lemma/PruningStatement); StrictSubsetGrowth is exactly |U|+|F²U|<2|FU| for ∅≠U⊊V, and PositiveIndegree is the in-neighbor hypothesis. The extremal argument matches: Compatible=ConflictFree, F1/F2=leftImage/rightImage, objective=|P|+|Q|+uncoveredCount (M+d under compatibility), Admissible encodes Δ⊆P∩Q, exists_maximizing_pair gives the maximizer, the two summed inequalities (18) are Admissible.strict_left/rightImage_growth, the complement families R,C are leftCandidate/rightCandidate with complement_gain giving (19), H⊆uncovered gives (20), and objective_lt_of_pruning produces the strict increase contradicting maximality. Theorem 1.1's wrap-up (Prop 2.1 producing the graph, Prop 4.1 ruling it out) is Main.exists_goodVertex via counterexample_reduction + no_strictSubsetGrowth_of_pruning. No material content appears missing or contradicted."
     },
     {
       "id": "b6",
       "label": [
-        "commentary"
+        "organizer-section"
       ],
       "pieces": [
         {
-          "start": 3864,
-          "end": 6552
+          "start": 32029,
+          "end": 34204
         }
       ],
-      "children": []
+      "children": [],
+      "verdict": "notok",
+      "reason": "The Lean corpus formalizes only the unweighted second-neighborhood result (Main.lean's `exists_goodVertex`: ∃v, |N⁺₁(v)| ≤ |N⁺₂(v)|) and its pruning/matching/generic-rank machinery. Nothing in Corollary 5.1 is present: there is no vertex weighting η:V→[0,∞) with η(S)=∑η(x), no arc weighting w:A(D)→[0,∞), no βw_v(s)=max({0}∪{w(us)−w(vs)}) construction, no weighted forms (i) η(N⁺₁)≤η(N⁺₂), (ii) a total-weight-one weighting (via Farkas/Seacrest's Theorem 1 and the transpose M_←D = Mᵀ_D), or (iii) ∑βw_v(s) ≥ ∑w(vu). The entire weighted corollary and its proof are absent."
     },
     {
       "id": "b7",
@@ -87,250 +99,18 @@
       ],
       "pieces": [
         {
-          "start": 6552,
-          "end": 6903
+          "start": 34204,
+          "end": 36326
         }
       ],
-      "children": []
+      "children": [],
+      "verdict": "notok",
+      "reason": "None of Section 6 / Corollary 6.1 is formalized. The Lean proves only the underlying Second Neighborhood result (exists_goodVertex: some vertex with d+(v) ≤ |secondNeighbors v|). There is no notion of a directed 3-cycle, in-neighborhood N⁻¹(v), the non-neighbor set Z(v) = V∖({v}∪N⁺∪N⁻), degrees d±/δ±, or directed girth. Consequently none of (i) the bound n−1 ≥ 2d⁺(v)+d⁻(v) with d⁺(v) ≤ |Z(v)|, (ii) δ⁺,δ⁻ ≥ n/3 ⇒ a directed 3-cycle, nor (iii) the regular girth-four bound n ≥ 3r+1 appear anywhere in the formalization. (Note: the `Z r R C` in the Lean is an unrelated pruning-construction object over V×V, not the corollary's Z(v).)"
     },
     {
       "id": "b8",
       "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 6903,
-          "end": 7140
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b9",
-      "label": [
         "commentary"
-      ],
-      "pieces": [
-        {
-          "start": 7140,
-          "end": 7746
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b10",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 7746,
-          "end": 11176
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b11",
-      "label": [
-        "commentary"
-      ],
-      "pieces": [
-        {
-          "start": 11176,
-          "end": 11623
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b12",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 11623,
-          "end": 14293
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b13",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 14293,
-          "end": 14531
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b14",
-      "label": [
-        "organizer-section"
-      ],
-      "pieces": [
-        {
-          "start": 14531,
-          "end": 14956
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b15",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 14956,
-          "end": 15739
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b16",
-      "label": [
-        "commentary"
-      ],
-      "pieces": [
-        {
-          "start": 15739,
-          "end": 16045
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b17",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 16045,
-          "end": 16673
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b18",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 16673,
-          "end": 27401
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b19",
-      "label": [
-        "organizer-section"
-      ],
-      "pieces": [
-        {
-          "start": 27401,
-          "end": 27640
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b20",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 27640,
-          "end": 31800
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b21",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 31800,
-          "end": 32029
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b22",
-      "label": [
-        "organizer-section"
-      ],
-      "pieces": [
-        {
-          "start": 32029,
-          "end": 32264
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b23",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 32264,
-          "end": 34204
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b24",
-      "label": [
-        "organizer-section"
-      ],
-      "pieces": [
-        {
-          "start": 34204,
-          "end": 34793
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b25",
-      "label": [
-        "theorem"
-      ],
-      "pieces": [
-        {
-          "start": 34793,
-          "end": 36326
-        }
-      ],
-      "children": []
-    },
-    {
-      "id": "b26",
-      "label": [
-        "organizer-section"
       ],
       "pieces": [
         {

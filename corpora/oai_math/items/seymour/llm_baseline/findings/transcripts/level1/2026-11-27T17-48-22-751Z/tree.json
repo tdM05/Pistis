@@ -1,0 +1,128 @@
+{
+  "id": "root",
+  "pieces": [],
+  "children": [
+    {
+      "id": "b1",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 0,
+          "end": 299
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "The abstract states every nonempty finite oriented graph has a vertex with at least as many second- as first-out-neighbors (Seymour's conjecture). The Lean captures this: `IsOriented` (loopless + asymmetric), `[Fintype V]` (finite), `[Nonempty V]`, and `GoodVertex r v := (firstNeighbors).card ≤ (secondNeighbors).card`, with `Main.exists_goodVertex` proving `∃ v, GoodVertex r v`. Nothing in the abstract is contradicted or materially missing."
+    },
+    {
+      "id": "b2",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 299,
+          "end": 6552
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "The section's core formal content is captured: oriented graphs (IsOriented: loopless + asymmetric), N⁺₁/N⁺₂ as firstNeighbors/secondNeighbors (secondNeighbors matches w≠v ∧ ¬r v w ∧ ∃u, r v u ∧ r u w exactly), and Theorem 1.1 as Main.exists_goodVertex (∃v, |firstNeighbors|≤|secondNeighbors| for any IsOriented r on a Nonempty Fintype). The proof-strategy ingredients (minimal counterexample, subset deficit inequality |F²D(S)\\FD(S)|<|FD(S)\\S|, transitive blowup giving |U|+|F²G(U)|<2|FG(U)| via StrictSubsetGrowth, positive indegree, and the pruning lemma) all appear in the formalization. Remaining prose is historical context and forward references to Sections 5–6 (Seacrest's weighted equivalences, directed-triangle corollary), which are not formal content of this section."
+    },
+    {
+      "id": "b3",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 6552,
+          "end": 14531
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "The section's core content is captured: StrictSubsetGrowth (eq. 2) matches |U|+|F²(U)|<2|F(U)|; counterexample_reduction produces a finite nonempty oriented graph with PositiveIndegree and StrictSubsetGrowth (Prop 2.1); SubsetDeficit/subsetDeficit_of_minimal gives |F²(S)\\F(S)|<|F(S)\\S| for nonempty proper S via a minimal counterexample with positive indegree (Lemma 2.2); the arc-deletion deficit step (eq. 5) is deficitPotential_step; and blowup with m=n+1>n reproduces orientedness, positive indegree, and the strict inequality (Lemma 2.3). `image r` is the ordinary (non-disjoint) union of out-neighborhoods as stated. Minor: Lemma 2.2's stated 'strongly connected' conclusion is not formalized directly—only the weaker NonemptyBoundary it's used for—but this is an auxiliary claim, not a material divergence."
+    },
+    {
+      "id": "b4",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 14531,
+          "end": 27401
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "Section 3's content is fully and accurately captured. Lemma 3.1 maps to PruningResult/PruningStatement with matching definitions: Conflict (r a.1 b.1 ∧ r b.2 a.2), Z, H, LeftCovers/RightCovers, ConflictFree, the retention clauses, and the deletion bound |R\\R'|+|C\\C'| ≤ |H|+|uncoveredZ| (inequality (8)). Lemma 3.2 is kernel_support_of_max_rank (x_j·y_s=0 on max-support-rank matrices), proved via the single-entry perturbation D+single s j 1 (the D_τ argument). The augmented bipartite graph (R⊔ZL, C⊔ZR with separate Z copies), the maximum-matching bound |M|≤|Z|+|H| via the four maps L,N,A,B with entries exactly as in (10), the identity NL=AB (11), the rank/kernel-lift argument (12)-(14), and the König matching-to-cover step (via Hall) are all present and correctly oriented. No formal claim of the section is contradicted or materially missing."
+    },
+    {
+      "id": "b5",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 27401,
+          "end": 32029
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "The section's extremal contradiction is captured in Lean: StrictSubsetGrowth encodes |U|+|F²(U)|<2|F(U)| over nonempty proper U; leftImage/rightImage are F1/F2; ConflictFree (Compatible) matches F1P∩F2Q=∅; Admissible pairs carry the diagonal; objective = |P|+|Q|+uncoveredCount realizes M+d (uncoveredCount equals d under compatibility); strict_left/rightImage_growth give (18); leftCandidate/rightCandidate are the complement families R,C with complement_gain giving (19); diagonal survival and conflict-freeness (diagonal_subset_*Candidate, diagonal_*_conflictFree), H⊆uncovered with |H|≤d (H_candidates_card_le_uncovered), the pruning application (PruningStatement/Lemma 3.1) and the final objective-increase contradiction (objective_lt_of_pruning) all appear. no_strictSubsetGrowth_of_pruning is Prop 4.1 and exists_goodVertex wires it to the reduction to prove Theorem 1.1. No material divergence."
+    },
+    {
+      "id": "b6",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 32029,
+          "end": 34204
+        }
+      ],
+      "children": [],
+      "verdict": "notok",
+      "reason": "Section 5's entire content — Corollary 5.1's weighted second-neighborhood forms (i) a vertex v with η(N⁺₁(v)) ≤ η(N⁺₂(v)) for any vertex weighting, (ii) a normalized weighting satisfying the inequality at every vertex via Farkas/transpose argument, and (iii) the arc-weighted form with βw_v(s)) — is absent from the Lean. The formalization only establishes the unweighted conjecture (Main.lean's exists_goodVertex / GoodVertex comparing firstNeighbors and secondNeighbors cardinalities); there is no notion of vertex or arc weightings, η, w, βw_v, the matrix M_D, Farkas' lemma, or Seacrest's equivalences anywhere in the formalization."
+    },
+    {
+      "id": "b7",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 34204,
+          "end": 36326
+        }
+      ],
+      "children": [],
+      "verdict": "notok",
+      "reason": "The Lean formalizes only Theorem 1.1 (the second-neighborhood statement, `exists_goodVertex`: some v with d+(v) ≤ |secondNeighbors v|) plus its supporting machinery. None of Corollary 6.1 appears: there is no notion of directed 3-cycle/triangle, no non-neighbor set Z(v) = V\\({v}∪N+1∪N-1) (the Lean's `Z r R C` is an unrelated pruning object on V×V pairs), no inclusion N+2(v) ⊆ Z(v), no bound n−1 ≥ 2d+(v)+d−(v) (part i), no claim that δ+,δ− ≥ n/3 forces a 3-cycle (part ii), and nothing about directed girth four or n ≥ 3r+1 (part iii). The section's entire formal content is missing."
+    },
+    {
+      "id": "b8",
+      "label": [
+        "organizer-section"
+      ],
+      "pieces": [
+        {
+          "start": 36326,
+          "end": 39719
+        }
+      ],
+      "children": [],
+      "verdict": "ok",
+      "reason": "This section is only a bibliography (reference list) with no definitions, theorems, or proofs; it carries no formal mathematical content, so there is nothing for the Lean to capture, contradict, or omit."
+    }
+  ],
+  "links": [],
+  "lean": {}
+}

@@ -38,6 +38,38 @@ def available_levels():
     return sorted(out)
 
 
+def enrich_transcripts(tree, level):
+    """Attach each judged box's LLM transcript path (relative to this dir) by matching
+    box id → `*_judge_<id>.json` in the newest run dir for this level. Lets the UI's
+    right-click show the exact prompt/reply file, even for trees made before run.js
+    recorded it."""
+    runs = sorted(glob.glob(os.path.join(ROOT, "findings", "transcripts", f"level{level}", "*")))
+    if not runs:
+        return
+    rundir = runs[-1]
+    idx = {}
+    segs = []
+    for f in sorted(os.listdir(rundir)):
+        rel = os.path.relpath(os.path.join(rundir, f), ROOT).replace(os.sep, "/")
+        mj = re.match(r"\d+_judge_(b\d+)(_retry)?\.json$", f)
+        if mj:
+            bid, retry = mj.group(1), mj.group(2)
+            if bid not in idx or not retry:   # prefer the non-retry file
+                idx[bid] = rel
+            continue
+        ms = re.match(r"\d+_segment_(.+?)(_retry)?\.json$", f)
+        if ms:
+            segs.append({"tag": ms.group(1), "path": rel})
+
+    def walk(n):
+        if not n.get("transcript") and n.get("id") in idx:
+            n["transcript"] = idx[n["id"]]
+        for c in n.get("children", []):
+            walk(c)
+    walk(tree)
+    tree["_segment_transcripts"] = segs
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
         super().__init__(*a, directory=ROOT, **k)
@@ -74,7 +106,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             level = self._level()
             try:
                 with open(tree_path(level)) as f:
-                    return self._json(json.load(f))
+                    tree = json.load(f)
+                enrich_transcripts(tree, level)
+                tree["_basedir"] = ROOT   # absolute dir, so the UI can build a cwd-independent view command
+                return self._json(tree)
             except FileNotFoundError:
                 return self._json({"id": "root", "pieces": [], "children": [],
                                    "_note": f"no findings/tree.level{level}.json — run: node run.js --level {level}"})
